@@ -17,6 +17,7 @@ Raspberry Pi project for creating a central node meant to track environmental co
 ## Hardware Requirements
 - Raspberry Pi 4 (Ubuntu 20.04)
   - Tested on 8gb version
+  - aarch64
 - USB Camera
 - Sense HAT
   - Temperature and Humidity
@@ -62,8 +63,15 @@ Raspberry Pi project for creating a central node meant to track environmental co
 ### gRPC Setup
 Based on the steps [here](https://github.com/grpc/grpc/blob/master/BUILDING.md).
 
-### Cross Compilation on Ubuntu 20.04 (x86_64) to Ubuntu 20.04 (aarch64 - RPi)
+## Cross Compilation on Ubuntu 20.04 (x86_64) to RPi Ubuntu 20.04 (aarch64)
+On the main/host machine (Ubuntu 20.04 - x86_64), install the following
+dependencies.
+```
+[sudo] apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+```
 
 ## Wire Schematic
 
 ## Architecture Overview
+
+## Raspberry Pi Optimizations
