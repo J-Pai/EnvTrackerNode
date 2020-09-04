@@ -60,7 +60,9 @@ Raspberry Pi project for creating a central node meant to track environmental co
    scroll across the LED matrix on the installed Sense HAT.
 
 ### gRPC Setup
-Following the steps [here](https://github.com/grpc/grpc/blob/master/BUILDING.md).
+Based on the steps [here](https://github.com/grpc/grpc/blob/master/BUILDING.md).
+
+### Cross Compilation on Ubuntu 20.04 (x86_64) to Ubuntu 20.04 (aarch64 - RPi)
 
 ## Wire Schematic
 
