@@ -1,6 +1,6 @@
 SET(CMAKE_SYSTEM_NAME Linux)
-SET(CMAKE_SYSTEM_PROCESSOR arm64)
-set(devel_root /tmp/ubuntu_rpi_aarch64_root)
+SET(CMAKE_SYSTEM_PROCESSOR aarch64)
+set(devel_root $ENV{HOME}/grpc_aarch64)
 set(CMAKE_STAGING_PREFIX ${devel_root}/stage)
 set(CMAKE_C_COMPILER /usr/bin/aarch64-linux-gnu-gcc)
 set(CMAKE_CXX_COMPILER /usr/bin/aarch64-linux-gnu-g++)

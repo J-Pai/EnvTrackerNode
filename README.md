@@ -111,6 +111,18 @@ dependencies.
 ```
 [sudo] apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 ```
+
+From the grpc repository:
+
+```
+mkdir -p cmake/rpi_build
+cd cmake/rpi_build
+cmake ../.. -DCMAKE_TOOLCHAIN_FILE=/home/jpai/Documents/EnvTrackerNode/toolchain/ubuntu_rpi_aarch64_toolchain.cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/home/jpai/grpc_aarch64/grpc_install
+make -j2
+make install
+```
 --->
 
 ## Wire Schematic
