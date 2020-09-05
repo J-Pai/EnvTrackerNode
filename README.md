@@ -96,8 +96,8 @@ Do the following on the Raspberry Pi.
                -DgRPC_INSTALL=ON          \
                -DgRPC_BUILD_TESTS=OFF     \
                -DgRPC_SSL_PROVIDER=package
-   make -j4
-   make install
+   make -j
+   sudo make install
    ```
 
 <!---
