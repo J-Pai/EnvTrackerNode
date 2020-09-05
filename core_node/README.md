@@ -4,7 +4,11 @@ nodes.
 
 Core Node is written in C++ and Node.
 
-# Using ngrok
+## Build Steps
+Please make sure to setup your system based on the root directory's
+[README's Installation and Setup steps](../README.md#installation-and-setup).
+
+## Using ngrok
 ngrok.yml:
 
 ```
