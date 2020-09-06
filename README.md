@@ -122,7 +122,7 @@ Do the following steps on the Raspberry Pi.
    - `cd` to python-sense-hat.
    - `python3 setup.py build`
    - `sudo python3 setup.py install`
-5) Run the sense\_hat\_demo.py to test setup. You should see the current
+5) Run `scripts/sense_hat_demo.py` to test setup. You should see the current
    temperature and humidity scroll across the LED matrix on the installed Sense
    HAT.
 6) If the demo does not work, try to reload the rpisense_fb module.
