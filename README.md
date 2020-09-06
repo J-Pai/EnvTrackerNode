@@ -26,7 +26,8 @@ Raspberry Pi project for creating a central node meant to track environmental co
 ## Installation and Setup
 Do the following steps on the Raspberry Pi.
 1) Setup Ubuntu 20.04 for Raspberry Pi.
-2) **IMPORTANT**: Before plugging in the SD add the following lines to the usercfg.txt file in `boot`.
+2) **IMPORTANT**: Before plugging in the SD add the following lines to the
+   usercfg.txt file in `boot`.
 
    ```
    hdmi_force_hotplug=1 # Allows RPi to boot in headless mode with Sensor HAT installed.
@@ -39,7 +40,8 @@ Do the following steps on the Raspberry Pi.
    ```
    [sudo] apt install python3 python3-dev python3-pip \
                       build-essential autoconf libtool \
-                      pkg-config cmake libssl-dev
+                      pkg-config cmake libssl-dev \
+                      i2c-tools
    ```
 
 4) Add the following line to `/etc/modules`:
@@ -48,8 +50,52 @@ Do the following steps on the Raspberry Pi.
    i2c-dev
    ```
 
-5) Reboot the Raspberry Pi.
-6) Confirm that the i2c module is loaded: `ls /dev/i2c-1`.
+5) Create the file `/etc/udev/rules.d/99-i2c.rules` with the following contents:
+
+   ```
+   KERNEL=="i2c-[0-7]",MODE="0666"
+   ```
+
+   This will ensure that the i2c devices are accessible by all users (without
+   the need for sudo).
+
+7) Create the file `/etc/modprobe.d/blacklist-industialio.conf` with the
+   following contents:
+
+   ```
+   blacklist st_magn_spi
+   blacklist st_pressure_spi
+   blacklist st_sensors_spi
+   blacklist st_pressure_i2c
+   blacklist st_magn_i2c
+   blacklist st_pressure
+   blacklist st_magn
+   blacklist st_sensors_i2c
+   blacklist st_sensors
+   blacklist industrialio_triggered_buffer
+   blacklist industrialio
+   ```
+
+   This ensures the Industial I/O Core module is not loaded. The modules
+   blacklisted here takes over the pressure and magnetic sensors of the Sense
+   HAT device which prevents other applications (like this one) from using those
+   sensors.
+
+8) Reboot the Raspberry Pi.
+9) Confirm that the i2c module is loaded: `ls /dev/i2c-1`.
+10) Confirm the sense-hat i2c devices can be enumerated: `i2cdetect -y 1`
+
+   ```
+        0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+   00:          -- -- -- -- -- -- -- -- -- -- -- -- --
+   10: -- -- -- -- -- -- -- -- -- -- -- -- 1c -- -- --
+   20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+   30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+   40: -- -- -- -- -- -- UU -- -- -- -- -- -- -- -- --
+   50: -- -- -- -- -- -- -- -- -- -- -- -- 5c -- -- 5f
+   60: -- -- -- -- -- -- -- -- -- -- 6a -- -- -- -- --
+   70: -- -- -- -- -- -- -- --
+   ```
 
 ### Sense HAT Setup
 Do the following steps on the Raspberry Pi.
@@ -71,8 +117,21 @@ Do the following steps on the Raspberry Pi.
    - `cd` to python-sense-hat.
    - `python3 setup.py build`
    - `sudo python3 setup.py install`
-5) Run the sense\_hat\_demo.py to test setup. You should see `Hello World!`
-   scroll across the LED matrix on the installed Sense HAT.
+5) Run the sense\_hat\_demo.py to test setup. You should see the current
+   temperature and humidity scroll across the LED matrix on the installed Sense
+   HAT.
+6) If the demo does not work, try to reload the rpisense_fb module.
+
+   ```
+   sudo rmmod rpisense_fb
+   sudo modeprobe rpisense_fb
+   ```
+
+   Problems could include the following:
+   - Sensor fails to initialize
+   - Sensors read 0C and/or 0%rH
+   - Application requires sudo
+
 
 ### gRPC (v1.31.1) Setup
 Based on the steps [here](https://github.com/grpc/grpc/blob/master/BUILDING.md).
