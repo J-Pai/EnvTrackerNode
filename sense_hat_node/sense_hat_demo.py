@@ -10,4 +10,6 @@ print("Temperature: %s C" % temperature)
 humidity = round(sense.get_humidity(), 1)
 print("Humidity: %s %%rH" % humidity)
 
+sense.low_light = True
 sense.show_message("T:{t} H:{h}".format(t=temperature, h=humidity))
+sense.low_light = False
