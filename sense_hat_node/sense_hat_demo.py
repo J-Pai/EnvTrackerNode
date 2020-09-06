@@ -17,14 +17,15 @@ temperature = sense.get_temperature()
 calibrated_temperature = temperature - ((cpu_temperature - temperature) / FACTOR)
 
 temp = round(calibrated_temperature, 1)
-print("Temperature: %s °C" % calibrated_temperature)
+print("Temperature: %s °C" % temp)
 
 humidity = round(sense.get_humidity(), 1)
 print("Humidity: %s %%rH" % humidity)
 
-print("CPU Temperature: %s °C" % cpu_temperature)
+cpu_temp = round(cpu_temperature, 1)
+print("CPU Temperature: %s °C" % cpu_temp)
 
 sense.low_light = True
 sense.show_message("T:{t} H:{h} CPU_T:{c_t}".format(
-    t=temperature, h=humidity, c_t=cpu_temperature))
+    t=temp, h=humidity, c_t=cpu_temp))
 sense.low_light = False
