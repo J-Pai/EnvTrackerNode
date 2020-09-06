@@ -83,19 +83,20 @@ Do the following steps on the Raspberry Pi.
 
 8) Reboot the Raspberry Pi.
 9) Confirm that the i2c module is loaded: `ls /dev/i2c-1`.
-10) Confirm the sense-hat i2c devices can be enumerated: `i2cdetect -y 1`
+10) Confirm the sense-hat i2c devices can be enumerated: `i2cdetect -y 1`.
 
-   ```
-        0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-   00:          -- -- -- -- -- -- -- -- -- -- -- -- --
-   10: -- -- -- -- -- -- -- -- -- -- -- -- 1c -- -- --
-   20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-   30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
-   40: -- -- -- -- -- -- UU -- -- -- -- -- -- -- -- --
-   50: -- -- -- -- -- -- -- -- -- -- -- -- 5c -- -- 5f
-   60: -- -- -- -- -- -- -- -- -- -- 6a -- -- -- -- --
-   70: -- -- -- -- -- -- -- --
-   ```
+    ```
+    $ i2cdetect -y 1
+         0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+    00:          -- -- -- -- -- -- -- -- -- -- -- -- --
+    10: -- -- -- -- -- -- -- -- -- -- -- -- 1c -- -- --
+    20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+    30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+    40: -- -- -- -- -- -- UU -- -- -- -- -- -- -- -- --
+    50: -- -- -- -- -- -- -- -- -- -- -- -- 5c -- -- 5f
+    60: -- -- -- -- -- -- -- -- -- -- 6a -- -- -- -- --
+    70: -- -- -- -- -- -- -- --
+    ```
 
 ### Sense HAT Setup
 Do the following steps on the Raspberry Pi.
