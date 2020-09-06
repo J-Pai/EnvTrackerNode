@@ -4,7 +4,7 @@ from sense_hat import SenseHat
 import subprocess
 import os
 
-FACTOR = 2 # CPU Temperature adjustment factor
+FACTOR = 1.9 # CPU Temperature adjustment factor
 sense = SenseHat()
 current_file_dir = os.path.dirname(os.path.realpath(__file__))
 cpu_temp_process = subprocess.Popen(["%s/check_temp.sh" % current_file_dir],
