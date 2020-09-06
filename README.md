@@ -23,6 +23,10 @@ Raspberry Pi project for creating a central node meant to track environmental co
   - Temperature and Humidity
   - LED Screen
 
+## Wire Schematic
+
+## Architecture Overview
+
 ## Installation and Setup
 Do the following steps on the Raspberry Pi.
 1) Setup Ubuntu 20.04 for Raspberry Pi.
@@ -185,8 +189,27 @@ make install
 ```
 --->
 
-## Wire Schematic
-
-## Architecture Overview
-
 ## Raspberry Pi Optimizations
+### Use tmpfs for temporary files
+Add the following lines to `/etc/fstab` and reboot the Raspberry Pi.
+
+```
+tmpfs    /tmp    tmpfs    defaults,noatime,nosuid,size=100m    0 0
+tmpfs    /var/tmp    tmpfs    defaults,noatime,nosuid,size=100m    0 0
+tmpfs    /var/log    tmpfs    defaults,noatime,nosuid,mode=0755,size=100m    0 0
+tmpfs    /var/run    tmpfs    defaults,noatime,nosuid,mode=0755,size=2m    0 0
+tmpfs    /var/spool/mqueue    tmpfs    defaults,noatime,nosuid,mode=0700,gid=12,size=30m    0 0
+```
+
+After rebooting, verify that the temporary file directories are now using tmpfs.
+
+```
+$ df -h
+Filesystem      Size  Used Avail Use% Mounted on
+...
+tmpfs           100M   84K  100M   1% /tmp
+tmpfs           100M  340K  100M   1% /var/log
+tmpfs            30M     0   30M   0% /var/spool/mqueue
+tmpfs           100M     0  100M   0% /var/tmp
+...
+```
