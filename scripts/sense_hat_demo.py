@@ -14,10 +14,16 @@ cpu_temp, stderr = cpu_temp_process.communicate()
 cpu_temperature = float(cpu_temp)
 
 temperature = sense.get_temperature()
-calibrated_temperature = temperature - ((cpu_temperature - temperature) / FACTOR)
+calibrated_temp = temperature - ((cpu_temperature - temperature) / FACTOR)
 
-temp = round(calibrated_temperature, 1)
+temperature_press = sense.get_temperature_from_pressure()
+calibrated_temp_press = temperature_press - ((cpu_temperature - temperature_press) / FACTOR)
+
+temp = round(calibrated_temp, 1)
 print("Temperature: %s °C" % temp)
+
+temp_pressure = round(calibrated_temp_press, 1)
+print("Temperature (pressure): %s °C" % temp_pressure)
 
 humidity = round(sense.get_humidity(), 1)
 print("Humidity: %s %%rH" % humidity)
