@@ -13,7 +13,7 @@ cpu_temp_process = subprocess.Popen(["%s/check_temp.sh" % current_file_dir],
 cpu_temp, stderr = cpu_temp_process.communicate()
 cpu_temperature = float(cpu_temp)
 
-temperature = sense.get_temperature()
+temperature = sense.get_temperature_from_pressure()
 calibrated_temp = temperature - ((cpu_temperature - temperature) / FACTOR)
 
 temp = round(calibrated_temp, 1)
