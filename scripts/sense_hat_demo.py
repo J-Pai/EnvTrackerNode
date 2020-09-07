@@ -4,7 +4,7 @@ from sense_hat import SenseHat
 import subprocess
 import os
 
-FACTOR = 1.8 # CPU Temperature adjustment factor
+FACTOR = 1.7 # CPU Temperature adjustment factor
 sense = SenseHat()
 current_file_dir = os.path.dirname(os.path.realpath(__file__))
 cpu_temp_process = subprocess.Popen(["%s/check_temp.sh" % current_file_dir],
@@ -13,7 +13,7 @@ cpu_temp_process = subprocess.Popen(["%s/check_temp.sh" % current_file_dir],
 cpu_temp, stderr = cpu_temp_process.communicate()
 cpu_temperature = float(cpu_temp)
 
-temperature = sense.get_temperature_from_pressure()
+temperature = sense.get_temperature()
 calibrated_temp = temperature - ((cpu_temperature - temperature) / FACTOR)
 
 temp = round(calibrated_temp, 1)
