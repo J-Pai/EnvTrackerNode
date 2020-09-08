@@ -2,6 +2,7 @@
 
 from sense_hat import SenseHat
 import subprocess
+import sys
 import os
 
 FACTOR = 1.7 # CPU Temperature adjustment factor
@@ -25,7 +26,8 @@ print("Humidity: %s %%rH" % humidity)
 cpu_temp = round(cpu_temperature, 1)
 print("CPU Temperature: %s °C" % cpu_temp)
 
-sense.low_light = True
-sense.show_message("T:{t} H:{h}".format(
-    t=temp, h=humidity))
-sense.low_light = False
+if len(sys.argv) > 1:
+    sense.low_light = True
+    sense.show_message("T:{t} H:{h}".format(
+        t=temp, h=humidity))
+    sense.low_light = False
