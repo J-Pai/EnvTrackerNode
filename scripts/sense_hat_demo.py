@@ -37,10 +37,8 @@ print("Waiting for joystick event...")
 event = sense.stick.wait_for_event()
 print("The joystick was {} {}".format(event.action, event.direction))
 
-sense.low_light = True
 sense.show_message("T:{t} H:{h}".format(
     t=temp_f, h=humidity))
-sense.low_light = False
 
 orientation = sense.get_orientation()
 print("p: {pitch}, r: {roll}, y: {yaw}".format(**orientation))
