@@ -25,13 +25,26 @@ Raspberry Pi project for creating a central node meant to track environmental co
 
 ## Wire Schematic
 
+### Hardware Setup Recommendations
+While the Sense HAT can be directly attached to the GPIO pins of the Raspberry
+Pi, it is generally recommended that the two components are separated. This is
+why the wire schematic only shows the bare minimum GPIO connections.
+
+As the Raspberry Pi heats up, the temperature of the Sense HAT PCB also
+increases which throws off the accuracy of thermometers. Separating the Sense
+HAT from the body of the Raspberry Pi will greatly increase the reliability and
+accuracy of sensor readings.
+
+If you still want to directly connect the Sense HAT to the Raspberry Pi take a
+look at this [article](https://github.com/initialstate/wunderground-sensehat/wiki/Part-3.-Sense-HAT-Temperature-Correction#a-much-less-accurate-but-compact-solution).
+
 ## Architecture Overview
 
 ## Installation and Setup
 Do the following steps on the Raspberry Pi.
 1) Setup Ubuntu 20.04 for Raspberry Pi.
 2) **IMPORTANT**: Before plugging in the SD add the following lines to the
-   usercfg.txt file in `boot`.
+usercfg.txt file in `boot`.
 
    ```
    hdmi_force_hotplug=1 # Allows RPi to boot in headless mode with Sensor HAT installed.
@@ -43,9 +56,9 @@ Do the following steps on the Raspberry Pi.
 
    ```
    [sudo] apt install python3 python3-dev python3-pip \
-                      build-essential autoconf libtool \
-                      pkg-config cmake libssl-dev \
-                      i2c-tools
+   build-essential autoconf libtool \
+   pkg-config cmake libssl-dev \
+   i2c-tools
    ```
 
 4) Add the following line to `/etc/modules`:
@@ -60,11 +73,11 @@ Do the following steps on the Raspberry Pi.
    KERNEL=="i2c-[0-7]",MODE="0666"
    ```
 
-   This will ensure that the i2c devices are accessible by all users (without
-   the need for sudo).
+This will ensure that the i2c devices are accessible by all users (without
+the need for sudo).
 
 7) Create the file `/etc/modprobe.d/blacklist-industialio.conf` with the
-   following contents:
+following contents:
 
    ```
    blacklist st_magn_spi
@@ -80,10 +93,10 @@ Do the following steps on the Raspberry Pi.
    blacklist industrialio
    ```
 
-   This ensures the Industial I/O Core module is not loaded. The modules
-   blacklisted here takes over the pressure and magnetic sensors of the Sense
-   HAT device which prevents other applications (like this one) from using those
-   sensors.
+This ensures the Industial I/O Core module is not loaded. The modules
+blacklisted here takes over the pressure and magnetic sensors of the Sense
+HAT device which prevents other applications (like this one) from using those
+sensors.
 
 8) Reboot the Raspberry Pi.
 9) Confirm that the i2c module is loaded: `ls /dev/i2c-1`.
@@ -91,7 +104,7 @@ Do the following steps on the Raspberry Pi.
 
     ```
     $ i2cdetect -y 1
-         0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+    0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
     00:          -- -- -- -- -- -- -- -- -- -- -- -- --
     10: -- -- -- -- -- -- -- -- -- -- -- -- 1c -- -- --
     20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
@@ -118,13 +131,13 @@ Do the following steps on the Raspberry Pi.
    - From inside the RTIMULib directory, `cd ./Linux/python`.
    - `python3 setup.py build`
    - `[sudo] python3 setup.py install`
-4) Build and install python-sense-hat.
+       4) Build and install python-sense-hat.
    - `cd` to python-sense-hat.
    - `python3 setup.py build`
    - `[sudo] python3 setup.py install`
 5) Run `scripts/sense_hat_demo.py` to test setup. You should see the current
-   temperature and humidity scroll across the LED matrix on the installed Sense
-   HAT.
+temperature and humidity scroll across the LED matrix on the installed Sense
+HAT.
 6) If the demo does not work, try to reload the rpisense_fb module.
 
    ```
@@ -164,37 +177,12 @@ Do the following on the Raspberry Pi.
    mkdir -p cmake/build
    cd cmake/build
    cmake ../.. -DCMAKE_BUILD_TYPE=Release \
-               -DgRPC_INSTALL=ON          \
-               -DgRPC_BUILD_TESTS=OFF     \
-               -DgRPC_SSL_PROVIDER=package
+   -DgRPC_INSTALL=ON          \
+   -DgRPC_BUILD_TESTS=OFF     \
+   -DgRPC_SSL_PROVIDER=package
    make -j
    sudo make install
    ```
-
-<!---
-## Cross Compilation on Ubuntu 20.04 (x86_64) to RPi Ubuntu 20.04 (aarch64)
-This section describes the steps necessary to build the C++ code in an Ubuntu
-20.04 (x86_64) environment.
-
-On the main/host machine (Ubuntu 20.04 - x86_64), install the following
-dependencies.
-
-```
-[sudo] apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-```
-
-From the grpc repository:
-
-```
-mkdir -p cmake/rpi_build
-cd cmake/rpi_build
-cmake ../.. -DCMAKE_TOOLCHAIN_FILE=/home/jpai/Documents/EnvTrackerNode/toolchain/ubuntu_rpi_aarch64_toolchain.cmake \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/home/jpai/grpc_aarch64/grpc_install
-make -j2
-make install
-```
---->
 
 ## Raspberry Pi Optimizations
 ### Use tmpfs for temporary files
