@@ -24,6 +24,7 @@ Raspberry Pi project for creating a central node meant to track environmental co
   - LED Screen
 
 ## Wire Schematic
+![rpi schematic](./.md/rpi_sketch_bb.png "Schematic")
 
 ### Hardware Setup Recommendations
 While the Sense HAT can be directly attached to the GPIO pins of the Raspberry
