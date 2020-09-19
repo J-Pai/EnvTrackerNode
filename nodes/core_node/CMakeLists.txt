@@ -32,3 +32,26 @@ if(CMAKE_CROSSCOMPILING)
 else()
   set(_GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:gRPC::grpc_cpp_plugin>)
 endif()
+
+# Proto file
+get_filename_component(core_proto "../../protos/core_node.proto" ABSOLUTE)
+get_filename_component(core_node_proto_path "${code_node_proto}" PATH)
+
+# Generated proto sources
+set(core_node_proto_srcs "${CMAKE_CURRENT_BINARY_DIR}/core_node.pb.cc")
+set(core_node_proto_hdrs "${CMAKE_CURRENT_BINARY_DIR}/core_node.pb.h")
+set(core_node_grpc_srcs "${CMAKE_CURRENT_BINARY_DIR}/core_node.grpc.pb.cc")
+set(core_node_grpc_hdrs "${CMAKE_CURRENT_BINARY_DIR}/core_node.grpc.pb.h")
+add_custom_command(
+  OUTPUT "${core_node_proto_srcs}" "${core_node_proto_hdrs}"
+    "${core_node_grpc_srcs}" "${core_node_grpc_hdrs}"
+  COMMAND ${_PROTOBUF_PROTOC}
+  ARGS --grpc_out "${CMAKE_CURRENT_BINARY_DIR}"
+    --cpp_out "${CMAKE_CURRENT_BINARY_DIR}"
+    -I "${core_node_proto_path}"
+    --plugin=protoc-gen-grpc="${_GRPC_CPP_PLUGIN_EXECUTABLE}"
+    "${core_node_proto}"
+    DEPENDS "${core_node_proto}")
+
+# Include generated *.pb.h files
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
