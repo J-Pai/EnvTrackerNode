@@ -12,7 +12,7 @@ Please make sure to setup your system based on the root directory's
 cd core_node
 mkdir -p cmake/build
 cd cmake/build
-cmake ../..
+cmake ../.. -DCMAKE_EXPORT_COMPILE_COMMANDS=1
 ```
 
 ## Using ngrok

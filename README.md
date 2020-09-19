@@ -61,6 +61,8 @@ usercfg.txt file in `boot`.
    i2c-tools
    ```
 
+   **NOTE**: Make sure to have at least CMake v3.16.3!
+
 4) Add the following line to `/etc/modules`:
 
    ```
@@ -176,11 +178,11 @@ Do the following on the Raspberry Pi.
    ```
    mkdir -p cmake/build
    cd cmake/build
-   cmake ../.. -DCMAKE_BUILD_TYPE=Release \
-   -DgRPC_INSTALL=ON          \
-   -DgRPC_BUILD_TESTS=OFF     \
-   -DgRPC_SSL_PROVIDER=package
-   make -j
+   cmake ../.. -DCMAKE_BUILD_TYPE=Release       \
+               -DgRPC_INSTALL=ON                \
+               -DgRPC_BUILD_TESTS=OFF           \
+               -DgRPC_SSL_PROVIDER=package
+   make -j2
    sudo make install
    ```
 
