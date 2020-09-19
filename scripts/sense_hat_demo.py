@@ -1,13 +1,18 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 
-from sense_hat import SenseHat
+import os
+try:
+    from sense_hat import SenseHat
+except:
+    from sense_emu import SenseHat
 import subprocess
 import sys
-import os
+import time
 
 FACTOR = 1.4 # CPU Temperature adjustment factor
 LINEAR_FACTOR = 2
 sense = SenseHat()
+
 current_file_dir = os.path.dirname(os.path.realpath(__file__))
 cpu_temp_process = subprocess.Popen(["%s/check_temp.sh" % current_file_dir],
                                     stdout=subprocess.PIPE,

@@ -117,11 +117,11 @@ Do the following steps on the Raspberry Pi.
    - `cd` to RTIMULib
    - From inside the RTIMULib directory, `cd ./Linux/python`.
    - `python3 setup.py build`
-   - `sudo python3 setup.py install`
+   - `[sudo] python3 setup.py install`
 4) Build and install python-sense-hat.
    - `cd` to python-sense-hat.
    - `python3 setup.py build`
-   - `sudo python3 setup.py install`
+   - `[sudo] python3 setup.py install`
 5) Run `scripts/sense_hat_demo.py` to test setup. You should see the current
    temperature and humidity scroll across the LED matrix on the installed Sense
    HAT.
@@ -137,6 +137,13 @@ Do the following steps on the Raspberry Pi.
    - Sensors read 0C and/or 0%rH
    - Application requires sudo
 
+#### Sense HAT Emulation
+If you are looking to develop/test on a different (non-raspberry pi) machine,
+make sure to install the `sense_emu` package to emulate the Sense HAT.
+
+```
+python3 -m pip install sense_emu
+```
 
 ### gRPC (v1.31.1) Setup
 Based on the steps [here](https://github.com/grpc/grpc/blob/master/BUILDING.md).
