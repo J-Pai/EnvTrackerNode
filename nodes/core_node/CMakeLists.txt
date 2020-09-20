@@ -34,9 +34,8 @@ else()
 endif()
 
 # Proto file
-get_filename_component(core_proto "../../protos/core_node.proto" ABSOLUTE)
-get_filename_component(core_node_proto_path "${code_node_proto}" PATH)
-
+get_filename_component(core_node_proto "../../protos/core_node.proto" ABSOLUTE)
+get_filename_component(core_node_proto_path "${core_node_proto}" DIRECTORY)
 # Generated proto sources
 set(core_node_proto_srcs "${CMAKE_CURRENT_BINARY_DIR}/core_node.pb.cc")
 set(core_node_proto_hdrs "${CMAKE_CURRENT_BINARY_DIR}/core_node.pb.h")

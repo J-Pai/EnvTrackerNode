@@ -47,9 +47,13 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 _deps
+build/
 
 ### CMake Patch ###
 # External projects
 *-prefix/
+
+# clangd
+.clangd/
 
 # End of https://www.toptal.com/developers/gitignore/api/cmake,c++
