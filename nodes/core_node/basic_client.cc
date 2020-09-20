@@ -5,6 +5,7 @@
 #include <grpcpp/grpcpp.h>
 
 #include "core_node.grpc.pb.h"
+#include "ssl_key_cert.h"
 
 class GreeterClient {
   public:
@@ -54,8 +55,22 @@ int main(int argc, char** argv) {
     target_str = "localhost:50051";
   }
 
+  std::unique_ptr<corenode::SslKeyCert> sslKeyCert;
+  std::shared_ptr<grpc::ChannelCredentials> credentials;
+
+  try {
+    sslKeyCert = std::unique_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
+    credentials = sslKeyCert->GenerateChannelCredentials();
+  } catch (const std::runtime_error& error) {
+    std::cout << "Error in SslKeyCert creation: " << error.what() << std::endl;
+  }
+
+  if (!credentials) {
+    std::cout << "Credentials failed to be generated. Channel will be started using Insecure Credentials." << std::endl;
+  }
+
   GreeterClient greeterClient(grpc::CreateChannel(
-        target_str, grpc::InsecureChannelCredentials()));
+        target_str, credentials ? credentials : grpc::InsecureChannelCredentials()));
   std::string user("world");
   std::string reply = greeterClient.SayHello(user);
   std::cout << "Greeter client received: " << reply << std::endl;

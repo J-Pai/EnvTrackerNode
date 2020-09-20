@@ -55,11 +55,21 @@ add_custom_command(
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
+foreach (_library ssl_key_cert)
+  add_library(${_library} "${_library}.cc" "${_library}.h")
+  target_link_libraries(${_library}
+    ${_REFLECTION}
+    ${_GRPC_GRPCPP}
+    ${_PROTOBUF_LIBPROTOBUF})
+  list(APPEND _local_libraries ${_library})
+endforeach()
+
 foreach(_target core_server basic_client)
   add_executable(${_target} "${_target}.cc"
     ${core_node_proto_srcs}
     ${core_node_grpc_srcs})
   target_link_libraries(${_target}
+    ${_local_libraries}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
     ${_PROTOBUF_LIBPROTOBUF})

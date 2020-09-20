@@ -10,6 +10,7 @@
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 
 #include "core_node.grpc.pb.h"
+#include "ssl_key_cert.h"
 
 class GreeterServiceImpl final : public corenode::Greeter::Service {
   grpc::Status SayHello(grpc::ServerContext* context, const corenode::HelloRequest* request,
@@ -20,63 +21,17 @@ class GreeterServiceImpl final : public corenode::Greeter::Service {
   }
 };
 
-void ReadFile(const std::string& filename, std::string& data) {
-  std::ifstream file(filename.c_str(), std::ios::in);
-  if (file.is_open()) {
-    std::stringstream string_stream;
-    string_stream << file.rdbuf();
-    file.close();
-    data = string_stream.str();
-  }
-}
-
-std::shared_ptr<grpc::ServerCredentials> GenerateServerCredentials() {
-  const char* key_path = std::getenv("SSL_KEY");
-  const char* cert_path = std::getenv("SSL_CERT");
-  const char* root_path = std::getenv("SSL_ROOT_CERT");
-  char resolved_path[PATH_MAX];
-
-  std::string key;
-  std::string cert;
-  std::string root;
-
-  if (!key_path) {
-    std::cout << "$SSL_KEY not defined." << std::endl;
-    return nullptr;
-  }
-  realpath(key_path, resolved_path);
-  ReadFile(resolved_path, key);
-
-  if (!cert_path) {
-    std::cout << "$SSL_CERT not defined." << std::endl;
-    return nullptr;
-  }
-  realpath(cert_path, resolved_path);
-  ReadFile(resolved_path, cert);
-
-  if (!root_path) {
-    std::cout << "$SSL_ROOT_CERT not defined." << std::endl;
-    return nullptr;
-  }
-  realpath(root_path, resolved_path);
-  ReadFile(resolved_path, root);
-
-  grpc::SslServerCredentialsOptions::PemKeyCertPair key_cert = {
-    key,
-    cert
-  };
-  grpc::SslServerCredentialsOptions ssl_ops;
-  ssl_ops.pem_root_certs = root;
-  ssl_ops.pem_key_cert_pairs.push_back(key_cert);
-
-  return grpc::SslServerCredentials(ssl_ops);
-}
-
 void RunServer() {
   std::string server_address("0.0.0.0:50051");
+  std::unique_ptr<corenode::SslKeyCert> sslKeyCert;
+  std::shared_ptr<grpc::ServerCredentials> credentials;
 
-  std::shared_ptr<grpc::ServerCredentials> credentials =
-    GenerateServerCredentials();
+  try {
+    sslKeyCert = std::unique_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
+    credentials = sslKeyCert->GenerateServerCredentials();
+  } catch (const std::runtime_error& error) {
+    std::cout << "Error in SslKeyCert creation: " << error.what() << std::endl;
+  }
 
   if (!credentials) {
     std::cout << "Credentials failed to be generated. Server will be started using Insecure Credentials." << std::endl;
