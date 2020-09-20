@@ -2,7 +2,7 @@
 Contains the central gRPC server for interacting with the Tracker and Sense Hat
 nodes.
 
-Core Node is written in C++ and Node.
+Core Node is written in C++
 
 ## Build Steps
 Please make sure to setup your system based on the root directory's
@@ -14,7 +14,35 @@ mkdir -p cmake/build
 cd cmake/build
 cmake ../.. -DCMAKE_EXPORT_COMPILE_COMMANDS=1
 ln -sfn `pwd`/compile_commands.json ../..
+make
 ```
+
+## Execution
+From inside of cmake/build:
+
+### Terminal 1
+
+```bash
+./core_server
+```
+
+### Terminal 2
+
+```bash
+./basic_client
+```
+
+## Enabling SSL/TLS
+For both the server and client, specify the following environment variables:
+
+```bash
+export SSL_KEY=/path/to/private/ssl/key
+export SSL_CERT=/path/to/private/ssl/certificate
+export SSL_ROOT_CERT=/path/to/private/ssl/ca/root/certificate
+```
+
+You can generate a set of self-signed SSL certificates and private keys using
+the helper script found [here](../../scripts/ssl/)
 
 ## Using ngrok
 ngrok.yml:
