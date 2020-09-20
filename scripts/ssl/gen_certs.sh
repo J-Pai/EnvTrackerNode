@@ -41,8 +41,8 @@ openssl x509 -req -passin file:${GEN_SSL_PASS} -days ${CERT_LIFETIME} -in ${CERT
   -CA ${CERT_DIR}/ca.crt -CAkey ${CERT_DIR}/ca.key -set_serial 01 \
   -out ${CERT_DIR}/server.crt
 
-echo "=> Removing passphrase from the Server Key."
-openssl rsa -passin file:${GEN_SSL_PASS} -in ${CERT_DIR}/server.key -out ${CERT_DIR}/server.key
+# echo "=> Removing passphrase from the Server Key."
+# openssl rsa -passin file:${GEN_SSL_PASS} -in ${CERT_DIR}/server.key -out ${CERT_DIR}/server.key
 
 echo "=> Generating valid Client Key/Cert."
 openssl genrsa -passout file:${GEN_SSL_PASS} -aes256 -out ${CERT_DIR}/client.key 4096
@@ -53,7 +53,7 @@ openssl x509 -req -passin file:${GEN_SSL_PASS} -days ${CERT_LIFETIME} -in ${CERT
   -CA ${CERT_DIR}/ca.crt -CAkey ${CERT_DIR}/ca.key -set_serial 01 \
   -out ${CERT_DIR}/client.crt
 
-echo "=> Removing passphrase from the Client Key."
-openssl rsa -passin file:${GEN_SSL_PASS} -in ${CERT_DIR}/client.key -out ${CERT_DIR}/client.key
+# echo "=> Removing passphrase from the Client Key."
+# openssl rsa -passin file:${GEN_SSL_PASS} -in ${CERT_DIR}/client.key -out ${CERT_DIR}/client.key
 
 popd
