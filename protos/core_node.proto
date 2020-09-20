@@ -6,6 +6,7 @@ package corenode;
 service Greeter {
   // Sends a greeting
   rpc SayHello (HelloRequest) returns (HelloReply) {}
+  rpc SeyGoodbye (GoodbyeRequest) returns (GoodbyeReply) {}
 }
 
 // The request message containing the user's name.
@@ -15,5 +16,15 @@ message HelloRequest {
 
 // The response message containing the greetings
 message HelloReply {
+  string message = 1;
+}
+
+// The request message containing the user's name.
+message GoodbyeRequest {
+  string name = 1;
+}
+
+// The response message containing the greetings
+message GoodbyeReply {
   string message = 1;
 }
