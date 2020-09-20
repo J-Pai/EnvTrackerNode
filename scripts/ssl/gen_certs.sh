@@ -16,7 +16,7 @@ fi
 
 GEN_SSL_PASS=${DIR}/ssl_passphrase.txt
 
-if [ ! -z "${CERT_DIR}" ]; then
+if [ -z "${CERT_DIR}" ]; then
   echo -e "\$CERT_DIR not set, defaulting to ${DIR}/certs.\n"
   CERT_DIR="${DIR}/certs"
 fi
@@ -42,8 +42,8 @@ function generate_key_cert() {
     -CA ${CERT_DIR}/ca.crt -CAkey ${CERT_DIR}/ca.key -set_serial 01 \
     -out ${CERT_DIR}/$1.crt
 
-  # echo "=> Removing passphrase from the $1 Key."
-  # openssl rsa -passin file:${GEN_SSL_PASS} -in ${CERT_DIR}/$1.key -out ${CERT_DIR}/$1.key
+  echo "=> Removing passphrase from the $1 Key."
+  openssl rsa -passin file:${GEN_SSL_PASS} -in ${CERT_DIR}/$1.key -out ${CERT_DIR}/$1.key
 }
 
 if [ ! -f ${CERT_DIR}/ca.crt ] || [ ! -f ${CERT_DIR}/ca.key ]; then
