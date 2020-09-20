@@ -47,7 +47,7 @@ Do the following steps on the Raspberry Pi.
 2) **IMPORTANT**: Before plugging in the SD add the following lines to the
 usercfg.txt file in `boot`.
 
-   ```
+   ```bash
    hdmi_force_hotplug=1 # Allows RPi to boot in headless mode with Sensor HAT installed.
    dtparam=i2c_arm=on   # Enables auto loading of i2c module.
    ```
@@ -55,11 +55,11 @@ usercfg.txt file in `boot`.
 3) Install the SD card and turn on the Raspberry Pi.
 3) Install build tools.
 
-   ```
-   [sudo] apt install python3 python3-dev python3-pip \
-   build-essential autoconf libtool \
-   pkg-config cmake libssl-dev \
-   i2c-tools
+   ```bash
+   [sudo] apt install python3 python3-dev python3-pip  \
+                      build-essential autoconf libtool \
+                      pkg-config cmake libssl-dev      \
+                      i2c-tools
    ```
 
    **NOTE**: Make sure to have at least CMake v3.16.3!
@@ -105,7 +105,7 @@ sensors.
 9) Confirm that the i2c module is loaded: `ls /dev/i2c-1`.
 10) Confirm the sense-hat i2c devices can be enumerated: `i2cdetect -y 1`.
 
-    ```
+    ```bash
     $ i2cdetect -y 1
     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
     00:          -- -- -- -- -- -- -- -- -- -- -- -- --
@@ -125,7 +125,7 @@ Do the following steps on the Raspberry Pi.
    - https://github.com/astro-pi/python-sense-hat
 2) Install numpy from apt.
 
-   ```
+   ```bash
    [sudo] apt install python3-numpy`
    ```
 
@@ -143,7 +143,7 @@ temperature and humidity scroll across the LED matrix on the installed Sense
 HAT.
 6) If the demo does not work, try to reload the rpisense_fb module.
 
-   ```
+   ```bash
    sudo rmmod rpisense_fb
    sudo modeprobe rpisense_fb
    ```
@@ -157,7 +157,7 @@ HAT.
 If you are looking to develop/test on a different (non-raspberry pi) machine,
 make sure to install the `sense_emu` package to emulate the Sense HAT.
 
-```
+```bash
 python3 -m pip install sense_emu
 ```
 
@@ -168,7 +168,7 @@ Do the following on the Raspberry Pi.
 
 1) Clone and init the gRPC repository.
 
-   ```
+   ```bash
    git clone -b v1.31.1 https://github.com/grpc/grpc
    cd grpc
    git submodule update --init
@@ -176,7 +176,7 @@ Do the following on the Raspberry Pi.
 
 2) After cloning and initializing the repository, build and install gRPC.
 
-   ```
+   ```bash
    mkdir -p cmake/build
    cd cmake/build
    cmake ../.. -DCMAKE_BUILD_TYPE=Release       \
@@ -191,7 +191,7 @@ Do the following on the Raspberry Pi.
 ### Use tmpfs for temporary files
 Add the following lines to `/etc/fstab` and reboot the Raspberry Pi.
 
-```
+```bash
 tmpfs    /tmp    tmpfs    defaults,noatime,nosuid,size=100m    0 0
 tmpfs    /var/tmp    tmpfs    defaults,noatime,nosuid,size=100m    0 0
 tmpfs    /var/log    tmpfs    defaults,noatime,nosuid,mode=0755,size=100m    0 0
@@ -201,7 +201,7 @@ tmpfs    /var/spool/mqueue    tmpfs    defaults,noatime,nosuid,mode=0700,gid=12,
 
 After rebooting, verify that the temporary file directories are now using tmpfs.
 
-```
+```bash
 $ df -h
 Filesystem      Size  Used Avail Use% Mounted on
 ...

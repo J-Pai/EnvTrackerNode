@@ -40,3 +40,9 @@ Obtain currently opened endpoints:
 ```bash
 curl -s localhost:4040/api/tunnels
 ```
+
+## Packet/Port Sniffing
+
+```bash
+sudo tcpflow -i any -C -g port 50051
+```
