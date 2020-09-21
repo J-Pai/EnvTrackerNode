@@ -15,6 +15,8 @@
 class GreeterServiceImpl final : public corenode::Greeter::Service {
   grpc::Status SayHello(grpc::ServerContext* context, const corenode::HelloRequest* request,
       corenode::HelloReply* reply) override {
+    time_t my_time = time(NULL);
+    std::cout << ctime(&my_time) << "-> Request made... " << context->peer() << std::endl;
     std::string prefix("Hello ");
     reply->set_message(prefix + request->name());
     return grpc::Status::OK;
