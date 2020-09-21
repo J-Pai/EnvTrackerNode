@@ -34,10 +34,15 @@ function generate_root_ca() {
 
 function generate_key_cert() {
   echo "=> Generating valid $1 Key/Cert."
+  local domain=$2
+  if [ -z "$2" ]; then
+    echo "==> Domain not specified, defaulting to localhost."
+    domain=localhost
+  fi
   openssl genrsa -passout file:${GEN_SSL_PASS} -aes256 -out ${CERT_DIR}/$1.key 4096
   openssl req -passin file:${GEN_SSL_PASS} -new -key ${CERT_DIR}/$1.key \
     -out ${CERT_DIR}/$1.csr \
-    -subj "/C=US/ST=California/L=Mountain View/O=Organization/OU=$1/CN=localhost"
+    -subj "/C=US/ST=California/L=Mountain View/O=Organization/OU=$1/CN=$domain"
   openssl x509 -req -passin file:${GEN_SSL_PASS} -days ${CERT_LIFETIME} -in ${CERT_DIR}/$1.csr \
     -CA ${CERT_DIR}/ca.crt -CAkey ${CERT_DIR}/ca.key -set_serial 01 \
     -out ${CERT_DIR}/$1.crt
