@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ENVTRACKERNODE_CORENODE_SSL_KEY_CERT_H_
+#define ENVTRACKERNODE_CORENODE_SSL_KEY_CERT_H_
 
 #include <fstream>
 #include <iostream>
@@ -28,3 +29,5 @@ class SslKeyCert final {
     void ReadFile(const std::string&, std::string&);
 };
 }
+
+#endif // ENVTRACKERNODE_CORENODE_SSL_KEY_CERT_H_
