@@ -60,7 +60,9 @@ int main(int argc, char** argv) {
 
   try {
     sslKeyCert = std::unique_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
-    credentials = sslKeyCert->GenerateChannelCredentials();
+    std::shared_ptr<grpc::ChannelCredentials> tlsCredentials = sslKeyCert->GenerateChannelCredentials();
+    credentials = grpc::CompositeChannelCredentials(tlsCredentials,
+        std::shared_ptr<grpc::CallCredentials>(grpc::AccessTokenCredentials("abcdefg")));
   } catch (const std::runtime_error& error) {
     std::cout << "Error in SslKeyCert creation: " << error.what() << std::endl;
   }
