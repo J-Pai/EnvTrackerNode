@@ -82,12 +82,11 @@ def credentials_to_dict(credentials):
             'scopes': credentials.scopes}
 
 def get_open_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("",0))
-    s.listen(1)
-    port = s.getsockname()[1]
-    s.close()
-    return port
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        s.listen(1)
+        port = s.getsockname()[1]
+        return port
 
 if __name__ == '__main__':
     Timer(1, open_browser).start()
