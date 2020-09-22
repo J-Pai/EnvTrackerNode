@@ -10,6 +10,7 @@
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 
 #include "core_node.grpc.pb.h"
+#include "oauth2_token_processor.h"
 #include "ssl_key_cert.h"
 
 class GreeterServiceImpl final : public corenode::Greeter::Service {
@@ -28,9 +29,14 @@ void RunServer() {
   std::unique_ptr<corenode::SslKeyCert> sslKeyCert;
   std::shared_ptr<grpc::ServerCredentials> credentials;
 
+  GreeterServiceImpl greeterService;
+  std::shared_ptr<corenode::OAuth2TokenProcessor> oauth2Processor =
+    std::shared_ptr<corenode::OAuth2TokenProcessor>(new corenode::OAuth2TokenProcessor);
+
   try {
     sslKeyCert = std::unique_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
     credentials = sslKeyCert->GenerateServerCredentials();
+    credentials->SetAuthMetadataProcessor(oauth2Processor);
   } catch (const std::runtime_error& error) {
     std::cout << "Error in SslKeyCert creation: " << error.what() << std::endl;
   }
@@ -38,8 +44,6 @@ void RunServer() {
   if (!credentials) {
     std::cout << "Credentials failed to be generated. Server will be started using Insecure Credentials." << std::endl;
   }
-
-  GreeterServiceImpl greeterService;
 
   grpc::EnableDefaultHealthCheckService(true);
   grpc::reflection::InitProtoReflectionServerBuilderPlugin();

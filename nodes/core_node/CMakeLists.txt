@@ -55,7 +55,7 @@ add_custom_command(
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
-foreach (_library ssl_key_cert)
+foreach (_library ssl_key_cert oauth2_token_processor)
   add_library(${_library} "${_library}.cc" "${_library}.h")
   target_link_libraries(${_library}
     ${_REFLECTION}
