@@ -74,3 +74,8 @@ foreach(_target core_server basic_client)
     ${_GRPC_GRPCPP}
     ${_PROTOBUF_LIBPROTOBUF})
 endforeach()
+
+add_custom_target(run
+  COMMAND core_server
+  DEPENDS core_server
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
