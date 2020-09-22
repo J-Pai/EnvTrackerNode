@@ -4,8 +4,15 @@
 #include <grpcpp/grpcpp.h>
 
 namespace corenode {
+/**
+ * Intercepts gRPC calls and validates the Google OAuth2 bearer token.
+ */
 class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
   public:
+    /**
+     * Processes the gRPC authorization metadata and determines if the Google
+     * OAuth2 bearer token is valid and associated with a registered user.
+     */
     grpc::Status Process(const InputMetadata&, grpc::AuthContext*,
         OutputMetadata*, OutputMetadata*) override;
   private:

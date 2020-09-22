@@ -56,7 +56,7 @@ add_custom_command(
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 foreach (_library ssl_key_cert oauth2_token_processor)
-  add_library(${_library} "${_library}.cc" "${_library}.h")
+  add_library(${_library} "src/${_library}.cc" "src/${_library}.h")
   target_link_libraries(${_library}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
@@ -65,7 +65,7 @@ foreach (_library ssl_key_cert oauth2_token_processor)
 endforeach()
 
 foreach(_target core_server basic_client)
-  add_executable(${_target} "${_target}.cc"
+  add_executable(${_target} "src/${_target}.cc"
     ${core_node_proto_srcs}
     ${core_node_grpc_srcs})
   target_link_libraries(${_target}

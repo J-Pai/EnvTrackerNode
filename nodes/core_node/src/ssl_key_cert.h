@@ -17,7 +17,17 @@ class SslKeyCert final {
     SslKeyCert();
     SslKeyCert(const std::string&,
         const std::string&, const std::string&);
+
+    /**
+     * Generates an {@link grpc::ServerCredentials} object.
+     * Uses the stored SSL key, certificate, and root CA.
+     */
     std::shared_ptr<grpc::ServerCredentials> GenerateServerCredentials();
+
+    /**
+     * Generates an {@link grpc::ServerCredentials} object.
+     * Uses the stored SSL key, certificate, and root CA.
+     */
     std::shared_ptr<grpc::ChannelCredentials> GenerateChannelCredentials();
     std::string getKey();
     std::string getCert();
@@ -26,8 +36,9 @@ class SslKeyCert final {
     std::string key;
     std::string cert;
     std::string root;
+
     void ReadFile(const std::string&, std::string&);
 };
-}
+} // namespace corenode
 
 #endif // ENVTRACKERNODE_CORENODE_SSL_KEY_CERT_H_
