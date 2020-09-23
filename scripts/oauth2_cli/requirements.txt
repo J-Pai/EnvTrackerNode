@@ -1,3 +1,4 @@
+altgraph==0.17
 cachetools==4.1.1
 certifi==2020.6.20
 cffi==1.14.3
@@ -20,6 +21,8 @@ protobuf==3.13.0
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
 pycparser==2.20
+pyinstaller==4.0
+pyinstaller-hooks-contrib==2020.8
 pyOpenSSL==19.1.0
 pytz==2020.1
 requests==2.24.0

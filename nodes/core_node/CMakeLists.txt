@@ -50,7 +50,7 @@ add_custom_command(
     -I "${core_node_proto_path}"
     --plugin=protoc-gen-grpc="${_GRPC_CPP_PLUGIN_EXECUTABLE}"
     "${core_node_proto}"
-    DEPENDS "${core_node_proto}")
+  DEPENDS "${core_node_proto}")
 
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#cython: language_level=3
 
 import google.oauth2.credentials
 import google_auth_oauthlib.flow
