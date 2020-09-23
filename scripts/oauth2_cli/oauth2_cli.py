@@ -26,27 +26,21 @@ if len(json_files) == 0:
     print("Client JSON not found at {}.".format(file_dir))
     sys.exit(1)
 
-if len(sys.argv) == 1:
-    print("Please specify a flask secret key as the first argument.")
-    sys.exit(2)
-
+commandline_mode = False;
 app = flask.Flask(__name__)
-app.secret_key = sys.argv[1]
-credentials = {}
 port = 8080
+
+if len(sys.argv) == 1:
+    print("No flask secret key as the first argument. Using commandline mode.")
+    commandline_mode = True
+else:
+    app.secret_key = sys.argv[1]
 
 @app.route('/auth')
 def auth():
-    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(json_files[0], SCOPES)
-
-    flow.redirect_uri = "https://localhost:{}/oauth2".format(port)
-
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true')
-
+    authorization_url, state, _ = generate_authorization_url(
+        "https://localhost:{}/oauth2".format(port))
     flask.session['state'] = state
-
     return flask.redirect(authorization_url)
 
 @app.route('/oauth2')
@@ -73,6 +67,18 @@ def oauth2():
 def open_browser():
     webbrowser.open_new('https://localhost:{}/auth'.format(port));
 
+def generate_authorization_url(redirect_uri):
+    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(json_files[0], SCOPES)
+
+    flow.redirect_uri = redirect_uri
+
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        prompt='consent',
+        include_granted_scopes='true')
+
+    return authorization_url, state, flow
+
 def credentials_to_dict(credentials):
     return {'token': credentials.token,
             'refresh_token': credentials.refresh_token,
@@ -89,6 +95,16 @@ def get_open_port():
         return port
 
 if __name__ == '__main__':
-    Timer(1, open_browser).start()
-    port = get_open_port()
-    app.run('localhost', port, ssl_context='adhoc')
+    if commandline_mode:
+        authorization_url, _, flow = generate_authorization_url("urn:ietf:wg:oauth:2.0:oob")
+        print("Please enter the following URL into a browser: \n")
+        print(authorization_url + "\n")
+        code = input("Please input the code: ")
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+        credentials_json = credentials_to_dict(credentials)
+        print(credentials_json)
+    else:
+        Timer(1, open_browser).start()
+        port = get_open_port()
+        app.run('localhost', port, ssl_context='adhoc')
