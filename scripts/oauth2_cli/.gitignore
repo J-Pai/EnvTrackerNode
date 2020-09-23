@@ -1,5 +1,22 @@
-# Created by https://www.toptal.com/developers/gitignore/api/python
-# Edit at https://www.toptal.com/developers/gitignore?templates=python
+# Created by https://www.toptal.com/developers/gitignore/api/cmake,python
+# Edit at https://www.toptal.com/developers/gitignore?templates=cmake,python
+
+### CMake ###
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+### CMake Patch ###
+# External projects
+*-prefix/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
@@ -137,7 +154,7 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
-# Google GCP OAuth2 client secret file
-client_secret_*.apps.googleusercontent.com.json
+# End of https://www.toptal.com/developers/gitignore/api/cmake,python
 
-# End of https://www.toptal.com/developers/gitignore/api/python
+# Google OAuth2 Client secret JSON
+client_secret_*.json

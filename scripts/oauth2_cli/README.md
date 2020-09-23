@@ -6,11 +6,10 @@ From a GCP project's console ([credentials page](https://console.cloud.google.co
 create an OAuth2 Client ID and download the client secret JSON into this directory.
 
 ```bash
-sudo apt install python-venv
 cd scripts/oauth2_cli
-python -m venv ./venv
-source ./venv/bin/activate
-
-python3 -m pip install -r requirements.txt
-./oauth2_cli.py $FLASK_SECRET_KEY
+mkdir -p cmake/build
+cd cmake/build
+cmake ../..
+make
+./oauth2_cli $FLASK_SECRET
 ```

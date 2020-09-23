@@ -20,11 +20,12 @@ SCOPES = ['openid',
           'https://www.googleapis.com/auth/userinfo.profile',
           'https://www.googleapis.com/auth/userinfo.email']
 
-file_dir = os.path.abspath(os.path.dirname(__file__))
+file_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
 json_files = [json_file for json_file in os.listdir(file_dir) if json_file.endswith('.json')]
+json_file = '{}/{}'.format(file_dir, json_files[0])
 
 if len(json_files) == 0:
-    print("Client JSON not found at {}.".format(file_dir))
+    print('Client JSON not found at {}.'.format(file_dir))
     sys.exit(1)
 
 commandline_mode = False;
@@ -32,7 +33,7 @@ app = flask.Flask(__name__)
 port = 8080
 
 if len(sys.argv) == 1:
-    print("No flask secret key as the first argument. Using commandline mode.")
+    print('No flask secret key as the first argument. Using commandline mode.')
     commandline_mode = True
 else:
     app.secret_key = sys.argv[1]
@@ -40,7 +41,7 @@ else:
 @app.route('/auth')
 def auth():
     authorization_url, state, _ = generate_authorization_url(
-        "https://localhost:{}/oauth2".format(port))
+        'https://localhost:{}/oauth2'.format(port))
     flask.session['state'] = state
     return flask.redirect(authorization_url)
 
@@ -49,7 +50,7 @@ def oauth2():
     state = flask.session['state']
 
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-        json_files[0], scopes=SCOPES, state=state)
+        json_file, scopes=SCOPES, state=state)
     flow.redirect_uri = flask.url_for('oauth2', _external=True)
 
     authorization_response = flask.request.url
@@ -63,13 +64,13 @@ def oauth2():
         raise RuntimeError('Not running with the Werkzeug Server')
     print(flask.session['credentials'])
     shutdown()
-    return flask.redirect("https://www.google.com")
+    return flask.redirect('https://www.google.com')
 
 def open_browser():
     webbrowser.open_new('https://localhost:{}/auth'.format(port));
 
 def generate_authorization_url(redirect_uri):
-    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(json_files[0], SCOPES)
+    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(json_file, SCOPES)
 
     flow.redirect_uri = redirect_uri
 
@@ -90,17 +91,17 @@ def credentials_to_dict(credentials):
 
 def get_open_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))
+        s.bind(('', 0))
         s.listen(1)
         port = s.getsockname()[1]
         return port
 
 if __name__ == '__main__':
     if commandline_mode:
-        authorization_url, _, flow = generate_authorization_url("urn:ietf:wg:oauth:2.0:oob")
-        print("Please enter the following URL into a browser: \n")
-        print(authorization_url + "\n")
-        code = input("Please input the code: ")
+        authorization_url, _, flow = generate_authorization_url('urn:ietf:wg:oauth:2.0:oob')
+        print('Please enter the following URL into a browser: \n')
+        print('{}\n'.format(authorization_url))
+        code = input('Please input the code: ')
         flow.fetch_token(code=code)
         credentials = flow.credentials
         credentials_json = credentials_to_dict(credentials)
