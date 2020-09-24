@@ -7,6 +7,15 @@
 #include "core_node.grpc.pb.h"
 #include "ssl_key_cert.h"
 
+#define STR(x) #x
+#define XSTR(x) STR(x)
+
+/**
+ * Contains the path to the oauth2_cli tool that can be used to obtain a
+ * Google OAuth2 access token.
+ */
+const std::string OAUTH2_CLI_EXE = XSTR(OAUTH2_CLI);
+
 class GreeterClient {
   public:
     GreeterClient(std::shared_ptr<grpc::Channel> channel)
@@ -58,9 +67,14 @@ int main(int argc, char** argv) {
   std::unique_ptr<corenode::SslKeyCert> sslKeyCert;
   std::shared_ptr<grpc::ChannelCredentials> credentials;
 
+  if (OAUTH2_CLI_EXE.compare("NULL") != 0) {
+    std::cout << "oauth2_cli tool defined: " << OAUTH2_CLI_EXE << std::endl;
+  }
+
   try {
     sslKeyCert = std::unique_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
-    std::shared_ptr<grpc::ChannelCredentials> tlsCredentials = sslKeyCert->GenerateChannelCredentials();
+    std::shared_ptr<grpc::ChannelCredentials> tlsCredentials =
+      sslKeyCert->GenerateChannelCredentials();
     credentials = grpc::CompositeChannelCredentials(tlsCredentials,
         std::shared_ptr<grpc::CallCredentials>(grpc::AccessTokenCredentials("abcdefg")));
   } catch (const std::runtime_error& error) {
@@ -68,7 +82,9 @@ int main(int argc, char** argv) {
   }
 
   if (!credentials) {
-    std::cout << "Credentials failed to be generated. Channel will be started using Insecure Credentials." << std::endl;
+    std::cout << "Credentials failed to be generated."
+      << "Channel will be started using Insecure Credentials."
+      << std::endl;
   }
 
   GreeterClient greeterClient(grpc::CreateChannel(

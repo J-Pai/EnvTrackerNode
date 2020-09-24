@@ -54,9 +54,20 @@ add_custom_command(
     "${core_node_proto}"
   DEPENDS "${core_node_proto}")
 
+# Find oauth2_cli application
+# To be used with basic_client for testing Google OAuth2 token validation logic.
+find_program(_OAUTH2_CLI_EXECUTABLE oauth2_cli)
+if(_OAUTH2_CLI_EXECUTABLE)
+  message(STATUS "Using oauth2_cli ${_OAUTH2_CLI_EXECUTABLE}")
+else()
+  unset(_OAUTH2_CLI_EXECUTABLE NULL)
+  message(WARNING "oauth2_cli not available. Please install from scripts/oauth2_cli.")
+endif()
+
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
+# Build utility libraries.
 foreach (_library ssl_key_cert oauth2_token_processor)
   add_library(${_library} "src/${_library}.cc" "src/${_library}.h")
   target_link_libraries(${_library}
@@ -66,6 +77,7 @@ foreach (_library ssl_key_cert oauth2_token_processor)
   list(APPEND _local_libraries ${_library})
 endforeach()
 
+# Build core_server and basic_client executables.
 foreach(_target core_server basic_client)
   add_executable(${_target} "src/${_target}.cc"
     ${core_node_proto_srcs}
@@ -76,6 +88,10 @@ foreach(_target core_server basic_client)
     ${_GRPC_GRPCPP}
     ${_PROTOBUF_LIBPROTOBUF})
 endforeach()
+
+target_compile_definitions(basic_client
+  PRIVATE
+  -DOAUTH2_CLI=${_OAUTH2_CLI_EXECUTABLE})
 
 add_custom_target(run
   COMMAND core_server
