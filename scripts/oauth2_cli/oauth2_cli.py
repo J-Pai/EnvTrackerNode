@@ -20,23 +20,20 @@ SCOPES = ['openid',
           'https://www.googleapis.com/auth/userinfo.profile',
           'https://www.googleapis.com/auth/userinfo.email']
 
-file_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
-json_files = [json_file for json_file in os.listdir(file_dir) if json_file.endswith('.json')]
-json_file = '{}/{}'.format(file_dir, json_files[0])
-
-if len(json_files) == 0:
-    print('Client JSON not found at {}.'.format(file_dir))
-    sys.exit(1)
-
 commandline_mode = False;
 app = flask.Flask(__name__)
 port = 8080
 
-if len(sys.argv) == 1:
-    print('No flask secret key as the first argument. Using commandline mode.')
+if len(sys.argv) < 2:
+    print('Please specify the path to the client secret JSON.')
+    sys.exit(1)
+elif len(sys.argv) < 3:
+    print('No flask secret key as the second argument. Using commandline mode.')
     commandline_mode = True
 else:
-    app.secret_key = sys.argv[1]
+    app.secret_key = sys.argv[2]
+json_file = os.path.abspath(sys.argv[1])
+print('Using client secret JSON: {}'.format(json_file))
 
 @app.route('/auth')
 def auth():

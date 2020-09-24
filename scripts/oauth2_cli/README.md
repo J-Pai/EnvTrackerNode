@@ -11,5 +11,5 @@ mkdir -p cmake/build
 cd cmake/build
 cmake ../..
 make
-./oauth2_cli $FLASK_SECRET
+./oauth2_cli /path/to/client/secret/JSON $FLASK_SECRET
 ```

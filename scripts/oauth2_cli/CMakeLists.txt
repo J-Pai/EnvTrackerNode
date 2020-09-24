@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16.3)
 
-project(OAuth2CLI)
+project(OAuth2CLI VERSION 0.1)
 
 find_package(Python3 REQUIRED)
 
@@ -12,10 +12,9 @@ add_custom_command(
 
 # Install oauth2_cli dependencies into python3 virtual environment.
 add_custom_command(
-  OUTPUT venv.stamp requirements.txt client_id_secret.json
+  OUTPUT venv.stamp requirements.txt
   DEPENDS venv ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt
   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt requirements.txt
-  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/*.json client_id_secret.json
   COMMAND touch venv.stamp
   COMMAND ./venv/bin/pip install -r requirements.txt)
 
@@ -35,3 +34,7 @@ add_custom_target(run
   COMMAND ${CMAKE_CURRENT_BINARY_DIR}/venv/bin/python ${CMAKE_CURRENT_SOURCE_DIR}/oauth2_cli.py
   DEPENDS oauth2_cli_target
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+install(
+  PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/oauth2_cli
+  DESTINATION bin)
