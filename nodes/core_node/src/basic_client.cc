@@ -1,6 +1,5 @@
 #include <iostream>
 #include <memory>
-#include <string>
 
 #include <grpcpp/grpcpp.h>
 
@@ -42,7 +41,7 @@ class GreeterClient {
     std::unique_ptr<corenode::Greeter::Stub> stub_;
 };
 
-int main(int argc, char** argv) {
+std::string get_target(int argc, char** argv) {
   std::string target_str;
   std::string arg_str("--target");
   if (argc > 1) {
@@ -54,21 +53,54 @@ int main(int argc, char** argv) {
         target_str = arg_val.substr(start_pos + 1);
       } else {
         std::cout << "The only correct argument syntax is --target=" << std::endl;
-        return 1;
+        exit(1);
       }
     } else {
       std::cout << "The only correct argument syntax is --target=" << std::endl;
-      return 2;
+      exit(2);
     }
-  } else {
-    target_str = "localhost:50051";
+    return target_str;
   }
+  return "localhost:50051";
+}
 
+std::string request_oauth_credential() {
+  const char * client_json_path = std::getenv("CLIENT_SECRET_JSON");
+  if (!client_json_path) {
+    throw std::runtime_error("$CLIENT_SECRET_JSON not defined.");
+  }
+  char resolved_path[PATH_MAX];
+  realpath(client_json_path, resolved_path);
+  std::string real_path(resolved_path);
+
+  std::cout << "oauth2_cli tool specified: " << OAUTH2_CLI_EXE << std::endl;
+  std::string combined_command = OAUTH2_CLI_EXE + " " + resolved_path;
+  std::cout << std::endl;
+
+  FILE* fd = popen(combined_command.c_str(), "r");
+  std::array<char, 128> buffer;
+  std::string result;
+
+  while(!feof(fd)) {
+    if (fgets(buffer.data(), 128, fd) != NULL) {
+      result.append(buffer.data());
+      std::cout << buffer.data();
+    }
+  }
+  std::cout << std::endl;
+  pclose(fd);
+
+  return result;
+}
+
+int main(int argc, char** argv) {
   std::unique_ptr<corenode::SslKeyCert> sslKeyCert;
   std::shared_ptr<grpc::ChannelCredentials> credentials;
+  std::string target_str(get_target(argc, argv));
+  std::string oauth2_credentials("");
 
   if (OAUTH2_CLI_EXE.compare("NULL") != 0) {
-    std::cout << "oauth2_cli tool defined: " << OAUTH2_CLI_EXE << std::endl;
+    oauth2_credentials.assign(request_oauth_credential());
   }
 
   try {

@@ -33,7 +33,7 @@ elif len(sys.argv) < 3:
 else:
     app.secret_key = sys.argv[2]
 json_file = os.path.abspath(sys.argv[1])
-print('Using client secret JSON: {}'.format(json_file))
+print('Using client secret JSON: {}\n'.format(json_file))
 
 @app.route('/auth')
 def auth():
@@ -59,7 +59,9 @@ def oauth2():
     shutdown = flask.request.environ.get('werkzeug.server.shutdown')
     if shutdown is None:
         raise RuntimeError('Not running with the Werkzeug Server')
+    print("CREDENTIALS_START")
     print(flask.session['credentials'])
+    print("CREDENTIALS_END")
     shutdown()
     return flask.redirect('https://www.google.com')
 
@@ -98,11 +100,14 @@ if __name__ == '__main__':
         authorization_url, _, flow = generate_authorization_url('urn:ietf:wg:oauth:2.0:oob')
         print('Please enter the following URL into a browser: \n')
         print('{}\n'.format(authorization_url))
-        code = input('Please input the code: ')
+        print('Please input the code: ')
+        code = input()
         flow.fetch_token(code=code)
         credentials = flow.credentials
         credentials_json = credentials_to_dict(credentials)
+        print("CREDENTIALS_START")
         print(credentials_json)
+        print("CREDENTIALS_END")
     else:
         Timer(1, open_browser).start()
         port = get_open_port()
