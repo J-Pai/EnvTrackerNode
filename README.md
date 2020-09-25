@@ -56,9 +56,9 @@ usercfg.txt file in `boot`.
 3) Install build tools.
 
    ```bash
-   [sudo] apt install python3 python3-dev python3-pip  \
-                      build-essential autoconf libtool \
-                      pkg-config cmake libssl-dev      \
+   [sudo] apt install python3 python3-dev python3-pip python3-venv  \
+                      build-essential autoconf libtool              \
+                      pkg-config cmake libssl-dev                   \
                       i2c-tools openssl
    ```
 

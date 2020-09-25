@@ -72,6 +72,10 @@ FetchContent_Declare(json
   GIT_TAG v3.9.1)
 FetchContent_MakeAvailable(json)
 
+FetchContent_Declare(oauth2_cli
+  GIT_REPOSITORY https://github.com/J-Pai/oauth2_cli.git)
+FetchContent_MakeAvailable(oauth2_cli)
+
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
