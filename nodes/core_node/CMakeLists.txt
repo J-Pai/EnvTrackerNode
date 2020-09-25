@@ -4,6 +4,8 @@ project(EnvTrackerCoreNode
   LANGUAGES C CXX
   VERSION 0.1)
 
+include(FetchContent)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
 # Prior to running cmake, gRPC should already have been installed on the system.
@@ -64,6 +66,17 @@ else()
   message(WARNING "oauth2_cli not available. Please install from scripts/oauth2_cli.")
 endif()
 
+# Install JSON library for parsing OAuth2 token.
+FetchContent_Declare(json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.9.1)
+
+FetchContent_GetProperties(json)
+if(NOT json_POPULATED)
+  FetchContent_Populate(json)
+  add_subdirectory(${json_SOURCE_DIR} ${json_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
+
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
@@ -86,7 +99,8 @@ foreach(_target core_server basic_client)
     ${_local_libraries}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
-    ${_PROTOBUF_LIBPROTOBUF})
+    ${_PROTOBUF_LIBPROTOBUF}
+    nlohmann_json::nlohmann_json)
 endforeach()
 
 target_compile_definitions(basic_client

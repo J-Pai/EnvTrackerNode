@@ -1,5 +1,7 @@
 #include <iostream>
+#include <iterator>
 #include <memory>
+#include <regex>
 
 #include <grpcpp/grpcpp.h>
 
@@ -90,7 +92,15 @@ std::string request_oauth_credential() {
   std::cout << std::endl;
   pclose(fd);
 
-  return result;
+  std::regex oauth2_token_regex(
+      "(.|\n)+CREDENTIALS_START\n(.+)\nCREDENTIALS_END", std::regex::extended);
+  std::smatch matches;
+
+  if (std::regex_search(result, matches, oauth2_token_regex) == 0) {
+    throw std::runtime_error("No OAuth2 token found.");
+  }
+
+  return matches[2].str();
 }
 
 int main(int argc, char** argv) {
@@ -101,6 +111,7 @@ int main(int argc, char** argv) {
 
   if (OAUTH2_CLI_EXE.compare("NULL") != 0) {
     oauth2_credentials.assign(request_oauth_credential());
+    std::cout << "stored_credential: " << oauth2_credentials << std::endl;
   }
 
   try {
