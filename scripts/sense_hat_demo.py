@@ -33,9 +33,9 @@ print("Humidity: %s %%rH" % humidity)
 cpu_temp = round(cpu_temperature, 1)
 print("CPU Temperature: %s °C" % cpu_temp)
 
-print("Waiting for joystick event...")
-event = sense.stick.wait_for_event()
-print("The joystick was {} {}".format(event.action, event.direction))
+# print("Waiting for joystick event...")
+# event = sense.stick.wait_for_event()
+# print("The joystick was {} {}".format(event.action, event.direction))
 
 sense.show_message("T:{t} H:{h}".format(
     t=temp_f, h=humidity))
