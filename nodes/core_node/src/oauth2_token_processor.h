@@ -13,8 +13,11 @@ class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
      * Processes the gRPC authorization metadata and determines if the Google
      * OAuth2 bearer token is valid and associated with a registered user.
      */
-    grpc::Status Process(const InputMetadata&, grpc::AuthContext*,
-        OutputMetadata*, OutputMetadata*) override;
+    grpc::Status Process(
+        const InputMetadata& auth_metadata,
+        grpc::AuthContext* context,
+        OutputMetadata* consumed_auth_metadata,
+        OutputMetadata* response_metadata) override;
   private:
     std::map<std::string, std::string> tokens;
 };

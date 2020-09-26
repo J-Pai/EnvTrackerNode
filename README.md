@@ -43,7 +43,9 @@ look at this [article](https://github.com/initialstate/wunderground-sensehat/wik
 
 ## Installation and Setup
 Do the following steps on the Raspberry Pi.
+
 1) Setup Ubuntu 20.04 for Raspberry Pi.
+
 2) **IMPORTANT**: Before plugging in the SD add the following lines to the
 usercfg.txt file in `boot`.
 
@@ -53,7 +55,8 @@ usercfg.txt file in `boot`.
    ```
 
 3) Install the SD card and turn on the Raspberry Pi.
-3) Install build tools.
+
+4) Install build tools.
 
    ```bash
    [sudo] apt install python3 python3-dev python3-pip python3-venv  \
@@ -64,13 +67,13 @@ usercfg.txt file in `boot`.
 
    **NOTE**: Make sure to have at least CMake v3.16.3!
 
-4) Add the following line to `/etc/modules`:
+5) Add the following line to `/etc/modules`:
 
    ```
    i2c-dev
    ```
 
-5) Create the file `/etc/udev/rules.d/99-i2c.rules` with the following contents:
+6) Create the file `/etc/udev/rules.d/99-i2c.rules` with the following contents:
 
    ```
    KERNEL=="i2c-[0-7]",MODE="0666"
@@ -120,9 +123,11 @@ sensors.
 
 ### Sense HAT Setup
 Do the following steps on the Raspberry Pi.
+
 1) Clone the following repositories:
    - https://github.com/RPi-Distro/RTIMULib
    - https://github.com/astro-pi/python-sense-hat
+
 2) Install numpy from apt.
 
    ```bash
@@ -138,9 +143,11 @@ Do the following steps on the Raspberry Pi.
    - `cd` to python-sense-hat.
    - `python3 setup.py build`
    - `[sudo] python3 setup.py install`
+
 5) Run `scripts/sense_hat_demo.py` to test setup. You should see the current
 temperature and humidity scroll across the LED matrix on the installed Sense
 HAT.
+
 6) If the demo does not work, try to reload the rpisense_fb module.
 
    ```bash
