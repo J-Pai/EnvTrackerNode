@@ -56,25 +56,21 @@ add_custom_command(
     "${core_node_proto}"
   DEPENDS "${core_node_proto}")
 
-# Find oauth2_cli application
-# To be used with basic_client for testing Google OAuth2 token validation logic.
-find_program(_OAUTH2_CLI_EXECUTABLE oauth2_cli)
-if(_OAUTH2_CLI_EXECUTABLE)
-  message(STATUS "Using oauth2_cli ${_OAUTH2_CLI_EXECUTABLE}")
-else()
-  unset(_OAUTH2_CLI_EXECUTABLE NULL)
-  message(WARNING "oauth2_cli not available. Please install from scripts/oauth2_cli.")
-endif()
-
 # Install JSON library for parsing OAuth2 token.
 FetchContent_Declare(json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
   GIT_TAG v3.9.1)
+set(JSON_BuildTests OFF CACHE INTERNAL "")
 FetchContent_MakeAvailable(json)
+message(STATUS "Using nlohmann::json ${json_SOURCE_DIR}")
 
+# Find oauth2_cli application
+# To be used with basic_client for testing Google OAuth2 token validation logic.
 FetchContent_Declare(oauth2_cli
-  GIT_REPOSITORY https://github.com/J-Pai/oauth2_cli.git)
+  GIT_REPOSITORY https://github.com/J-Pai/oauth2_cli.git
+  GIT_TAG v0.1.2)
 FetchContent_MakeAvailable(oauth2_cli)
+message(STATUS "Using oauth2_cli ${oauth2_cli_BINARY_DIR}")
 
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
@@ -104,7 +100,7 @@ endforeach()
 
 target_compile_definitions(basic_client
   PRIVATE
-  -DOAUTH2_CLI=${_OAUTH2_CLI_EXECUTABLE})
+  -DOAUTH2_CLI=${oauth2_cli_BINARY_DIR}/oauth2_cli)
 
 add_custom_target(run
   COMMAND core_server
