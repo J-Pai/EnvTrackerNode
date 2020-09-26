@@ -1,9 +1,9 @@
 syntax = "proto3";
 
-package corenode;
+package envtrackernode;
 
 // The greeting service definition.
-service Greeter {
+service CoreNode {
   // Sends a greeting
   rpc SayHello (HelloRequest) returns (HelloReply) {}
   rpc SeyGoodbye (GoodbyeRequest) returns (GoodbyeReply) {}

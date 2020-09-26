@@ -18,15 +18,15 @@
  */
 const std::string OAUTH2_CLI_EXE = XSTR(OAUTH2_CLI);
 
-class GreeterClient {
+class CoreNodeClient {
   public:
-    GreeterClient(std::shared_ptr<grpc::Channel> channel)
-      : stub_(corenode::Greeter::NewStub(channel)) {}
+    CoreNodeClient(std::shared_ptr<grpc::Channel> channel)
+      : stub_(envtrackernode::CoreNode::NewStub(channel)) {}
     std::string SayHello(const std::string& user) {
-      corenode::HelloRequest request;
+      envtrackernode::HelloRequest request;
       request.set_name(user);
 
-      corenode::HelloReply reply;
+      envtrackernode::HelloReply reply;
 
       grpc::ClientContext context;
 
@@ -41,7 +41,7 @@ class GreeterClient {
       }
     }
   private:
-    std::unique_ptr<corenode::Greeter::Stub> stub_;
+    std::unique_ptr<envtrackernode::CoreNode::Stub> stub_;
 };
 
 /**
@@ -171,11 +171,11 @@ int main(int argc, char** argv) {
       << std::endl;
   }
 
-  GreeterClient greeterClient(grpc::CreateChannel(
+  CoreNodeClient coreNodeClient(grpc::CreateChannel(
         target_str, credentials ? credentials : grpc::InsecureChannelCredentials()));
   std::string user("world");
-  std::string reply = greeterClient.SayHello(user);
-  std::cout << "Greeter client received: " << reply << std::endl;
+  std::string reply = coreNodeClient.SayHello(user);
+  std::cout << "CoreNode client received: " << reply << std::endl;
 
   return 0;
 }

@@ -13,9 +13,10 @@
 #include "oauth2_token_processor.h"
 #include "ssl_key_cert.h"
 
-class GreeterServiceImpl final : public corenode::Greeter::Service {
-  grpc::Status SayHello(grpc::ServerContext* context, const corenode::HelloRequest* request,
-      corenode::HelloReply* reply) override {
+class CoreNodeServiceImpl final : public envtrackernode::CoreNode::Service {
+  grpc::Status SayHello(grpc::ServerContext* context,
+      const envtrackernode::HelloRequest* request,
+      envtrackernode::HelloReply* reply) override {
     time_t my_time = time(NULL);
     std::cout << ctime(&my_time) << "-> Request made... " << context->peer() << std::endl;
     std::string prefix("Hello ");
@@ -26,15 +27,16 @@ class GreeterServiceImpl final : public corenode::Greeter::Service {
 
 void RunServer() {
   std::string server_address("0.0.0.0:50051");
-  std::unique_ptr<corenode::SslKeyCert> sslKeyCert;
   std::shared_ptr<grpc::ServerCredentials> credentials;
 
-  GreeterServiceImpl greeterService;
-  std::shared_ptr<corenode::OAuth2TokenProcessor> oauth2Processor =
-    std::shared_ptr<corenode::OAuth2TokenProcessor>(new corenode::OAuth2TokenProcessor);
+  CoreNodeServiceImpl coreNodeService;
 
   try {
-    sslKeyCert = std::unique_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
+    std::shared_ptr<corenode::SslKeyCert> sslKeyCert =
+      std::shared_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
+    std::shared_ptr<corenode::OAuth2TokenProcessor> oauth2Processor =
+      std::shared_ptr<corenode::OAuth2TokenProcessor>(
+          new corenode::OAuth2TokenProcessor(sslKeyCert));
     credentials = sslKeyCert->GenerateServerCredentials();
     credentials->SetAuthMetadataProcessor(oauth2Processor);
   } catch (const std::runtime_error& error) {
@@ -42,17 +44,19 @@ void RunServer() {
   }
 
   if (!credentials) {
-    std::cout << "Credentials failed to be generated. Server will be started using Insecure Credentials." << std::endl;
+    std::cout << "Credentials failed to be generated."
+      " Server will be started using Insecure Credentials." << std::endl;
   }
 
   grpc::EnableDefaultHealthCheckService(true);
   grpc::reflection::InitProtoReflectionServerBuilderPlugin();
   grpc::ServerBuilder builder;
   // Listen on the given address.
-  builder.AddListeningPort(server_address, credentials ? credentials : grpc::InsecureServerCredentials());
-  // Register "greeterService" as the instance through which communications with
+  builder.AddListeningPort(server_address,
+      credentials ? credentials : grpc::InsecureServerCredentials());
+  // Register "coreNodeService" as the instance through which communications with
   // clients will be done.
-  builder.RegisterService(&greeterService);
+  builder.RegisterService(&coreNodeService);
   // Assemble the server.
   std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
   std::cout << "Server listening on " << server_address << std::endl;
