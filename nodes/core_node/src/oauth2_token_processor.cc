@@ -19,3 +19,7 @@ grpc::Status corenode::OAuth2TokenProcessor::Process(
   // return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, "Missing token.");
   return grpc::Status::OK;
 }
+
+nlohmann::json get_token_info(const std::string& token) {
+  return nlohmann::json();
+}

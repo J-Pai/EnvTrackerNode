@@ -62,7 +62,7 @@ FetchContent_Declare(json
   GIT_TAG v3.9.1)
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 FetchContent_MakeAvailable(json)
-message(STATUS "Using nlohmann::json ${json_SOURCE_DIR}")
+message(STATUS "Using nlohmann::json v3.9.1")
 
 # Find oauth2_cli application
 # To be used with basic_client for testing Google OAuth2 token validation logic.
@@ -70,10 +70,20 @@ FetchContent_Declare(oauth2_cli
   GIT_REPOSITORY https://github.com/J-Pai/oauth2_cli.git
   GIT_TAG v0.1.2)
 FetchContent_MakeAvailable(oauth2_cli)
-message(STATUS "Using oauth2_cli ${oauth2_cli_BINARY_DIR}")
+message(STATUS "Using oauth2_cli v0.1.2")
+
+# Find curlpp library for HTTPS client on core_server.
+find_package(CURL REQUIRED)
+message(STATUS "Using curl ${CURL_VERSION_STRING}")
+FetchContent_Declare(curlpp
+  GIT_REPOSITORY https://github.com/jpbarrette/curlpp.git
+  GIT_TAG v0.8.1)
+FetchContent_MakeAvailable(curlpp)
+message(STATUS "Using curlpp v0.8.1")
 
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
+include_directories("${curlpp_SOURCE_DIR}/include")
 
 # Build utility libraries.
 foreach (_library ssl_key_cert oauth2_token_processor)
@@ -81,9 +91,15 @@ foreach (_library ssl_key_cert oauth2_token_processor)
   target_link_libraries(${_library}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
-    ${_PROTOBUF_LIBPROTOBUF})
+    ${_PROTOBUF_LIBPROTOBUF}
+    nlohmann_json::nlohmann_json
+    curlpp)
   list(APPEND _local_libraries ${_library})
 endforeach()
+
+target_compile_definitions(ssl_key_cert
+  PRIVATE
+  -DOAUTH2_CLI=${oauth2_cli_BINARY_DIR}/oauth2_cli)
 
 # Build core_server and basic_client executables.
 foreach(_target core_server basic_client)
@@ -91,16 +107,14 @@ foreach(_target core_server basic_client)
     ${core_node_proto_srcs}
     ${core_node_grpc_srcs})
   target_link_libraries(${_target}
-    ${_local_libraries}
+    ssl_key_cert
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
-    ${_PROTOBUF_LIBPROTOBUF}
-    nlohmann_json::nlohmann_json)
+    ${_PROTOBUF_LIBPROTOBUF})
 endforeach()
 
-target_compile_definitions(basic_client
-  PRIVATE
-  -DOAUTH2_CLI=${oauth2_cli_BINARY_DIR}/oauth2_cli)
+target_link_libraries(core_server
+  oauth2_token_processor)
 
 add_custom_target(run
   COMMAND core_server
