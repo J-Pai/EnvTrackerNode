@@ -61,6 +61,20 @@ variable:
 export CLIENT_SECRET_JSON=/path/to/client/secret.json
 ```
 
+## Validate OAuth2 Endpoints
+
+Get token information:
+
+```
+https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=ACCESS_TOKEN
+```
+
+Get user profile information:
+
+```
+https://www.googleapis.com/oauth2/v3/userinfo?access_token=ACCESS_TOKEN
+```
+
 ## Using ngrok
 ngrok.yml:
 
