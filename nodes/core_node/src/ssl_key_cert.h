@@ -72,6 +72,7 @@ class SslKeyCert final {
     std::string GetCert();
     std::string GetRoot();
     std::string GetClientIdJsonPath();
+    nlohmann::json GetClientIdJson();
     nlohmann::json GetOAuthToken();
 
   private:
@@ -79,6 +80,7 @@ class SslKeyCert final {
     std::string cert;
     std::string root;
     std::string client_id_path;
+    nlohmann::json client_id_json = NULL;
     nlohmann::json oauth_token = NULL;
 
     void InitFields(const std::string& key_path, const std::string& cert_path,

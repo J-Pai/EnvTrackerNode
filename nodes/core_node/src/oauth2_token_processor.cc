@@ -1,7 +1,7 @@
 #include "oauth2_token_processor.h"
 
 corenode::OAuth2TokenProcessor::OAuth2TokenProcessor(
-    const std::shared_ptr<const corenode::SslKeyCert> ssl_key_cert)
+    std::shared_ptr<corenode::SslKeyCert> ssl_key_cert)
     : ssl_key_cert(ssl_key_cert) {}
 
 grpc::Status corenode::OAuth2TokenProcessor::Process(
@@ -10,6 +10,7 @@ grpc::Status corenode::OAuth2TokenProcessor::Process(
     OutputMetadata* consumed_auth_metadata,
     OutputMetadata* response_metadata) {
   std::cout << "Using token processor..." << std::endl;
+  std::cout << ssl_key_cert->GetClientIdJson() << std::endl;
   InputMetadata copy(auth_metadata);
   std::multimap<grpc::string_ref, grpc::string_ref>::iterator itr;
   for (itr = copy.begin(); itr != copy.end(); ++itr) {

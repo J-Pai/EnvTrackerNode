@@ -58,8 +58,12 @@ void corenode::SslKeyCert::InitFields(
   found = realpath(json_path.c_str(), resolved_path);
   if (found == NULL) {
     client_id_path.assign("");
+
   } else {
     client_id_path.assign(resolved_path);
+    std::string client_id_contents;
+    ReadFile(client_id_path, client_id_contents);
+    client_id_json = nlohmann::json::parse(client_id_contents);
   }
 }
 
@@ -128,7 +132,6 @@ nlohmann::json corenode::SslKeyCert::RequestOAuthToken() {
 
   // Convert OAuth2 JSON string to JSON object.
   std::string cleaned_str(matches[2].str());
-  ReplaceAll(cleaned_str, "'", "\"");
   oauth_token = nlohmann::json::parse(cleaned_str);
   return oauth_token;
 }
@@ -168,6 +171,10 @@ std::string corenode::SslKeyCert::GetRoot() {
 
 std::string corenode::SslKeyCert::GetClientIdJsonPath() {
   return std::string(client_id_path);
+}
+
+nlohmann::json corenode::SslKeyCert::GetClientIdJson() {
+  return nlohmann::json::parse(client_id_json.dump());
 }
 
 nlohmann::json corenode::SslKeyCert::GetOAuthToken() {

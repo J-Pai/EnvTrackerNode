@@ -33,13 +33,13 @@ void RunServer() {
   CoreNodeServiceImpl coreNodeService;
 
   try {
-    std::shared_ptr<corenode::SslKeyCert> sslKeyCert =
+    std::shared_ptr<corenode::SslKeyCert> ssl_key_cert =
       std::shared_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
-    std::shared_ptr<corenode::OAuth2TokenProcessor> oauth2Processor =
+    std::shared_ptr<corenode::OAuth2TokenProcessor> oauth2_processor =
       std::shared_ptr<corenode::OAuth2TokenProcessor>(
-          new corenode::OAuth2TokenProcessor(sslKeyCert));
-    credentials = sslKeyCert->GenerateServerCredentials();
-    credentials->SetAuthMetadataProcessor(oauth2Processor);
+          new corenode::OAuth2TokenProcessor(ssl_key_cert));
+    credentials = ssl_key_cert->GenerateServerCredentials();
+    credentials->SetAuthMetadataProcessor(oauth2_processor);
   } catch (const std::runtime_error& error) {
     std::cout << "Error in SslKeyCert creation: " << error.what() << std::endl;
   }
