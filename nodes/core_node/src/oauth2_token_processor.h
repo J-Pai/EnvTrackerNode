@@ -3,7 +3,8 @@
 
 #include <curlpp/cURLpp.hpp>
 #include <curlpp/Easy.hpp>
-#include <curlpp/Option.hpp>
+#include <curlpp/Infos.hpp>
+#include <curlpp/Options.hpp>
 #include <grpcpp/grpcpp.h>
 #include <nlohmann/json.hpp>
 
@@ -40,6 +41,9 @@ class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
      * @return {@link nlohmann::json} of body of endpoint reponse.
      */
     nlohmann::json get_token_info(const std::string& token);
+
+    const std::string TOKEN_INFO_ENDPOINT =
+      "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=%s";
 };
 }
 
