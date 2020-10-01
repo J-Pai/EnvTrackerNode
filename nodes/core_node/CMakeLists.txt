@@ -68,9 +68,9 @@ message(STATUS "Using nlohmann::json v3.9.1")
 # To be used with basic_client for testing Google OAuth2 token validation logic.
 FetchContent_Declare(oauth2_cli
   GIT_REPOSITORY https://github.com/J-Pai/oauth2_cli.git
-  GIT_TAG v0.1.3)
+  GIT_TAG v0.1.4)
 FetchContent_MakeAvailable(oauth2_cli)
-message(STATUS "Using oauth2_cli v0.1.3")
+message(STATUS "Using oauth2_cli v0.1.4")
 
 # Find curlpp library for HTTPS client on core_server.
 find_package(CURL REQUIRED)

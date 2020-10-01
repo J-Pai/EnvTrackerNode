@@ -103,7 +103,9 @@ nlohmann::json corenode::SslKeyCert::RequestOAuthToken() {
     return GetOAuthToken();
   }
 
-  std::string combined_command(OAUTH2_CLI_EXE + " " + GetClientIdJsonPath());
+  std::string combined_command(OAUTH2_CLI_EXE
+      + " " + GetClientIdJsonPath()
+      + " envtrackernode");
   std::cout << "oauth2_cli tool specified: " << combined_command << std::endl;
   std::cout << std::endl;
 
