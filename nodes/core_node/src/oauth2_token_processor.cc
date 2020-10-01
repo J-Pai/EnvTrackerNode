@@ -9,15 +9,20 @@ grpc::Status corenode::OAuth2TokenProcessor::Process(
     grpc::AuthContext* context,
     OutputMetadata* consumed_auth_metadata,
     OutputMetadata* response_metadata) {
+  // DEBUG_INFO_START
   std::cout << "Using token processor..." << std::endl;
   InputMetadata copy(auth_metadata);
   std::multimap<grpc::string_ref, grpc::string_ref>::iterator itr;
   for (itr = copy.begin(); itr != copy.end(); ++itr) {
     std::cout << itr->first << "," << itr->second << std::endl;
   }
-
+  // DEBUG_INFO_END
   std::multimap<grpc::string_ref, grpc::string_ref>::iterator token =
     copy.find("authorization");
+
+  if (token == copy.end()) {
+    return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, "Missing access token.");
+  }
 
   std::string raw(token->second.data());
   std::string bearer_token(raw.substr(7, token->second.length() - 7));

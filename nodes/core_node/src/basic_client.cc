@@ -68,18 +68,27 @@ int main(int argc, char** argv) {
   std::shared_ptr<grpc::ChannelCredentials> credentials;
   std::string target_str(GetTarget(argc, argv));
 
+
   try {
     std::unique_ptr<corenode::SslKeyCert> sslKeyCert =
       std::unique_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
+    nlohmann::json oauth2_credential;
+
+    try {
+      oauth2_credential = sslKeyCert->GetOAuthToken();
+    } catch (const std::runtime_error& error) {
+      std::cout << "Error in OAuth2 request: " << error.what() << std::endl;
+    }
 
     std::shared_ptr<grpc::ChannelCredentials> tlsCredentials =
       sslKeyCert->GenerateChannelCredentials();
-
-    nlohmann::json oauth2_credential(sslKeyCert->GetOAuthToken());
-
-    credentials = grpc::CompositeChannelCredentials(tlsCredentials,
-        std::shared_ptr<grpc::CallCredentials>(
-          grpc::AccessTokenCredentials(oauth2_credential["token"])));
+    if (!oauth2_credential.empty()) {
+      credentials = grpc::CompositeChannelCredentials(tlsCredentials,
+          std::shared_ptr<grpc::CallCredentials>(
+            grpc::AccessTokenCredentials(oauth2_credential["token"])));
+    } else {
+      credentials = tlsCredentials;
+    }
   } catch (const std::runtime_error& error) {
     std::cout << "Error in SslKeyCert creation: " << error.what() << std::endl;
   }
