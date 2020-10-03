@@ -5,6 +5,7 @@ project(EnvTrackerCoreNode
   VERSION 0.1)
 
 include(FetchContent)
+include(ExternalProject)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
@@ -81,9 +82,57 @@ FetchContent_Declare(curlpp
 FetchContent_MakeAvailable(curlpp)
 message(STATUS "Using curlpp v0.8.1")
 
+# Find mongoc, bson, and mongocxx library for use as MongoDB connector/driver.
+ExternalProject_Add(libmongoc
+  GIT_REPOSITORY https://github.com/mongodb/mongo-c-driver.git
+  GIT_TAG 1.17.0
+  GIT_PROGRESS 1
+  GIT_SHALLOW 1
+  UPDATE_COMMAND "" # Prevents a rebuild on every make.
+  SOURCE_DIR "${CMAKE_BINARY_DIR}/libmongoc"
+  BINARY_DIR "${CMAKE_BINARY_DIR}/libmongoc-build"
+  INSTALL_DIR "${CMAKE_BINARY_DIR}/libmongoc-install"
+  CMAKE_CACHE_ARGS
+  CMAKE_CACHE_ARGS
+  -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/libmongoc-install
+  -DENABLE_TESTS:BOOL=OFF
+  -DENABLE_STATIC:BOOL=OFF
+  -DENABLE_EXAMPLES:BOOL=OFF
+  -DENABLE_EXTRA_ALIGNMENT:BOOL=OFF)
+set(libmongoc-1.0_DIR "${CMAKE_BINARY_DIR}/libmongoc-install/lib/cmake/libmongoc-1.0/")
+set(libbson-1.0_DIR "${CMAKE_BINARY_DIR}/libmongoc-install/lib/cmake/libbson-1.0/")
+
+ExternalProject_Add(libmongocxx
+  GIT_REPOSITORY  "https://github.com/mongodb/mongo-cxx-driver.git"
+  GIT_TAG r3.6.0
+  GIT_PROGRESS 1
+  GIT_SHALLOW 1
+  UPDATE_COMMAND "" # Prevents a rebuild on every make.
+  SOURCE_DIR "${CMAKE_BINARY_DIR}/libmongocxx"
+  BINARY_DIR "${CMAKE_BINARY_DIR}/libmongocxx-build"
+  INSTALL_DIR "${CMAKE_BINARY_DIR}/libmongocxx-install"
+  CMAKE_CACHE_ARGS
+  -DBUILD_SHARED_AND_STATIC_LIBS:BOOL=ON
+  -DCMAKE_PREFIX_PATH:PATH=${CMAKE_BINARY_DIR}/libmongoc-install
+  -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/libmongocxx-install
+  -DENABLE_TESTS:BOOL=OFF
+  -DENABLE_EXAMPLES:BOOL=OFF
+  -DBSONCXX_POLY_USE_BOOST:BOOL=OFF
+  -DBSONCXX_POLY_USE_MNMLSTC:BOOL=ON
+  -DBSONCXX_POLY_USE_STD:BOOL=OFF
+  DEPENDS libmongoc)
+list(APPEND _LIBMONGOCXX_LIBRARIES
+  "${CMAKE_BINARY_DIR}/libmongocxx-install/lib/libmongocxx.so.3.6.0"
+  "${CMAKE_BINARY_DIR}/libmongocxx-install/lib/libbsoncxx.so.3.6.0")
+list(APPEND _LIBMONGOCXX_INCLUDE_DIRS
+  "${CMAKE_BINARY_DIR}/libmongocxx-install/include/bsoncxx/v_noabi/"
+  "${CMAKE_BINARY_DIR}/libmongocxx-install/include/mongocxx/v_noabi/")
+message(STATUS "Using mongocxx r3.6.0")
+
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 include_directories("${curlpp_SOURCE_DIR}/include")
+include_directories("${CMAKE_BINARY_DIR}/libmongocxx-install/include")
 
 # Build utility libraries.
 foreach (_library ssl_key_cert oauth2_token_processor)
@@ -106,11 +155,16 @@ foreach(_target core_server basic_client)
   add_executable(${_target} "src/${_target}.cc"
     ${core_node_proto_srcs}
     ${core_node_grpc_srcs})
+  add_dependencies(${_target} libmongocxx)
   target_link_libraries(${_target}
-    ssl_key_cert
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
-    ${_PROTOBUF_LIBPROTOBUF})
+    ${_PROTOBUF_LIBPROTOBUF}
+    ${_LIBMONGOCXX_LIBRARIES}
+    ssl_key_cert)
+  target_include_directories(${_target}
+    PRIVATE
+    ${_LIBMONGOCXX_INCLUDE_DIRS})
 endforeach()
 
 target_link_libraries(core_server

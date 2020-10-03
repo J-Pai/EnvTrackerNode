@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <grpcpp/grpcpp.h>
+#include <mongocxx/client.hpp>
 #include <nlohmann/json.hpp>
 
 #include "core_node.grpc.pb.h"

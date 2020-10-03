@@ -56,4 +56,8 @@ build/
 # clangd
 .clangd/
 
+# environment variable settings.
+env.yml
+env.yaml
+
 # End of https://www.toptal.com/developers/gitignore/api/cmake,c++
