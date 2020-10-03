@@ -38,7 +38,6 @@ grpc::Status corenode::OAuth2TokenProcessor::Process(
   nlohmann::json token_info;
   try {
     token_info = GetTokenInfo(bearer_token);
-    std::cout << token_info << std::endl;
   } catch (const std::runtime_error& error) {
     return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, error.what());
   }
@@ -66,7 +65,6 @@ nlohmann::json corenode::OAuth2TokenProcessor::GetTokenInfo(
 
   std::ostringstream response;
 
-  curlpp::Cleanup cleanup;
   curlpp::Easy request;
   request.setOpt<curlpp::options::Url>(std::string(buffer));
   request.setOpt<curlpp::options::WriteFunction>(curl_write_function);
@@ -84,5 +82,6 @@ nlohmann::json corenode::OAuth2TokenProcessor::GetTokenInfo(
 
 bool corenode::OAuth2TokenProcessor::ValidateTokenInfo(
     const nlohmann::json& token_info) {
+  std::cout << token_info << std::endl;
   return true;
 }
