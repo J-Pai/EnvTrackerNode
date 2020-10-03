@@ -35,11 +35,17 @@ grpc::Status corenode::OAuth2TokenProcessor::Process(
   std::string bearer_token(raw.substr(
         BEARER_TEXT_LENGTH, token->second.length() - BEARER_TEXT_LENGTH));
 
+  nlohmann::json token_info;
   try {
-    nlohmann::json token_info(GetTokenInfo(bearer_token));
+    token_info = GetTokenInfo(bearer_token);
     std::cout << token_info << std::endl;
   } catch (const std::runtime_error& error) {
     return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, error.what());
+  }
+
+  if (!ValidateTokenInfo(token_info)) {
+    return grpc::Status(
+        grpc::StatusCode::UNAUTHENTICATED, "Invalid access token.");
   }
 
   return grpc::Status::OK;
