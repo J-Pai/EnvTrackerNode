@@ -179,6 +179,12 @@ nlohmann::json corenode::SslKeyCert::GetClientIdJson() {
   return nlohmann::json::parse(client_id_json.dump());
 }
 
+void corenode::SslKeyCert::SetOAuthToken(const std::string& token) {
+  oauth_token = {
+    {"token", token},
+  };
+}
+
 nlohmann::json corenode::SslKeyCert::GetOAuthToken() {
   if (oauth_token == NULL) {
     return RequestOAuthToken();

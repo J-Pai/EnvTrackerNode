@@ -68,11 +68,15 @@ int main(int argc, char** argv) {
   std::shared_ptr<grpc::ChannelCredentials> credentials;
   std::string target_str(GetTarget(argc, argv));
 
-
+  const char* environment_oauth2_token = std::getenv("OAUTH2_TOKEN");
   try {
     std::unique_ptr<corenode::SslKeyCert> sslKeyCert =
       std::unique_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
     nlohmann::json oauth2_credential;
+
+    if (environment_oauth2_token) {
+      sslKeyCert->SetOAuthToken(std::string(environment_oauth2_token));
+    }
 
     try {
       oauth2_credential = sslKeyCert->GetOAuthToken();

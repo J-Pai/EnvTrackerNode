@@ -11,21 +11,29 @@ grpc::Status corenode::OAuth2TokenProcessor::Process(
     OutputMetadata* response_metadata) {
   // DEBUG_INFO_START
   std::cout << "Using token processor..." << std::endl;
-  InputMetadata copy(auth_metadata);
-  std::multimap<grpc::string_ref, grpc::string_ref>::iterator itr;
-  for (itr = copy.begin(); itr != copy.end(); ++itr) {
+  std::multimap<grpc::string_ref, grpc::string_ref>::const_iterator itr;
+  for (itr = auth_metadata.begin(); itr != auth_metadata.end(); ++itr) {
     std::cout << itr->first << "," << itr->second << std::endl;
   }
   // DEBUG_INFO_END
-  std::multimap<grpc::string_ref, grpc::string_ref>::iterator token =
-    copy.find("authorization");
 
-  if (token == copy.end()) {
+  // Determine intercepted method
+  std::multimap<grpc::string_ref, grpc::string_ref>::const_iterator path =
+    auth_metadata.find(":path");
+  if (path == auth_metadata.end()) {
+    return grpc::Status(grpc::StatusCode::INTERNAL, "Unknown path.");
+  }
+
+  // Verify request contains access token.
+  std::multimap<grpc::string_ref, grpc::string_ref>::const_iterator token =
+    auth_metadata.find("authorization");
+  if (token == auth_metadata.end()) {
     return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, "Missing access token.");
   }
 
   std::string raw(token->second.data());
-  std::string bearer_token(raw.substr(7, token->second.length() - 7));
+  std::string bearer_token(raw.substr(
+        BEARER_TEXT_LENGTH, token->second.length() - BEARER_TEXT_LENGTH));
   get_token_info(bearer_token);
 
   // return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, "Missing token.");

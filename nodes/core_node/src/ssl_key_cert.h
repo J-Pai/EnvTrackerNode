@@ -73,6 +73,7 @@ class SslKeyCert final {
     std::string GetRoot();
     std::string GetClientIdJsonPath();
     nlohmann::json GetClientIdJson();
+    void SetOAuthToken(const std::string& token);
     nlohmann::json GetOAuthToken();
 
   private:

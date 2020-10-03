@@ -44,6 +44,7 @@ class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
 
     const std::string TOKEN_INFO_ENDPOINT =
       "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=%s";
+    const int BEARER_TEXT_LENGTH = 7;
 };
 }
 
