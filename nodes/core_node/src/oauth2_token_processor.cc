@@ -83,5 +83,19 @@ nlohmann::json corenode::OAuth2TokenProcessor::GetTokenInfo(
 bool corenode::OAuth2TokenProcessor::ValidateTokenInfo(
     const nlohmann::json& token_info) {
   std::cout << token_info << std::endl;
+  nlohmann::json client_info(ssl_key_cert->GetClientIdJson()["installed"]);
+  std::cout << client_info << std::endl;
+
+  // Verify that the token was obtained from the expected OAuth2 client.
+  std::string client_id(client_info["client_id"]);
+  std::string token_aud(token_info["aud"]);
+  if (client_id.compare(token_aud) != 0) {
+    return false;
+  }
+
+  // TODO: Verify that the user is authorized to access this backend.
+  // Recommended to use std::future and std::async to make request against
+  // external backend.
+
   return true;
 }
