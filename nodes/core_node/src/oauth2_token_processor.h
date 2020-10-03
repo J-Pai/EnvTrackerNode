@@ -40,7 +40,15 @@ class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
      * @param token OAuth2 access token.
      * @return {@link nlohmann::json} of body of endpoint reponse.
      */
-    nlohmann::json get_token_info(const std::string& token);
+    nlohmann::json GetTokenInfo(const std::string& token);
+
+    /**
+     * Verify that the Google OAuth2 token contains the correct information.
+     *
+     * @param token_info Token information returned from Google OAuth2 endpoint.
+     * @return true if OAuth2 token is valid, false otherwise.
+     */
+    bool ValidateTokenInfo(const nlohmann::json& token_info);
 
     const std::string TOKEN_INFO_ENDPOINT =
       "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=%s";

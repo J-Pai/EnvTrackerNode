@@ -34,9 +34,14 @@ grpc::Status corenode::OAuth2TokenProcessor::Process(
   std::string raw(token->second.data());
   std::string bearer_token(raw.substr(
         BEARER_TEXT_LENGTH, token->second.length() - BEARER_TEXT_LENGTH));
-  get_token_info(bearer_token);
 
-  // return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, "Missing token.");
+  try {
+    nlohmann::json token_info(GetTokenInfo(bearer_token));
+    std::cout << token_info << std::endl;
+  } catch (const std::runtime_error& error) {
+    return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, error.what());
+  }
+
   return grpc::Status::OK;
 }
 
@@ -47,21 +52,31 @@ size_t curl_write_function(void* buffer, size_t size, size_t nmemb) {
   return size * nmemb;
 }
 
-nlohmann::json corenode::OAuth2TokenProcessor::get_token_info(
+nlohmann::json corenode::OAuth2TokenProcessor::GetTokenInfo(
     const std::string& token) {
   size_t url_length = token.length() + TOKEN_INFO_ENDPOINT.length();
   char buffer[url_length];
   snprintf(buffer, url_length, TOKEN_INFO_ENDPOINT.c_str(), token.c_str());
 
+  std::ostringstream response;
+
   curlpp::Cleanup cleanup;
   curlpp::Easy request;
   request.setOpt<curlpp::options::Url>(std::string(buffer));
   request.setOpt<curlpp::options::WriteFunction>(curl_write_function);
+  request.setOpt<curlpp::options::WriteStream>(&response);
   request.perform();
 
   long http_code = curlpp::Infos::ResponseCode::get(request);
 
-  std::cout << "HTTP CODE: " << http_code << std::endl;
+  if (http_code != 200) {
+    throw std::runtime_error(std::string(response.str()));
+  }
 
-  return nlohmann::json();
+  return nlohmann::json::parse(response.str());
+}
+
+bool corenode::OAuth2TokenProcessor::ValidateTokenInfo(
+    const nlohmann::json& token_info) {
+  return true;
 }
