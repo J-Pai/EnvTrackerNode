@@ -62,7 +62,7 @@ usercfg.txt file in `boot`.
    [sudo] apt install python3 python3-dev python3-pip python3-venv  \
                       build-essential autoconf libtool              \
                       pkg-config cmake libssl-dev                   \
-                      i2c-tools openssl
+                      i2c-tools openssl libcurl4-openssl-dev
    ```
 
    **NOTE**: Make sure to have at least CMake v3.16.3!
