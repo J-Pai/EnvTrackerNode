@@ -130,17 +130,21 @@ message(STATUS "Using mongocxx r3.6.0")
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 include_directories("${curlpp_SOURCE_DIR}/include")
-include_directories("${CMAKE_BINARY_DIR}/libmongocxx-install/include")
 
 # Build utility libraries.
 foreach (_library credentials_utility oauth2_token_processor)
   add_library(${_library} "src/${_library}.cc" "src/${_library}.h")
+  add_dependencies(${_library} libmongocxx)
   target_link_libraries(${_library}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
     ${_PROTOBUF_LIBPROTOBUF}
+    ${_LIBMONGOCXX_LIBRARIES}
     nlohmann_json::nlohmann_json
     curlpp)
+  target_include_directories(${_library}
+    PUBLIC
+    ${_LIBMONGOCXX_INCLUDE_DIRS})
   list(APPEND _local_libraries ${_library})
 endforeach()
 
@@ -153,16 +157,10 @@ foreach(_target core_server basic_client)
   add_executable(${_target} "src/${_target}.cc"
     ${core_node_proto_srcs}
     ${core_node_grpc_srcs})
-  add_dependencies(${_target} libmongocxx)
   target_link_libraries(${_target}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
-    ${_PROTOBUF_LIBPROTOBUF}
-    ${_LIBMONGOCXX_LIBRARIES}
     credentials_utility)
-  target_include_directories(${_target}
-    PRIVATE
-    ${_LIBMONGOCXX_INCLUDE_DIRS})
 endforeach()
 
 target_link_libraries(core_server

@@ -5,6 +5,9 @@ corenode::CredentialsUtility::CredentialsUtility() {
   const char* cert_path = std::getenv("SSL_CERT");
   const char* root_path = std::getenv("SSL_ROOT_CERT");
   const char* json_path = std::getenv("CLIENT_SECRET_JSON");
+  const char* mongo_uri = std::getenv("MONGO_URI");
+  const char* mongo_user = std::getenv("MONGO_USER");
+  const char* mongo_pass = std::getenv("MONGO_PASSWORD");
 
   if (!key_path) {
     throw std::runtime_error("$SSL_KEY not defined.");
@@ -18,15 +21,16 @@ corenode::CredentialsUtility::CredentialsUtility() {
   if (!json_path) {
     json_path = "";
   }
-  InitFields(key_path, cert_path, root_path, json_path);
-}
 
-corenode::CredentialsUtility::CredentialsUtility(
-    const std::string& key_path,
-    const std::string& cert_path,
-    const std::string& root_path,
-    const std::string& json_path) {
-  InitFields(key_path, cert_path, root_path, json_path);
+  nlohmann::json mongo;
+
+  if (mongo_uri && mongo_user && mongo_pass) {
+    mongo["uri"] = std::string(mongo_uri);
+    mongo["user"] = std::string(mongo_user);
+    mongo["password"] = std::string(mongo_pass);
+  }
+
+  InitFields(key_path, cert_path, root_path, json_path, mongo);
 }
 
 corenode::CredentialsUtility::CredentialsUtility(const std::string& env_json_path) {
@@ -49,6 +53,8 @@ corenode::CredentialsUtility::CredentialsUtility(const std::string& env_json_pat
       environment_json["ssl_root_cert"] : "");
   std::string json_path(environment_json.contains("client_secret_json") ?
       environment_json["client_secret_json"] : "");
+  nlohmann::json mongo(environment_json.contains("mongo") ?
+      environment_json["mongo"] : nlohmann::json());
 
   ReplaceAll(key_path, "${HOME}", HOME);
   ReplaceAll(cert_path, "${HOME}", HOME);
@@ -59,14 +65,15 @@ corenode::CredentialsUtility::CredentialsUtility(const std::string& env_json_pat
   ReplaceAll(root_path, "~", HOME);
   ReplaceAll(json_path, "~", HOME);
 
-  InitFields(key_path, cert_path, root_path, json_path);
+  InitFields(key_path, cert_path, root_path, json_path, mongo);
 }
 
 void corenode::CredentialsUtility::InitFields(
     const std::string& key_path,
     const std::string& cert_path,
     const std::string& root_path,
-    const std::string& json_path) {
+    const std::string& json_path,
+    const nlohmann::json& mongo) {
   std::array<char, PATH_MAX> resolved_path;
 
   char * found = realpath(key_path.c_str(), resolved_path.data());
@@ -90,13 +97,14 @@ void corenode::CredentialsUtility::InitFields(
   found = realpath(json_path.c_str(), resolved_path.data());
   if (found == NULL) {
     client_id_path.assign("");
-
   } else {
     client_id_path.assign(resolved_path.data());
     std::string client_id_contents;
     ReadFile(resolved_path, client_id_contents);
     client_id_json = nlohmann::json::parse(client_id_contents);
   }
+
+  mongo_connection = mongo;
 }
 
 std::shared_ptr<grpc::ServerCredentials> corenode::CredentialsUtility::GenerateServerCredentials() {
