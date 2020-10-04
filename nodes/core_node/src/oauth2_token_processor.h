@@ -28,8 +28,8 @@ class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
         OutputMetadata* consumed_auth_metadata,
         OutputMetadata* response_metadata) override;
   private:
-    std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert;
-    std::map<std::string, std::string> tokens;
+    std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert_;
+    std::map<std::string, std::string> tokens_;
 
     /**
      * Makes a request to the Google OAuth2 tokeninfo Endpoint to verify the
@@ -50,9 +50,9 @@ class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
      */
     bool ValidateTokenInfo(const nlohmann::json& token_info);
 
-    const std::string TOKEN_INFO_ENDPOINT =
+    const std::string kTokenInfoEndpoint =
       "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=%s";
-    const int BEARER_TEXT_LENGTH = 7;
+    const int kBearerTextLength = 7;
 };
 }
 

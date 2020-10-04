@@ -2,7 +2,7 @@
 
 corenode::OAuth2TokenProcessor::OAuth2TokenProcessor(
     std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert)
-    : ssl_key_cert(ssl_key_cert) {}
+    : ssl_key_cert_(ssl_key_cert) {}
 
 grpc::Status corenode::OAuth2TokenProcessor::Process(
     const InputMetadata& auth_metadata,
@@ -33,7 +33,7 @@ grpc::Status corenode::OAuth2TokenProcessor::Process(
 
   std::string raw(token->second.data());
   std::string bearer_token(raw.substr(
-        BEARER_TEXT_LENGTH, token->second.length() - BEARER_TEXT_LENGTH));
+        kBearerTextLength, token->second.length() - kBearerTextLength));
 
   nlohmann::json token_info;
   try {
@@ -59,9 +59,9 @@ size_t curl_write_function(void* buffer, size_t size, size_t nmemb) {
 
 nlohmann::json corenode::OAuth2TokenProcessor::GetTokenInfo(
     const std::string& token) {
-  size_t url_length = token.length() + TOKEN_INFO_ENDPOINT.length();
+  size_t url_length = token.length() + kTokenInfoEndpoint.length();
   char buffer[url_length];
-  snprintf(buffer, url_length, TOKEN_INFO_ENDPOINT.c_str(), token.c_str());
+  snprintf(buffer, url_length, kTokenInfoEndpoint.c_str(), token.c_str());
 
   std::ostringstream response;
 
@@ -83,7 +83,7 @@ nlohmann::json corenode::OAuth2TokenProcessor::GetTokenInfo(
 bool corenode::OAuth2TokenProcessor::ValidateTokenInfo(
     const nlohmann::json& token_info) {
   std::cout << token_info << std::endl;
-  nlohmann::json client_info(ssl_key_cert->GetClientIdJson()["installed"]);
+  nlohmann::json client_info(ssl_key_cert_->GetClientIdJson()["installed"]);
   std::cout << client_info << std::endl;
 
   // Verify that the token was obtained from the expected OAuth2 client.
