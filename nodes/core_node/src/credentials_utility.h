@@ -120,7 +120,7 @@ class CredentialsUtility final {
      */
     void ReplaceAll(std::string& str, const std::string& from, const std::string& to);
 
-    void ReadFile(const std::string&, std::string&);
+    void ReadFile(const std::array<char, PATH_MAX>& filename, std::string& data);
 
     /**
      * Contains the path to the oauth2_cli tool that can be used to obtain a

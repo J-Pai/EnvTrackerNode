@@ -5,7 +5,6 @@ corenode::CredentialsUtility::CredentialsUtility() {
   const char* cert_path = std::getenv("SSL_CERT");
   const char* root_path = std::getenv("SSL_ROOT_CERT");
   const char* json_path = std::getenv("CLIENT_SECRET_JSON");
-  char resolved_path[PATH_MAX];
 
   if (!key_path) {
     throw std::runtime_error("$SSL_KEY not defined.");
@@ -31,9 +30,9 @@ corenode::CredentialsUtility::CredentialsUtility(
 }
 
 corenode::CredentialsUtility::CredentialsUtility(const std::string& env_json_path) {
-  char resolved_path[PATH_MAX];
+  std::array<char, PATH_MAX> resolved_path;
 
-  char * found = realpath(env_json_path.c_str(), resolved_path);
+  char * found = realpath(env_json_path.c_str(), resolved_path.data());
   if (found == NULL) {
     throw std::runtime_error("Environment JSON file not found at specified path.");
   }
@@ -68,34 +67,34 @@ void corenode::CredentialsUtility::InitFields(
     const std::string& cert_path,
     const std::string& root_path,
     const std::string& json_path) {
-  char resolved_path[PATH_MAX];
+  std::array<char, PATH_MAX> resolved_path;
 
-  char * found = realpath(key_path.c_str(), resolved_path);
+  char * found = realpath(key_path.c_str(), resolved_path.data());
   if (found == NULL) {
     throw std::runtime_error("SSL secret key file not found at specified path.");
   }
   ReadFile(resolved_path, key);
 
-  found = realpath(cert_path.c_str(), resolved_path);
+  found = realpath(cert_path.c_str(), resolved_path.data());
   if (found == NULL) {
     throw std::runtime_error("SSL certificate file not found at specified path.");
   }
   ReadFile(resolved_path, cert);
 
-  found = realpath(root_path.c_str(), resolved_path);
+  found = realpath(root_path.c_str(), resolved_path.data());
   if (found == NULL) {
     throw std::runtime_error("SSL root CA certificate file not found at specified path.");
   }
   ReadFile(resolved_path, root);
 
-  found = realpath(json_path.c_str(), resolved_path);
+  found = realpath(json_path.c_str(), resolved_path.data());
   if (found == NULL) {
     client_id_path.assign("");
 
   } else {
-    client_id_path.assign(resolved_path);
+    client_id_path.assign(resolved_path.data());
     std::string client_id_contents;
-    ReadFile(client_id_path, client_id_contents);
+    ReadFile(resolved_path, client_id_contents);
     client_id_json = nlohmann::json::parse(client_id_contents);
   }
 }
@@ -171,8 +170,8 @@ nlohmann::json corenode::CredentialsUtility::RequestOAuthToken() {
   return oauth_token;
 }
 
-void corenode::CredentialsUtility::ReadFile(const std::string& filename, std::string& data) {
-  std::ifstream file(filename.c_str(), std::ios::in);
+void corenode::CredentialsUtility::ReadFile(const std::array<char, PATH_MAX>& filename, std::string& data) {
+  std::ifstream file(filename.data(), std::ios::in);
   if (file.is_open()) {
     std::stringstream string_stream;
     string_stream << file.rdbuf();
