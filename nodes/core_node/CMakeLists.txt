@@ -135,7 +135,7 @@ include_directories("${curlpp_SOURCE_DIR}/include")
 include_directories("${CMAKE_BINARY_DIR}/libmongocxx-install/include")
 
 # Build utility libraries.
-foreach (_library ssl_key_cert oauth2_token_processor)
+foreach (_library credentials_utility oauth2_token_processor)
   add_library(${_library} "src/${_library}.cc" "src/${_library}.h")
   target_link_libraries(${_library}
     ${_REFLECTION}
@@ -146,7 +146,7 @@ foreach (_library ssl_key_cert oauth2_token_processor)
   list(APPEND _local_libraries ${_library})
 endforeach()
 
-target_compile_definitions(ssl_key_cert
+target_compile_definitions(credentials_utility
   PRIVATE
   -DOAUTH2_CLI=${oauth2_cli_BINARY_DIR}/oauth2_cli)
 
@@ -161,7 +161,7 @@ foreach(_target core_server basic_client)
     ${_GRPC_GRPCPP}
     ${_PROTOBUF_LIBPROTOBUF}
     ${_LIBMONGOCXX_LIBRARIES}
-    ssl_key_cert)
+    credentials_utility)
   target_include_directories(${_target}
     PRIVATE
     ${_LIBMONGOCXX_INCLUDE_DIRS})

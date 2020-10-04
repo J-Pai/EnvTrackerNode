@@ -1,6 +1,6 @@
-#include "ssl_key_cert.h"
+#include "credentials_utility.h"
 
-corenode::SslKeyCert::SslKeyCert() {
+corenode::CredentialsUtility::CredentialsUtility() {
   const char* key_path = std::getenv("SSL_KEY");
   const char* cert_path = std::getenv("SSL_CERT");
   const char* root_path = std::getenv("SSL_ROOT_CERT");
@@ -22,7 +22,7 @@ corenode::SslKeyCert::SslKeyCert() {
   InitFields(key_path, cert_path, root_path, json_path);
 }
 
-corenode::SslKeyCert::SslKeyCert(
+corenode::CredentialsUtility::CredentialsUtility(
     const std::string& key_path,
     const std::string& cert_path,
     const std::string& root_path,
@@ -30,7 +30,40 @@ corenode::SslKeyCert::SslKeyCert(
   InitFields(key_path, cert_path, root_path, json_path);
 }
 
-void corenode::SslKeyCert::InitFields(
+corenode::CredentialsUtility::CredentialsUtility(const std::string& env_json_path) {
+  char resolved_path[PATH_MAX];
+
+  char * found = realpath(env_json_path.c_str(), resolved_path);
+  if (found == NULL) {
+    throw std::runtime_error("Environment JSON file not found at specified path.");
+  }
+  std::string env_json_contents;
+  ReadFile(resolved_path, env_json_contents);
+
+  environment_json = nlohmann::json::parse(env_json_contents);
+
+  std::string key_path(environment_json.contains("ssl_key") ?
+      environment_json["ssl_key"] : "");
+  std::string cert_path(environment_json.contains("ssl_cert") ?
+      environment_json["ssl_cert"] : "");
+  std::string root_path(environment_json.contains("ssl_root_cert") ?
+      environment_json["ssl_root_cert"] : "");
+  std::string json_path(environment_json.contains("client_secret_json") ?
+      environment_json["client_secret_json"] : "");
+
+  ReplaceAll(key_path, "${HOME}", HOME);
+  ReplaceAll(cert_path, "${HOME}", HOME);
+  ReplaceAll(root_path, "${HOME}", HOME);
+  ReplaceAll(json_path, "${HOME}", HOME);
+  ReplaceAll(key_path, "~", HOME);
+  ReplaceAll(cert_path, "~", HOME);
+  ReplaceAll(root_path, "~", HOME);
+  ReplaceAll(json_path, "~", HOME);
+
+  InitFields(key_path, cert_path, root_path, json_path);
+}
+
+void corenode::CredentialsUtility::InitFields(
     const std::string& key_path,
     const std::string& cert_path,
     const std::string& root_path,
@@ -67,7 +100,7 @@ void corenode::SslKeyCert::InitFields(
   }
 }
 
-std::shared_ptr<grpc::ServerCredentials> corenode::SslKeyCert::GenerateServerCredentials() {
+std::shared_ptr<grpc::ServerCredentials> corenode::CredentialsUtility::GenerateServerCredentials() {
   grpc::SslServerCredentialsOptions::PemKeyCertPair key_cert = {
     key,
     cert
@@ -80,7 +113,7 @@ std::shared_ptr<grpc::ServerCredentials> corenode::SslKeyCert::GenerateServerCre
   return grpc::SslServerCredentials(ssl_opts);
 }
 
-std::shared_ptr<grpc::ChannelCredentials> corenode::SslKeyCert::GenerateChannelCredentials() {
+std::shared_ptr<grpc::ChannelCredentials> corenode::CredentialsUtility::GenerateChannelCredentials() {
   grpc::SslCredentialsOptions ssl_opts = {
     root,
     key,
@@ -90,7 +123,7 @@ std::shared_ptr<grpc::ChannelCredentials> corenode::SslKeyCert::GenerateChannelC
   return grpc::SslCredentials(ssl_opts);
 }
 
-nlohmann::json corenode::SslKeyCert::RequestOAuthToken() {
+nlohmann::json corenode::CredentialsUtility::RequestOAuthToken() {
   if (client_id_path.empty()) {
     throw std::runtime_error("No OAuth2 client ID JSON specified.");
   }
@@ -99,7 +132,7 @@ nlohmann::json corenode::SslKeyCert::RequestOAuthToken() {
     throw std::runtime_error("OAUTH2_CLI tool not defined");
   }
 
-  if (oauth_token != NULL) {
+  if (!oauth_token.empty()) {
     return GetOAuthToken();
   }
 
@@ -138,7 +171,7 @@ nlohmann::json corenode::SslKeyCert::RequestOAuthToken() {
   return oauth_token;
 }
 
-void corenode::SslKeyCert::ReadFile(const std::string& filename, std::string& data) {
+void corenode::CredentialsUtility::ReadFile(const std::string& filename, std::string& data) {
   std::ifstream file(filename.c_str(), std::ios::in);
   if (file.is_open()) {
     std::stringstream string_stream;
@@ -148,7 +181,7 @@ void corenode::SslKeyCert::ReadFile(const std::string& filename, std::string& da
   }
 }
 
-void corenode::SslKeyCert::ReplaceAll(std::string& str, const std::string& from, const std::string& to) {
+void corenode::CredentialsUtility::ReplaceAll(std::string& str, const std::string& from, const std::string& to) {
   if (from.empty()) {
     return;
   }
@@ -159,35 +192,65 @@ void corenode::SslKeyCert::ReplaceAll(std::string& str, const std::string& from,
   }
 }
 
-std::string corenode::SslKeyCert::GetKey() {
+std::string corenode::CredentialsUtility::GetKey() {
   return std::string(key);
 }
 
-std::string corenode::SslKeyCert::GetCert() {
+std::string corenode::CredentialsUtility::GetCert() {
   return std::string(cert);
 }
 
-std::string corenode::SslKeyCert::GetRoot() {
+std::string corenode::CredentialsUtility::GetRoot() {
   return std::string(root);
 }
 
-std::string corenode::SslKeyCert::GetClientIdJsonPath() {
+std::string corenode::CredentialsUtility::GetClientIdJsonPath() {
   return std::string(client_id_path);
 }
 
-nlohmann::json corenode::SslKeyCert::GetClientIdJson() {
+nlohmann::json corenode::CredentialsUtility::GetClientIdJson() {
   return nlohmann::json::parse(client_id_json.dump());
 }
 
-void corenode::SslKeyCert::SetOAuthToken(const std::string& token) {
+void corenode::CredentialsUtility::SetOAuthToken(const std::string& token) {
   oauth_token = {
     {"token", token},
   };
 }
 
-nlohmann::json corenode::SslKeyCert::GetOAuthToken() {
-  if (oauth_token == NULL) {
+nlohmann::json corenode::CredentialsUtility::GetOAuthToken() {
+  if (oauth_token.empty()) {
     return RequestOAuthToken();
   }
   return nlohmann::json::parse(oauth_token.dump());
+}
+
+std::string corenode::CredentialsUtility::GetFlagValue(
+    const std::string& arg_name,
+    const std::string& default_value,
+    int argc, char** argv) {
+  std::string target_str;
+  std::string arg_str("--" + arg_name);
+  for (int i = 1; i < argc; i++) {
+    std::string arg_val = argv[i];
+    size_t start_pos = arg_val.find(arg_str);
+    if (start_pos < arg_val.length()) {
+      if (start_pos != std::string::npos) {
+        start_pos += arg_str.size();
+        if (arg_val[start_pos] == '=') {
+          target_str = arg_val.substr(start_pos + 1);
+        } else {
+          std::cout << "The only correct argument syntax is --"
+            << arg_name << "=" << std::endl;
+          exit(1);
+        }
+      } else {
+        std::cout << "The only correct argument syntax is --"
+          << arg_name << "=" << std::endl;
+        exit(2);
+      }
+      return target_str;
+    }
+  }
+  return default_value.empty() ? "" : default_value;
 }

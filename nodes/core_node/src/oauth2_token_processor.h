@@ -8,7 +8,7 @@
 #include <grpcpp/grpcpp.h>
 #include <nlohmann/json.hpp>
 
-#include "ssl_key_cert.h"
+#include "credentials_utility.h"
 
 namespace corenode {
 /**
@@ -16,7 +16,7 @@ namespace corenode {
  */
 class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
   public:
-    OAuth2TokenProcessor(std::shared_ptr<corenode::SslKeyCert> ssl_key_cert);
+    OAuth2TokenProcessor(std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert);
 
     /**
      * Processes the gRPC authorization metadata and determines if the Google
@@ -28,7 +28,7 @@ class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
         OutputMetadata* consumed_auth_metadata,
         OutputMetadata* response_metadata) override;
   private:
-    std::shared_ptr<corenode::SslKeyCert> ssl_key_cert;
+    std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert;
     std::map<std::string, std::string> tokens;
 
     /**

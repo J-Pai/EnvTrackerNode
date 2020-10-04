@@ -12,7 +12,7 @@
 #include "core_node.grpc.pb.h"
 
 #include "oauth2_token_processor.h"
-#include "ssl_key_cert.h"
+#include "credentials_utility.h"
 
 class CoreNodeServiceImpl final : public envtrackernode::CoreNode::Service {
   grpc::Status SayHello(grpc::ServerContext* context,
@@ -26,22 +26,24 @@ class CoreNodeServiceImpl final : public envtrackernode::CoreNode::Service {
   }
 };
 
-void RunServer() {
+void RunServer(const std::string& env_json_path) {
   std::string server_address("0.0.0.0:50051");
   std::shared_ptr<grpc::ServerCredentials> credentials;
 
   CoreNodeServiceImpl coreNodeService;
 
   try {
-    std::shared_ptr<corenode::SslKeyCert> ssl_key_cert =
-      std::shared_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
+    std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert =
+      std::shared_ptr<corenode::CredentialsUtility>(env_json_path.empty() ?
+          new corenode::CredentialsUtility :
+          new corenode::CredentialsUtility(env_json_path));
     std::shared_ptr<corenode::OAuth2TokenProcessor> oauth2_processor =
       std::shared_ptr<corenode::OAuth2TokenProcessor>(
           new corenode::OAuth2TokenProcessor(ssl_key_cert));
     credentials = ssl_key_cert->GenerateServerCredentials();
     credentials->SetAuthMetadataProcessor(oauth2_processor);
   } catch (const std::runtime_error& error) {
-    std::cout << "Error in SslKeyCert creation: " << error.what() << std::endl;
+    std::cout << "Error in CredentialsUtility creation: " << error.what() << std::endl;
   }
 
   if (!credentials) {
@@ -67,6 +69,6 @@ void RunServer() {
 }
 
 int main(int argc, char** argv) {
-  RunServer();
+  RunServer(corenode::CredentialsUtility::GetFlagValue("env_json", "", argc, argv));
   return 0;
 }

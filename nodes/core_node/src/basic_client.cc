@@ -7,7 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include "core_node.grpc.pb.h"
-#include "ssl_key_cert.h"
+#include "credentials_utility.h"
 
 class CoreNodeClient {
   public:
@@ -35,48 +35,24 @@ class CoreNodeClient {
     std::unique_ptr<envtrackernode::CoreNode::Stub> stub_;
 };
 
-/**
- * Extracts the target gRPC server from the commandline argument flag --target.
- * Otherwise, defaults to localhost:50051.
- *
- * @return string gRPC target, defaults to localhost:50051 if --target is not
- * specified.
- */
-std::string GetTarget(int argc, char** argv) {
-  std::string target_str;
-  std::string arg_str("--target");
-  if (argc > 1) {
-    std::string arg_val = argv[1];
-    size_t start_pos = arg_val.find(arg_str);
-    if (start_pos != std::string::npos) {
-      start_pos += arg_str.size();
-      if (arg_val[start_pos] == '=') {
-        target_str = arg_val.substr(start_pos + 1);
-      } else {
-        std::cout << "The only correct argument syntax is --target=" << std::endl;
-        exit(1);
-      }
-    } else {
-      std::cout << "The only correct argument syntax is --target=" << std::endl;
-      exit(2);
-    }
-    return target_str;
-  }
-  return "localhost:50051";
-}
-
 int main(int argc, char** argv) {
   std::shared_ptr<grpc::ChannelCredentials> credentials;
-  std::string target_str(GetTarget(argc, argv));
+  std::string target_str(corenode::CredentialsUtility::GetFlagValue(
+        "target", "localhost:50051", argc, argv));
+  std::string env_json_path(corenode::CredentialsUtility::GetFlagValue(
+        "env_json", "", argc, argv));
+  std::string cli_oauth2_token(corenode::CredentialsUtility::GetFlagValue(
+        "oauth2_token", "", argc, argv));
 
-  const char* environment_oauth2_token = std::getenv("OAUTH2_TOKEN");
   try {
-    std::unique_ptr<corenode::SslKeyCert> sslKeyCert =
-      std::unique_ptr<corenode::SslKeyCert>(new corenode::SslKeyCert);
+    std::unique_ptr<corenode::CredentialsUtility> sslKeyCert =
+      std::unique_ptr<corenode::CredentialsUtility>(env_json_path.empty() ?
+          new corenode::CredentialsUtility :
+          new corenode::CredentialsUtility(env_json_path));
     nlohmann::json oauth2_credential;
 
-    if (environment_oauth2_token) {
-      sslKeyCert->SetOAuthToken(std::string(environment_oauth2_token));
+    if (!cli_oauth2_token.empty()) {
+      sslKeyCert->SetOAuthToken(std::string(cli_oauth2_token));
     }
 
     try {
@@ -95,7 +71,7 @@ int main(int argc, char** argv) {
       credentials = tlsCredentials;
     }
   } catch (const std::runtime_error& error) {
-    std::cout << "Error in SslKeyCert creation: " << error.what() << std::endl;
+    std::cout << "Error in CredentialsUtility creation: " << error.what() << std::endl;
   }
 
   if (!credentials) {

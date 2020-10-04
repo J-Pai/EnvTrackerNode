@@ -1,7 +1,7 @@
 #include "oauth2_token_processor.h"
 
 corenode::OAuth2TokenProcessor::OAuth2TokenProcessor(
-    std::shared_ptr<corenode::SslKeyCert> ssl_key_cert)
+    std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert)
     : ssl_key_cert(ssl_key_cert) {}
 
 grpc::Status corenode::OAuth2TokenProcessor::Process(
