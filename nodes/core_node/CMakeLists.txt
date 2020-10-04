@@ -99,8 +99,6 @@ ExternalProject_Add(libmongoc
   -DENABLE_STATIC:BOOL=OFF
   -DENABLE_EXAMPLES:BOOL=OFF
   -DENABLE_EXTRA_ALIGNMENT:BOOL=OFF)
-set(libmongoc-1.0_DIR "${CMAKE_BINARY_DIR}/libmongoc-install/lib/cmake/libmongoc-1.0/")
-set(libbson-1.0_DIR "${CMAKE_BINARY_DIR}/libmongoc-install/lib/cmake/libbson-1.0/")
 
 ExternalProject_Add(libmongocxx
   GIT_REPOSITORY  "https://github.com/mongodb/mongo-cxx-driver.git"
@@ -122,8 +120,8 @@ ExternalProject_Add(libmongocxx
   -DBSONCXX_POLY_USE_STD:BOOL=OFF
   DEPENDS libmongoc)
 list(APPEND _LIBMONGOCXX_LIBRARIES
-  "${CMAKE_BINARY_DIR}/libmongocxx-install/lib/libmongocxx.so.3.6.0"
-  "${CMAKE_BINARY_DIR}/libmongocxx-install/lib/libbsoncxx.so.3.6.0")
+  "${CMAKE_BINARY_DIR}/libmongocxx-install/lib/libmongocxx.so"
+  "${CMAKE_BINARY_DIR}/libmongocxx-install/lib/libbsoncxx.so")
 list(APPEND _LIBMONGOCXX_INCLUDE_DIRS
   "${CMAKE_BINARY_DIR}/libmongocxx-install/include/bsoncxx/v_noabi/"
   "${CMAKE_BINARY_DIR}/libmongocxx-install/include/mongocxx/v_noabi/")
