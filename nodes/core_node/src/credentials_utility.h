@@ -10,9 +10,13 @@
 #include <stdexcept>
 #include <string>
 
+#include <bsoncxx/stdx/make_unique.hpp>
+#include <bsoncxx/stdx/optional.hpp>
+#include <bsoncxx/stdx/string_view.hpp>
 #include <grpcpp/grpcpp.h>
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
+#include <mongocxx/pool.hpp>
 #include <nlohmann/json.hpp>
 
 #define STR(x) #x
@@ -64,6 +68,11 @@ class CredentialsUtility final {
     nlohmann::json RequestOAuthToken();
 
     /**
+     * Connects to MongoDB database using configured credentials.
+     */
+    void SetupMongoConnection();
+
+    /**
      * Extracts an argument value from the commandline arguments.
      *
      * @param arg_name Flag argument name (must be in the format --arg_name=arg_value).
@@ -84,12 +93,15 @@ class CredentialsUtility final {
     nlohmann::json GetClientIdJson();
     void SetOAuthToken(const std::string& token);
     nlohmann::json GetOAuthToken();
+    mongocxx::database GetDatabase(const std::string& database);
 
   private:
     std::string key;
     std::string cert;
     std::string root;
     std::string client_id_path;
+    std::unique_ptr<mongocxx::instance> instance_ = nullptr;
+    std::unique_ptr<mongocxx::pool> pool_ = nullptr;
     nlohmann::json mongo_connection;
     nlohmann::json client_id_json;
     nlohmann::json oauth_token;
@@ -118,9 +130,9 @@ class CredentialsUtility final {
      * Contains the path to the oauth2_cli tool that can be used to obtain a
      * Google OAuth2 access token.
      */
-    const std::string OAUTH2_CLI_EXE = XSTR(OAUTH2_CLI);
+    const std::string kOAuth2CLI = XSTR(OAUTH2_CLI);
 
-    const char* HOME = std::getenv("HOME");
+    const char* kHome = std::getenv("HOME");
 };
 } // namespace corenode
 

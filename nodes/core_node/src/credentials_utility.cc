@@ -56,14 +56,14 @@ corenode::CredentialsUtility::CredentialsUtility(const std::string& env_json_pat
   nlohmann::json mongo(environment_json.contains("mongo") ?
       environment_json["mongo"] : nlohmann::json());
 
-  ReplaceAll(key_path, "${HOME}", HOME);
-  ReplaceAll(cert_path, "${HOME}", HOME);
-  ReplaceAll(root_path, "${HOME}", HOME);
-  ReplaceAll(json_path, "${HOME}", HOME);
-  ReplaceAll(key_path, "~", HOME);
-  ReplaceAll(cert_path, "~", HOME);
-  ReplaceAll(root_path, "~", HOME);
-  ReplaceAll(json_path, "~", HOME);
+  ReplaceAll(key_path, "${HOME}", kHome);
+  ReplaceAll(cert_path, "${HOME}", kHome);
+  ReplaceAll(root_path, "${HOME}", kHome);
+  ReplaceAll(json_path, "${HOME}", kHome);
+  ReplaceAll(key_path, "~", kHome);
+  ReplaceAll(cert_path, "~", kHome);
+  ReplaceAll(root_path, "~", kHome);
+  ReplaceAll(json_path, "~", kHome);
 
   InitFields(key_path, cert_path, root_path, json_path, mongo);
 }
@@ -135,7 +135,7 @@ nlohmann::json corenode::CredentialsUtility::RequestOAuthToken() {
     throw std::runtime_error("No OAuth2 client ID JSON specified.");
   }
 
-  if (OAUTH2_CLI_EXE.compare("NULL") == 0) {
+  if (kOAuth2CLI.compare("NULL") == 0) {
     throw std::runtime_error("OAUTH2_CLI tool not defined");
   }
 
@@ -143,7 +143,7 @@ nlohmann::json corenode::CredentialsUtility::RequestOAuthToken() {
     return GetOAuthToken();
   }
 
-  std::string combined_command(OAUTH2_CLI_EXE
+  std::string combined_command(kOAuth2CLI
       + " " + GetClientIdJsonPath()
       + " envtrackernode");
   std::cout << "oauth2_cli tool specified: " << combined_command << std::endl;
@@ -176,6 +176,31 @@ nlohmann::json corenode::CredentialsUtility::RequestOAuthToken() {
   std::string cleaned_str(matches[2].str());
   oauth_token = nlohmann::json::parse(cleaned_str);
   return oauth_token;
+}
+
+void corenode::CredentialsUtility::SetupMongoConnection() {
+  if (mongo_connection.empty()) {
+    throw new std::runtime_error("No mongo credentials.");
+  }
+
+  if (pool_ != nullptr) {
+    return;
+  }
+
+  std::unique_ptr<mongocxx::instance> init_instance =
+    bsoncxx::stdx::make_unique<mongocxx::instance>();
+
+  std::unique_ptr<mongocxx::pool> init_pool = bsoncxx::stdx::make_unique<mongocxx::pool>(
+    mongocxx::uri{
+      std::string("mongodb+srv://")
+        + std::string(mongo_connection["user"])
+        + ":" + std::string(mongo_connection["password"])
+        + "@" + std::string(mongo_connection["uri"])
+        + "?retryWrites=true&w=majority&tls=true"
+    });
+
+  pool_ = std::move(init_pool);
+  instance_ = std::move(init_instance);
 }
 
 void corenode::CredentialsUtility::ReadFile(const std::array<char, PATH_MAX>& filename, std::string& data) {
