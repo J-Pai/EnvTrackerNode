@@ -40,21 +40,19 @@ corenode::CredentialsUtility::CredentialsUtility(const std::string& env_json_pat
   if (found == NULL) {
     throw std::runtime_error("Environment JSON file not found at specified path.");
   }
-  std::string env_json_contents;
-  ReadFile(resolved_path, env_json_contents);
+  std::string env_json_contents = ReadFile(resolved_path);
+  environment_json_ = nlohmann::json::parse(env_json_contents);
 
-  environment_json = nlohmann::json::parse(env_json_contents);
-
-  std::string key_path(environment_json.contains("ssl_key") ?
-      environment_json["ssl_key"] : "");
-  std::string cert_path(environment_json.contains("ssl_cert") ?
-      environment_json["ssl_cert"] : "");
-  std::string root_path(environment_json.contains("ssl_root_cert") ?
-      environment_json["ssl_root_cert"] : "");
-  std::string json_path(environment_json.contains("client_secret_json") ?
-      environment_json["client_secret_json"] : "");
-  nlohmann::json mongo(environment_json.contains("mongo") ?
-      environment_json["mongo"] : nlohmann::json());
+  std::string key_path(environment_json_.contains("ssl_key") ?
+      environment_json_["ssl_key"] : "");
+  std::string cert_path(environment_json_.contains("ssl_cert") ?
+      environment_json_["ssl_cert"] : "");
+  std::string root_path(environment_json_.contains("ssl_root_cert") ?
+      environment_json_["ssl_root_cert"] : "");
+  std::string json_path(environment_json_.contains("client_secret_json") ?
+      environment_json_["client_secret_json"] : "");
+  nlohmann::json mongo(environment_json_.contains("mongo") ?
+      environment_json_["mongo"] : nlohmann::json());
 
   ReplaceAll(key_path, "${HOME}", kHome);
   ReplaceAll(cert_path, "${HOME}", kHome);
@@ -80,41 +78,41 @@ void corenode::CredentialsUtility::InitFields(
   if (found == NULL) {
     throw std::runtime_error("SSL secret key file not found at specified path.");
   }
-  ReadFile(resolved_path, key);
+  key_.assign(ReadFile(resolved_path));
 
   found = realpath(cert_path.c_str(), resolved_path.data());
   if (found == NULL) {
     throw std::runtime_error("SSL certificate file not found at specified path.");
   }
-  ReadFile(resolved_path, cert);
+  cert_.assign(ReadFile(resolved_path));
 
   found = realpath(root_path.c_str(), resolved_path.data());
   if (found == NULL) {
     throw std::runtime_error("SSL root CA certificate file not found at specified path.");
   }
-  ReadFile(resolved_path, root);
+  root_.assign(ReadFile(resolved_path));
 
   found = realpath(json_path.c_str(), resolved_path.data());
   if (found == NULL) {
-    client_id_path.assign("");
+    client_id_path_.assign("");
   } else {
-    client_id_path.assign(resolved_path.data());
+    client_id_path_.assign(resolved_path.data());
     std::string client_id_contents;
-    ReadFile(resolved_path, client_id_contents);
-    client_id_json = nlohmann::json::parse(client_id_contents);
+    client_id_contents.assign(ReadFile(resolved_path));
+    client_id_json_ = nlohmann::json::parse(client_id_contents);
   }
 
-  mongo_connection = mongo;
+  mongo_connection_ = mongo;
 }
 
 std::shared_ptr<grpc::ServerCredentials> corenode::CredentialsUtility::GenerateServerCredentials() {
   grpc::SslServerCredentialsOptions::PemKeyCertPair key_cert = {
-    key,
-    cert
+    key_,
+    cert_
   };
 
   grpc::SslServerCredentialsOptions ssl_opts;
-  ssl_opts.pem_root_certs = root;
+  ssl_opts.pem_root_certs = root_;
   ssl_opts.pem_key_cert_pairs.push_back(key_cert);
 
   return grpc::SslServerCredentials(ssl_opts);
@@ -122,16 +120,16 @@ std::shared_ptr<grpc::ServerCredentials> corenode::CredentialsUtility::GenerateS
 
 std::shared_ptr<grpc::ChannelCredentials> corenode::CredentialsUtility::GenerateChannelCredentials() {
   grpc::SslCredentialsOptions ssl_opts = {
-    root,
-    key,
-    cert
+    root_,
+    key_,
+    cert_
   };
 
   return grpc::SslCredentials(ssl_opts);
 }
 
 nlohmann::json corenode::CredentialsUtility::RequestOAuthToken() {
-  if (client_id_path.empty()) {
+  if (client_id_path_.empty()) {
     throw std::runtime_error("No OAuth2 client ID JSON specified.");
   }
 
@@ -139,7 +137,7 @@ nlohmann::json corenode::CredentialsUtility::RequestOAuthToken() {
     throw std::runtime_error("OAUTH2_CLI tool not defined");
   }
 
-  if (!oauth_token.empty()) {
+  if (!oauth_token_.empty()) {
     return GetOAuthToken();
   }
 
@@ -174,12 +172,12 @@ nlohmann::json corenode::CredentialsUtility::RequestOAuthToken() {
 
   // Convert OAuth2 JSON string to JSON object.
   std::string cleaned_str(matches[2].str());
-  oauth_token = nlohmann::json::parse(cleaned_str);
-  return oauth_token;
+  oauth_token_ = nlohmann::json::parse(cleaned_str);
+  return oauth_token_;
 }
 
 void corenode::CredentialsUtility::SetupMongoConnection() {
-  if (mongo_connection.empty()) {
+  if (mongo_connection_.empty()) {
     throw new std::runtime_error("No mongo credentials.");
   }
 
@@ -193,9 +191,9 @@ void corenode::CredentialsUtility::SetupMongoConnection() {
   std::unique_ptr<mongocxx::pool> init_pool = bsoncxx::stdx::make_unique<mongocxx::pool>(
     mongocxx::uri{
       std::string("mongodb+srv://")
-        + std::string(mongo_connection["user"])
-        + ":" + std::string(mongo_connection["password"])
-        + "@" + std::string(mongo_connection["uri"])
+        + std::string(mongo_connection_["user"])
+        + ":" + std::string(mongo_connection_["password"])
+        + "@" + std::string(mongo_connection_["uri"])
         + "?retryWrites=true&w=majority&tls=true"
     });
 
@@ -203,14 +201,15 @@ void corenode::CredentialsUtility::SetupMongoConnection() {
   instance_ = std::move(init_instance);
 }
 
-void corenode::CredentialsUtility::ReadFile(const std::array<char, PATH_MAX>& filename, std::string& data) {
+std::string corenode::CredentialsUtility::ReadFile(const std::array<char, PATH_MAX>& filename) {
   std::ifstream file(filename.data(), std::ios::in);
   if (file.is_open()) {
     std::stringstream string_stream;
     string_stream << file.rdbuf();
     file.close();
-    data = string_stream.str();
+    return string_stream.str();
   }
+  return "";
 }
 
 void corenode::CredentialsUtility::ReplaceAll(std::string& str, const std::string& from, const std::string& to) {
@@ -225,36 +224,36 @@ void corenode::CredentialsUtility::ReplaceAll(std::string& str, const std::strin
 }
 
 std::string corenode::CredentialsUtility::GetKey() {
-  return std::string(key);
+  return std::string(key_);
 }
 
 std::string corenode::CredentialsUtility::GetCert() {
-  return std::string(cert);
+  return std::string(cert_);
 }
 
 std::string corenode::CredentialsUtility::GetRoot() {
-  return std::string(root);
+  return std::string(root_);
 }
 
 std::string corenode::CredentialsUtility::GetClientIdJsonPath() {
-  return std::string(client_id_path);
+  return std::string(client_id_path_);
 }
 
 nlohmann::json corenode::CredentialsUtility::GetClientIdJson() {
-  return nlohmann::json::parse(client_id_json.dump());
+  return nlohmann::json::parse(client_id_json_.dump());
 }
 
 void corenode::CredentialsUtility::SetOAuthToken(const std::string& token) {
-  oauth_token = {
+  oauth_token_ = {
     {"token", token},
   };
 }
 
 nlohmann::json corenode::CredentialsUtility::GetOAuthToken() {
-  if (oauth_token.empty()) {
+  if (oauth_token_.empty()) {
     return RequestOAuthToken();
   }
-  return nlohmann::json::parse(oauth_token.dump());
+  return nlohmann::json::parse(oauth_token_.dump());
 }
 
 std::string corenode::CredentialsUtility::GetFlagValue(

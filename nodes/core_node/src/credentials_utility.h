@@ -96,16 +96,16 @@ class CredentialsUtility final {
     mongocxx::database GetDatabase(const std::string& database);
 
   private:
-    std::string key;
-    std::string cert;
-    std::string root;
-    std::string client_id_path;
+    std::string key_;
+    std::string cert_;
+    std::string root_;
+    std::string client_id_path_;
     std::unique_ptr<mongocxx::instance> instance_ = nullptr;
     std::unique_ptr<mongocxx::pool> pool_ = nullptr;
-    nlohmann::json mongo_connection;
-    nlohmann::json client_id_json;
-    nlohmann::json oauth_token;
-    nlohmann::json environment_json;
+    nlohmann::json mongo_connection_;
+    nlohmann::json client_id_json_;
+    nlohmann::json oauth_token_;
+    nlohmann::json environment_json_;
 
     void InitFields(
         const std::string& key_path,
@@ -124,7 +124,14 @@ class CredentialsUtility final {
      */
     void ReplaceAll(std::string& str, const std::string& from, const std::string& to);
 
-    void ReadFile(const std::array<char, PATH_MAX>& filename, std::string& data);
+    /**
+     * Parses the file located at the path filename and dumps it's contents into
+     * data.
+     *
+     * @param filename Path to file.
+     * @return String with the contents of the files.
+     */
+    std::string ReadFile(const std::array<char, PATH_MAX>& filename);
 
     /**
      * Contains the path to the oauth2_cli tool that can be used to obtain a
