@@ -52,8 +52,6 @@ You can generate a set of self-signed SSL certificates and private keys using
 the helper script found [here](../../scripts/ssl/)
 
 ## Request OAuth2
-Setup and install the `oauth2_cli` tool found [here](../../scripts/oauth2_cli).
-
 Specify the path to the client secret JSON with the following environment
 variable:
 
