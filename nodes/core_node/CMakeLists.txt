@@ -120,6 +120,7 @@ ExternalProject_Add(libmongocxx
   -DBSONCXX_POLY_USE_STD:BOOL=OFF
   DEPENDS libmongoc)
 set(_LIBMONGOCXX_LIBRARIES
+  "${CMAKE_BINARY_DIR}/libmongocxx-build/src/bsoncxx/libbsoncxx.so"
   "${CMAKE_BINARY_DIR}/libmongocxx-build/src/mongocxx/libmongocxx.so")
 set(_LIBMONGOCXX_INCLUDE_DIRS
   "${CMAKE_BINARY_DIR}/libmongocxx-install/include/bsoncxx/v_noabi/"
@@ -133,6 +134,10 @@ include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 foreach (_library credentials_utility oauth2_token_processor)
   add_library(${_library} "src/${_library}.cc" "src/${_library}.h")
   add_dependencies(${_library} libmongocxx)
+  target_include_directories(${_library}
+    PUBLIC
+    "${curlpp_SOURCE_DIR}/include"
+    "${_LIBMONGOCXX_INCLUDE_DIRS}")
   target_link_libraries(${_library}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
@@ -140,10 +145,6 @@ foreach (_library credentials_utility oauth2_token_processor)
     ${_LIBMONGOCXX_LIBRARIES}
     nlohmann_json::nlohmann_json
     curlpp)
-  target_include_directories(${_library}
-    PUBLIC
-    "${curlpp_SOURCE_DIR}/include"
-    "${_LIBMONGOCXX_INCLUDE_DIRS}")
   list(APPEND _local_libraries ${_library})
 endforeach()
 

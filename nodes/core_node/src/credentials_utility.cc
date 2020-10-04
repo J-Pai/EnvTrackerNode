@@ -51,8 +51,10 @@ corenode::CredentialsUtility::CredentialsUtility(const std::string& env_json_pat
       environment_json_["ssl_root_cert"] : "");
   std::string json_path(environment_json_.contains("client_secret_json") ?
       environment_json_["client_secret_json"] : "");
-  nlohmann::json mongo(environment_json_.contains("mongo") ?
-      environment_json_["mongo"] : nlohmann::json());
+  nlohmann::json mongo;
+  if (environment_json_.contains("mongo")) {
+    mongo = environment_json_["mongo"];
+  }
 
   ReplaceAll(key_path, "${HOME}", kHome);
   ReplaceAll(cert_path, "${HOME}", kHome);
@@ -178,7 +180,7 @@ nlohmann::json corenode::CredentialsUtility::RequestOAuthToken() {
 
 void corenode::CredentialsUtility::SetupMongoConnection() {
   if (mongo_connection_.empty()) {
-    throw new std::runtime_error("No mongo credentials.");
+    throw std::runtime_error("No mongo credentials.");
   }
 
   if (pool_ != nullptr) {
@@ -188,20 +190,35 @@ void corenode::CredentialsUtility::SetupMongoConnection() {
   std::unique_ptr<mongocxx::instance> init_instance =
     bsoncxx::stdx::make_unique<mongocxx::instance>();
 
-  std::unique_ptr<mongocxx::pool> init_pool = bsoncxx::stdx::make_unique<mongocxx::pool>(
-    mongocxx::uri{
-      std::string("mongodb+srv://")
-        + std::string(mongo_connection_["user"])
-        + ":" + std::string(mongo_connection_["password"])
-        + "@" + std::string(mongo_connection_["uri"])
-        + "?retryWrites=true&w=majority&tls=true"
-    });
+  std::string uri_str = "mongodb+srv://"
+    + std::string(mongo_connection_["user"])
+    + ":" + std::string(mongo_connection_["password"])
+    + "@" + std::string(mongo_connection_["uri"])
+    + "/?w=majority&tls=true"
+    + (mongo_connection_.contains("retry_writes") ?
+      "&retryWrites=" + std::string(mongo_connection_["retry_writes"]) : "")
+    + (mongo_connection_.contains("pool_size") ?
+      "&maxPoolSize=" + std::string(mongo_connection_["pool_size"]) : "");
+
+  mongocxx::uri uri{uri_str};
+
+  std::unique_ptr<mongocxx::pool> init_pool =
+    bsoncxx::stdx::make_unique<mongocxx::pool>(uri);
 
   pool_ = std::move(init_pool);
   instance_ = std::move(init_instance);
 }
 
-std::string corenode::CredentialsUtility::ReadFile(const std::array<char, PATH_MAX>& filename) {
+mongocxx::pool::entry corenode::CredentialsUtility::GetMongoClient() {
+  if (pool_ == nullptr) {
+    SetupMongoConnection();
+  }
+  mongocxx::pool::entry client = pool_->acquire();
+  return client;
+}
+
+std::string corenode::CredentialsUtility::ReadFile(
+    const std::array<char, PATH_MAX>& filename) {
   std::ifstream file(filename.data(), std::ios::in);
   if (file.is_open()) {
     std::stringstream string_stream;
@@ -212,7 +229,8 @@ std::string corenode::CredentialsUtility::ReadFile(const std::array<char, PATH_M
   return "";
 }
 
-void corenode::CredentialsUtility::ReplaceAll(std::string& str, const std::string& from, const std::string& to) {
+void corenode::CredentialsUtility::ReplaceAll(
+    std::string& str, const std::string& from, const std::string& to) {
   if (from.empty()) {
     return;
   }

@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <grpcpp/grpcpp.h>
+#include <mongocxx/client.hpp>
 #include <nlohmann/json.hpp>
 
 #include "core_node.grpc.pb.h"
@@ -43,25 +44,37 @@ int main(int argc, char** argv) {
   std::string cli_oauth2_token(corenode::CredentialsUtility::GetFlagValue(
         "oauth2_token", "", argc, argv));
 
+  std::unique_ptr<corenode::CredentialsUtility> utility =
+    std::unique_ptr<corenode::CredentialsUtility>(env_json_path.empty() ?
+        new corenode::CredentialsUtility :
+        new corenode::CredentialsUtility(env_json_path));
+
   try {
-    std::unique_ptr<corenode::CredentialsUtility> sslKeyCert =
-      std::unique_ptr<corenode::CredentialsUtility>(env_json_path.empty() ?
-          new corenode::CredentialsUtility :
-          new corenode::CredentialsUtility(env_json_path));
-    nlohmann::json oauth2_credential;
-
-    if (!cli_oauth2_token.empty()) {
-      sslKeyCert->SetOAuthToken(std::string(cli_oauth2_token));
+    mongocxx::pool::entry client_entry = utility->GetMongoClient();
+    mongocxx::cursor cursor = client_entry->list_databases();
+    for (const bsoncxx::document::view& doc : cursor) {
+      bsoncxx::document::element ele = doc["name"];
+      std::cout << ele.get_utf8().value.to_string() << std::endl;
     }
+  } catch (const std::runtime_error& error) {
+    std::cout << "Error in MongoDB connection: " << error.what() << std::endl;
+  }
 
-    try {
-      oauth2_credential = sslKeyCert->GetOAuthToken();
-    } catch (const std::runtime_error& error) {
-      std::cout << "Error in OAuth2 request: " << error.what() << std::endl;
-    }
+  nlohmann::json oauth2_credential;
 
+  if (!cli_oauth2_token.empty()) {
+    utility->SetOAuthToken(std::string(cli_oauth2_token));
+  }
+
+  try {
+    oauth2_credential = utility->GetOAuthToken();
+  } catch (const std::runtime_error& error) {
+    std::cout << "Error in OAuth2 request: " << error.what() << std::endl;
+  }
+
+  try {
     std::shared_ptr<grpc::ChannelCredentials> tlsCredentials =
-      sslKeyCert->GenerateChannelCredentials();
+      utility->GenerateChannelCredentials();
     if (!oauth2_credential.empty()) {
       credentials = grpc::CompositeChannelCredentials(tlsCredentials,
           std::shared_ptr<grpc::CallCredentials>(

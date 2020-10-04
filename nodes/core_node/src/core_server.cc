@@ -33,14 +33,14 @@ void RunServer(const std::string& env_json_path) {
   CoreNodeServiceImpl coreNodeService;
 
   try {
-    std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert =
+    std::shared_ptr<corenode::CredentialsUtility> utility =
       std::shared_ptr<corenode::CredentialsUtility>(env_json_path.empty() ?
           new corenode::CredentialsUtility :
           new corenode::CredentialsUtility(env_json_path));
     std::shared_ptr<corenode::OAuth2TokenProcessor> oauth2_processor =
       std::shared_ptr<corenode::OAuth2TokenProcessor>(
-          new corenode::OAuth2TokenProcessor(ssl_key_cert));
-    credentials = ssl_key_cert->GenerateServerCredentials();
+          new corenode::OAuth2TokenProcessor(utility));
+    credentials = utility->GenerateServerCredentials();
     credentials->SetAuthMetadataProcessor(oauth2_processor);
   } catch (const std::runtime_error& error) {
     std::cout << "Error in CredentialsUtility creation: " << error.what() << std::endl;

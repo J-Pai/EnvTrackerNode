@@ -11,10 +11,7 @@
 #include <string>
 
 #include <bsoncxx/stdx/make_unique.hpp>
-#include <bsoncxx/stdx/optional.hpp>
-#include <bsoncxx/stdx/string_view.hpp>
 #include <grpcpp/grpcpp.h>
-#include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
 #include <mongocxx/pool.hpp>
 #include <nlohmann/json.hpp>
@@ -93,7 +90,7 @@ class CredentialsUtility final {
     nlohmann::json GetClientIdJson();
     void SetOAuthToken(const std::string& token);
     nlohmann::json GetOAuthToken();
-    mongocxx::database GetDatabase(const std::string& database);
+    mongocxx::pool::entry GetMongoClient();
 
   private:
     std::string key_;
