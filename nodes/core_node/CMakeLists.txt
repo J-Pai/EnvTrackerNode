@@ -93,7 +93,7 @@ ExternalProject_Add(libmongoc
   BINARY_DIR "${CMAKE_BINARY_DIR}/libmongoc-build"
   INSTALL_DIR "${CMAKE_BINARY_DIR}/libmongoc-install"
   CMAKE_CACHE_ARGS
-  CMAKE_CACHE_ARGS
+  -DCMAKE_BUILD_TYPE:STRING=Release
   -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/libmongoc-install
   -DENABLE_TESTS:BOOL=OFF
   -DENABLE_STATIC:BOOL=OFF
@@ -110,7 +110,7 @@ ExternalProject_Add(libmongocxx
   BINARY_DIR "${CMAKE_BINARY_DIR}/libmongocxx-build"
   INSTALL_DIR "${CMAKE_BINARY_DIR}/libmongocxx-install"
   CMAKE_CACHE_ARGS
-  -DBUILD_SHARED_AND_STATIC_LIBS:BOOL=ON
+  -DCMAKE_BUILD_TYPE:STRING=Release
   -DCMAKE_PREFIX_PATH:PATH=${CMAKE_BINARY_DIR}/libmongoc-install
   -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/libmongocxx-install
   -DENABLE_TESTS:BOOL=OFF
@@ -119,17 +119,15 @@ ExternalProject_Add(libmongocxx
   -DBSONCXX_POLY_USE_MNMLSTC:BOOL=ON
   -DBSONCXX_POLY_USE_STD:BOOL=OFF
   DEPENDS libmongoc)
-list(APPEND _LIBMONGOCXX_LIBRARIES
-  "${CMAKE_BINARY_DIR}/libmongocxx-install/lib/libmongocxx.so"
-  "${CMAKE_BINARY_DIR}/libmongocxx-install/lib/libbsoncxx.so")
-list(APPEND _LIBMONGOCXX_INCLUDE_DIRS
+set(_LIBMONGOCXX_LIBRARIES
+  "${CMAKE_BINARY_DIR}/libmongocxx-build/src/mongocxx/libmongocxx.so")
+set(_LIBMONGOCXX_INCLUDE_DIRS
   "${CMAKE_BINARY_DIR}/libmongocxx-install/include/bsoncxx/v_noabi/"
   "${CMAKE_BINARY_DIR}/libmongocxx-install/include/mongocxx/v_noabi/")
 message(STATUS "Using mongocxx r3.6.0")
 
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
-include_directories("${curlpp_SOURCE_DIR}/include")
 
 # Build utility libraries.
 foreach (_library credentials_utility oauth2_token_processor)
@@ -144,7 +142,8 @@ foreach (_library credentials_utility oauth2_token_processor)
     curlpp)
   target_include_directories(${_library}
     PUBLIC
-    ${_LIBMONGOCXX_INCLUDE_DIRS})
+    "${curlpp_SOURCE_DIR}/include"
+    "${_LIBMONGOCXX_INCLUDE_DIRS}")
   list(APPEND _local_libraries ${_library})
 endforeach()
 
@@ -165,8 +164,3 @@ endforeach()
 
 target_link_libraries(core_server
   oauth2_token_processor)
-
-add_custom_target(run
-  COMMAND core_server
-  DEPENDS core_server
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
