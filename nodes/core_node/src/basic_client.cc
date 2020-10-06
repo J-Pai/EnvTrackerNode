@@ -74,18 +74,25 @@ int main(int argc, char** argv) {
 
     mongocxx::database database = client_entry->database(utility->GetDatabaseName());
 
+    bsoncxx::document::value filter =
+      bsoncxx::builder::basic::make_document(
+          bsoncxx::builder::basic::kvp("_id", token_info["sub"].get<std::string>()));
     bsoncxx::document::value document =
       bsoncxx::builder::basic::make_document(
-          bsoncxx::builder::basic::kvp("_id", token_info["sub"].get<std::string>()),
-          bsoncxx::builder::basic::kvp("email", token_info["email"].get<std::string>()),
-          bsoncxx::builder::basic::kvp("tokens",
-            bsoncxx::builder::basic::make_array(
+          bsoncxx::builder::basic::kvp("$set",
+            bsoncxx::builder::basic::make_document(
+              bsoncxx::builder::basic::kvp("_id", token_info["sub"].get<std::string>()),
+              bsoncxx::builder::basic::kvp("email", token_info["email"].get<std::string>()))),
+          bsoncxx::builder::basic::kvp("$addToSet",
               bsoncxx::builder::basic::make_document(
-                bsoncxx::builder::basic::kvp("token", oauth2_credential["token"].get<std::string>()),
-                bsoncxx::builder::basic::kvp("expiration", token_info["exp"].get<std::string>())))));
+                bsoncxx::builder::basic::kvp("tokens",
+                  bsoncxx::builder::basic::make_document(
+                    bsoncxx::builder::basic::kvp("token", oauth2_credential["token"].get<std::string>()),
+                    bsoncxx::builder::basic::kvp("expiration", token_info["exp"].get<std::string>()))))));
 
-    bsoncxx::stdx::optional<mongocxx::result::insert_one> result =
-      database["envtrackernode_users"].insert_one(document.view());
+    bsoncxx::stdx::optional<mongocxx::result::update> result =
+      database["envtrackernode_users"].update_one(
+          filter.view(), document.view(), mongocxx::options::update{}.upsert(true));
   } catch (const std::runtime_error& error) {
     std::cout << "Error in MongoDB connection: " << error.what() << std::endl;
   }

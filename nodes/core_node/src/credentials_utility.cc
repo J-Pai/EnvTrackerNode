@@ -200,8 +200,6 @@ void corenode::CredentialsUtility::SetupMongoConnection() {
     + (mongo_connection_.contains("pool_size") ?
       "&maxPoolSize=" + mongo_connection_["pool_size"].get<std::string>() : "");
 
-  std::cout << uri_str << std::endl;
-
   mongocxx::uri uri{uri_str};
 
   std::unique_ptr<mongocxx::pool> init_pool =
@@ -267,7 +265,7 @@ std::string corenode::CredentialsUtility::GetClientIdJsonPath() {
 }
 
 nlohmann::json corenode::CredentialsUtility::GetClientIdJson() {
-  return nlohmann::json::parse(client_id_json_.get<std::string>());
+  return nlohmann::json::parse(client_id_json_.dump());
 }
 
 void corenode::CredentialsUtility::SetOAuthToken(const std::string& token) {
