@@ -191,14 +191,16 @@ void corenode::CredentialsUtility::SetupMongoConnection() {
     bsoncxx::stdx::make_unique<mongocxx::instance>();
 
   std::string uri_str = "mongodb+srv://"
-    + std::string(mongo_connection_["user"])
-    + ":" + std::string(mongo_connection_["password"])
-    + "@" + std::string(mongo_connection_["uri"])
+    + mongo_connection_["user"].get<std::string>()
+    + ":" + mongo_connection_["password"].get<std::string>()
+    + "@" + mongo_connection_["uri"].get<std::string>()
     + "/?w=majority&tls=true"
     + (mongo_connection_.contains("retry_writes") ?
-      "&retryWrites=" + std::string(mongo_connection_["retry_writes"]) : "")
+      "&retryWrites=" + mongo_connection_["retry_writes"].get<std::string>() : "")
     + (mongo_connection_.contains("pool_size") ?
-      "&maxPoolSize=" + std::string(mongo_connection_["pool_size"]) : "");
+      "&maxPoolSize=" + mongo_connection_["pool_size"].get<std::string>() : "");
+
+  std::cout << uri_str << std::endl;
 
   mongocxx::uri uri{uri_str};
 
@@ -215,6 +217,13 @@ mongocxx::pool::entry corenode::CredentialsUtility::GetMongoClient() {
   }
   mongocxx::pool::entry client = pool_->acquire();
   return client;
+}
+
+std::string corenode::CredentialsUtility::GetDatabaseName() {
+  if (mongo_connection_.contains("default_database")) {
+    return mongo_connection_["default_database"].get<std::string>();
+  }
+  return kDefaultDatabase;
 }
 
 std::string corenode::CredentialsUtility::ReadFile(
@@ -258,7 +267,7 @@ std::string corenode::CredentialsUtility::GetClientIdJsonPath() {
 }
 
 nlohmann::json corenode::CredentialsUtility::GetClientIdJson() {
-  return nlohmann::json::parse(client_id_json_.dump());
+  return nlohmann::json::parse(client_id_json_.get<std::string>());
 }
 
 void corenode::CredentialsUtility::SetOAuthToken(const std::string& token) {

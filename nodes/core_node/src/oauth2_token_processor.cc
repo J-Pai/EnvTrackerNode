@@ -1,5 +1,8 @@
 #include "oauth2_token_processor.h"
 
+const std::string corenode::OAuth2TokenProcessor::kTokenInfoEndpoint =
+    "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=%s";
+
 corenode::OAuth2TokenProcessor::OAuth2TokenProcessor(
     std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert)
     : ssl_key_cert_(ssl_key_cert) {}

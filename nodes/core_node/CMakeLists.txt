@@ -160,8 +160,6 @@ foreach(_target core_server basic_client)
   target_link_libraries(${_target}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
+    oauth2_token_processor
     credentials_utility)
 endforeach()
-
-target_link_libraries(core_server
-  oauth2_token_processor)

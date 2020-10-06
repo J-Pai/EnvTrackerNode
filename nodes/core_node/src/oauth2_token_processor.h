@@ -27,9 +27,6 @@ class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
         grpc::AuthContext* context,
         OutputMetadata* consumed_auth_metadata,
         OutputMetadata* response_metadata) override;
-  private:
-    std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert_;
-    std::map<std::string, std::string> tokens_;
 
     /**
      * Makes a request to the Google OAuth2 tokeninfo Endpoint to verify the
@@ -40,7 +37,11 @@ class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
      * @param token OAuth2 access token.
      * @return {@link nlohmann::json} of body of endpoint reponse.
      */
-    nlohmann::json GetTokenInfo(const std::string& token);
+    static nlohmann::json GetTokenInfo(const std::string& token);
+
+  private:
+    std::shared_ptr<corenode::CredentialsUtility> ssl_key_cert_;
+    std::map<std::string, std::string> tokens_;
 
     /**
      * Verify that the Google OAuth2 token contains the correct information.
@@ -50,9 +51,8 @@ class OAuth2TokenProcessor final : public grpc::AuthMetadataProcessor {
      */
     bool ValidateTokenInfo(const nlohmann::json& token_info);
 
-    const std::string kTokenInfoEndpoint =
-      "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=%s";
-    const int kBearerTextLength = 7;
+    static const std::string kTokenInfoEndpoint;
+    static const size_t kBearerTextLength = 7;
 };
 }
 

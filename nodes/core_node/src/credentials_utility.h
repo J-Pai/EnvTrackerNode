@@ -91,6 +91,7 @@ class CredentialsUtility final {
     void SetOAuthToken(const std::string& token);
     nlohmann::json GetOAuthToken();
     mongocxx::pool::entry GetMongoClient();
+    std::string GetDatabaseName();
 
   private:
     std::string key_;
@@ -137,6 +138,8 @@ class CredentialsUtility final {
     const std::string kOAuth2CLI = XSTR(OAUTH2_CLI);
 
     const char* kHome = std::getenv("HOME");
+
+    const std::string kDefaultDatabase = "DataNode";
 };
 } // namespace corenode
 

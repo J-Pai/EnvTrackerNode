@@ -2,12 +2,14 @@
 #include <iterator>
 #include <memory>
 
+#include <bsoncxx/builder/stream/document.hpp>
 #include <grpcpp/grpcpp.h>
 #include <mongocxx/client.hpp>
 #include <nlohmann/json.hpp>
 
 #include "core_node.grpc.pb.h"
 #include "credentials_utility.h"
+#include "oauth2_token_processor.h"
 
 class CoreNodeClient {
   public:
@@ -49,17 +51,6 @@ int main(int argc, char** argv) {
         new corenode::CredentialsUtility :
         new corenode::CredentialsUtility(env_json_path));
 
-  try {
-    mongocxx::pool::entry client_entry = utility->GetMongoClient();
-    mongocxx::cursor cursor = client_entry->list_databases();
-    for (const bsoncxx::document::view& doc : cursor) {
-      bsoncxx::document::element ele = doc["name"];
-      std::cout << ele.get_utf8().value.to_string() << std::endl;
-    }
-  } catch (const std::runtime_error& error) {
-    std::cout << "Error in MongoDB connection: " << error.what() << std::endl;
-  }
-
   nlohmann::json oauth2_credential;
 
   if (!cli_oauth2_token.empty()) {
@@ -70,6 +61,33 @@ int main(int argc, char** argv) {
     oauth2_credential = utility->GetOAuthToken();
   } catch (const std::runtime_error& error) {
     std::cout << "Error in OAuth2 request: " << error.what() << std::endl;
+  }
+
+
+  try {
+    mongocxx::pool::entry client_entry = utility->GetMongoClient();
+
+    std::string token(oauth2_credential["token"]);
+    nlohmann::json token_info = corenode::OAuth2TokenProcessor::GetTokenInfo(token);
+
+    std::cout << token_info << std::endl;
+
+    mongocxx::database database = client_entry->database(utility->GetDatabaseName());
+
+    bsoncxx::document::value document =
+      bsoncxx::builder::basic::make_document(
+          bsoncxx::builder::basic::kvp("_id", token_info["sub"].get<std::string>()),
+          bsoncxx::builder::basic::kvp("email", token_info["email"].get<std::string>()),
+          bsoncxx::builder::basic::kvp("tokens",
+            bsoncxx::builder::basic::make_array(
+              bsoncxx::builder::basic::make_document(
+                bsoncxx::builder::basic::kvp("token", oauth2_credential["token"].get<std::string>()),
+                bsoncxx::builder::basic::kvp("expiration", token_info["exp"].get<std::string>())))));
+
+    bsoncxx::stdx::optional<mongocxx::result::insert_one> result =
+      database["envtrackernode_users"].insert_one(document.view());
+  } catch (const std::runtime_error& error) {
+    std::cout << "Error in MongoDB connection: " << error.what() << std::endl;
   }
 
   try {
