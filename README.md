@@ -194,13 +194,6 @@ Do the following on the Raspberry Pi.
    sudo make install
    ```
 
-### mongocxx Driver (r3.6.0) Setup
-```
-curl -OL https://github.com/mongodb/mongo-cxx-driver/releases/download/r3.6.0/mongo-cxx-driver-r3.6.0.tar.gz
-tar -xzf mongo-cxx-driver-r3.6.0.tar.gz
-cd mongo-cxx-driver-r3.6.0/build
-```
-
 ## Raspberry Pi Optimizations
 ### Use tmpfs for temporary files
 Add the following lines to `/etc/fstab` and reboot the Raspberry Pi.
