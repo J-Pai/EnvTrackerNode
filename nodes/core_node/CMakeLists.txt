@@ -113,6 +113,7 @@ ExternalProject_Add(libmongocxx
   -DCMAKE_BUILD_TYPE:STRING=Release
   -DCMAKE_PREFIX_PATH:PATH=${CMAKE_BINARY_DIR}/libmongoc-install
   -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/libmongocxx-install
+  -DCMAKE_INSTALL_RPATH:PATH=${CMAKE_BINARY_DIR}/libmongocxx-install/lib
   -DENABLE_TESTS:BOOL=OFF
   -DENABLE_EXAMPLES:BOOL=OFF
   -DBSONCXX_POLY_USE_BOOST:BOOL=OFF
@@ -120,8 +121,8 @@ ExternalProject_Add(libmongocxx
   -DBSONCXX_POLY_USE_STD:BOOL=OFF
   DEPENDS libmongoc)
 set(_LIBMONGOCXX_LIBRARIES
-  "${CMAKE_BINARY_DIR}/libmongocxx-build/src/bsoncxx/libbsoncxx.so"
-  "${CMAKE_BINARY_DIR}/libmongocxx-build/src/mongocxx/libmongocxx.so")
+  "${CMAKE_BINARY_DIR}/libmongocxx-install/lib/libbsoncxx.so"
+  "${CMAKE_BINARY_DIR}/libmongocxx-install/lib/libmongocxx.so")
 set(_LIBMONGOCXX_INCLUDE_DIRS
   "${CMAKE_BINARY_DIR}/libmongocxx-install/include/bsoncxx/v_noabi/"
   "${CMAKE_BINARY_DIR}/libmongocxx-install/include/mongocxx/v_noabi/")
