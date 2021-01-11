@@ -131,7 +131,7 @@ Do the following steps on the Raspberry Pi.
 2) Install numpy from apt.
 
    ```bash
-   [sudo] apt install python3-numpy`
+   [sudo] apt install python3-numpy
    ```
 
 3) Build and install RTIMULib.
