@@ -73,6 +73,13 @@ Get user profile information:
 https://www.googleapis.com/oauth2/v3/userinfo?access_token=ACCESS_TOKEN
 ```
 
+## Revoke OAuth2 Token
+
+```
+curl -d -X -POST --header "Content-type:application/x-www-form-urlencoded" \
+        https://oauth2.googleapis.com/revoke?token={token}
+```
+
 ## Using ngrok
 ngrok.yml:
 
