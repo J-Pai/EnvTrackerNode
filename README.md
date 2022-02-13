@@ -45,12 +45,30 @@ look at this [article](https://github.com/initialstate/wunderground-sensehat/wik
 ### Development Setup
 Development is assumed to be done on Ubuntu 20.04 (x86_64).
 
-1) Download and Install Clang+LLVM (13.0.0).
+1) Install development tools and dependencies.
 
    ```bash
+   sudo apt install python3 python3-dev python3-pip python3-venv  \
+                    build-essential autoconf libtool bear         \
+                    pkg-config cmake libssl-dev libsasl2-dev      \
+                    i2c-tools openssl libcurl4-openssl-dev
+
+   python3 -m pip install --user cpplint
    ```
 
-2) Install Bazel. Commands based on [Installing Bazel on Ubuntu](https://docs.bazel.build/versions/5.0.0/install-ubuntu.html).
+2) Download and Setup Clang+LLVM (13.0.0).
+
+   ```bash
+   mkdir -p ~/build
+   cd ~/build
+   wget https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-20.04.tar.xz
+   tar -xvf clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-20.04.tar.xz
+   echo 'PATH="$HOME/build/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-20.04/bin:$PATH' >> ~/.profile
+   ```
+
+   You will want to close and re-open the terminal after this step.
+
+3) Install Bazel. Commands based on [Installing Bazel on Ubuntu](https://docs.bazel.build/versions/5.0.0/install-ubuntu.html).
 
    ```bash
    sudo apt install apt-transport-https curl gnupg
@@ -76,17 +94,7 @@ usercfg.txt file in `boot`.
 
 3) Install the SD card and turn on the Raspberry Pi.
 
-4) Install build tools.
-
-   ```bash
-   [sudo] apt install python3 python3-dev python3-pip python3-venv  \
-                      build-essential autoconf libtool              \
-                      pkg-config cmake libssl-dev                   \
-                      i2c-tools openssl libcurl4-openssl-dev
-   ```
-
-   **NOTE**: Make sure to have at least CMake v3.16.3!
-
+4) Install runtime dependencies and tools.
    ```bash
    [sudo] apt install python3 python3-dev python3-pip python3-venv  \
                       i2c-tools openssl

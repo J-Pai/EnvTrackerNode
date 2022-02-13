@@ -5,28 +5,7 @@ nodes.
 Core Node is written in C++
 
 ## Build Steps
-Please make sure to setup your system based on the root directory's
-[README's Installation and Setup steps](../../README.md#installation-and-setup).
-
-```bash
-cd core_node
-mkdir -p cmake/build
-cd cmake/build
-cmake ../.. [-DCMAKE_EXPORT_COMPILE_COMMANDS=1]
-make
-
-# Following is optional. clangd uses the compile_commands.json file to configure
-# the LSP on a per-project basis.
-ln -sfn `pwd`/compile_commands.json ../..
-```
-
-**NOTE**: Use `-DCMAKE_EXPORT_COMPILE_COMMANDS=1` if you want clangd LSP support.
-This only works if you are developing on an x86_64 machine as clangd does not
-release an arm64 version.
-
 ## Execution
-From inside of cmake/build:
-
 ### Terminal 1
 
 ```bash

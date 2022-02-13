@@ -1,0 +1,4 @@
+startup --batch
+
+build --action_env=LD_PRELOAD=${LD_PRELOAD}
+build --spawn_strategy=local
