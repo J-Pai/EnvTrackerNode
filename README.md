@@ -42,6 +42,26 @@ look at this [article](https://github.com/initialstate/wunderground-sensehat/wik
 ## Architecture Overview
 
 ## Installation and Setup
+### Development Setup
+Development is assumed to be done on Ubuntu 20.04 (x86_64).
+
+1) Download and Install Clang+LLVM (13.0.0).
+
+   ```bash
+   ```
+
+2) Install Bazel. Commands based on [Installing Bazel on Ubuntu](https://docs.bazel.build/versions/5.0.0/install-ubuntu.html).
+
+   ```bash
+   sudo apt install apt-transport-https curl gnupg
+   curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg
+   sudo mv bazel.gpg /etc/apt/trusted.gpg.d/
+   echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+   sudo apt update
+   sudo apt install bazel
+   ```
+
+### Raspberry Pi Setup
 Do the following steps on the Raspberry Pi.
 
 1) Setup Ubuntu 20.04 for Raspberry Pi.
@@ -66,6 +86,11 @@ usercfg.txt file in `boot`.
    ```
 
    **NOTE**: Make sure to have at least CMake v3.16.3!
+
+   ```bash
+   [sudo] apt install python3 python3-dev python3-pip python3-venv  \
+                      i2c-tools openssl
+   ```
 
 5) Add the following line to `/etc/modules`:
 
@@ -139,7 +164,8 @@ Do the following steps on the Raspberry Pi.
    - From inside the RTIMULib directory, `cd ./Linux/python`.
    - `python3 setup.py build`
    - `[sudo] python3 setup.py install`
-       4) Build and install python-sense-hat.
+
+4) Build and install python-sense-hat.
    - `cd` to python-sense-hat.
    - `python3 setup.py build`
    - `[sudo] python3 setup.py install`
