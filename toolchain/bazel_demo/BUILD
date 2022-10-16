@@ -1,7 +1,7 @@
 cc_binary(
     name = "hello_world",
     srcs = ["hello_world.cc"],
-    deps = ["//toolchain/bazel_demo:hello_lib"],
+    deps = ["//bazel_demo:hello_lib"],
 )
 
 cc_library(

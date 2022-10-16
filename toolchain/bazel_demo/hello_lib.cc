@@ -1,4 +1,4 @@
-#include "toolchain/bazel_demo/hello_lib.h"
+#include "bazel_demo/hello_lib.h"
 
 #include <string>
 #include <iostream>
