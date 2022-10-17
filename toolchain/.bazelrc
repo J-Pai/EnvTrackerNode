@@ -1,6 +1,0 @@
-startup --batch
-
-build --incompatible_enable_cc_toolchain_resolution
-build --host_platform=@toolchain//:linux_x86_64 --platforms=@toolchain//:linux_x86_64
-
-build:arm64 --platforms=@toolchain//:linux_arm64
