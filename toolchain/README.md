@@ -10,5 +10,10 @@ Below are the supported targets (other than linux x86_64).
 
 Meant to target Ubuntu 20.04 running on a Raspberry Pi 4.
 
-Based on https://github.com/mjbots/rpi_bazel, but modified to use Bazel
-platforms instead of `--crosstool_top`.
+Based on https://github.com/mjbots/rpi_bazel, but modified to use
+[Bazel Platforms](https://bazel.build/concepts/platforms) instead of
+`--crosstool_top`.
+
+## Sources/Inspiration
+- https://github.com/mjbots/rpi_bazel
+- https://ltekieli.com/cross-compiling-with-bazel/

@@ -2,7 +2,10 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "raw_headers",
-    srcs = glob(["include/**"]),
+    srcs = glob([
+      "src/include/**",
+      "include/**"
+    ]),
 )
 
 cc_library(
@@ -38,9 +41,3 @@ cc_library(
         "@org_llvm_libcxxabi//:libcxxabi",
     ],
 )
-Footer
-© 2022 GitHub, Inc.
-Footer navigation
-Terms
-Privacy
-Security
