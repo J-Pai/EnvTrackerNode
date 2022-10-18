@@ -1,6 +1,7 @@
 workspace(name = "EnvTrackerNode")
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 git_repository(
     name = "toolchain",
@@ -8,6 +9,35 @@ git_repository(
     remote = "git@github.com:J-Pai/bazel_xcompile_toolchain.git",
 )
 
+# Use for local development.
+# local_repository(
+#     name = "toolchain",
+#     path = "../toolchain",
+# )
+
 load("@toolchain//:build.bzl", "build_tools")
 
 build_tools()
+
+http_archive(
+    name = "boringssl",
+    url = "https://github.com/openssl/openssl/archive/OpenSSL_1_1_1r.tar.gz",
+    sha256 = "fc513913724790510f53af07caa24eaf0eae3fc8cf476c17c113221b5868edac",
+    strip_prefix = "openssl-OpenSSL_1_1_1r",
+    build_file = "openssl.BUILD",
+)
+
+http_archive(
+    name = "com_github_grpc_grpc",
+    strip_prefix = "grpc-1.50.0",
+    sha256 = "76900ab068da86378395a8e125b5cc43dfae671e09ff6462ddfef18676e2165a",
+    urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.50.0.tar.gz"],
+)
+
+load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+
+grpc_deps()
+
+load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+
+grpc_extra_deps()

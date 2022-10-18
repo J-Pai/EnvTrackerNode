@@ -51,7 +51,11 @@ Development is assumed to be done on Ubuntu 20.04 (x86_64).
    sudo apt install python3 python3-dev python3-pip python3-venv  \
                     build-essential autoconf libtool bear         \
                     pkg-config cmake libssl-dev libsasl2-dev      \
-                    openssl libcurl4-openssl-dev
+                    openssl libcurl4-openssl-dev libc++-dev       \
+                    libc++abi-dev
+
+   # To support cross-compilation to AArch64:
+   sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
    python3 -m pip install --user cpplint
    ```
