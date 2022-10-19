@@ -5,17 +5,23 @@ nodes.
 Core Node is written in C++
 
 ## Build Steps
+
+```
+bazel build //core_node:all --config=arm64
+```
+
 ## Execution
+
 ### Terminal 1
 
 ```bash
-./core_server
+GLOG_logtostderr=1 ./core_server
 ```
 
 ### Terminal 2
 
 ```bash
-./basic_client
+GLOG_logtostderr=1 ./demo_client
 ```
 
 ## Enabling SSL/TLS

@@ -7,7 +7,10 @@
 
 cc_library(
     name = "crypto",
-    hdrs = glob(["include/openssl/*.h"]) + ["include/openssl/opensslconf.h"],
+    hdrs = glob(
+        ["include/openssl/*.h"],
+        exclude = ["include/openssl/opensslconf.h"],
+    ) + ["include/openssl/opensslconf.h"],
     srcs = ["libcrypto.a"],
     includes = ["include"],
     linkopts = ["-lpthread", "-ldl"],
@@ -18,7 +21,10 @@ cc_library(
 cc_library(
     name = "ssl",
     deps = [":crypto"],
-    hdrs = glob(["include/openssl/*.h"]) + ["include/openssl/opensslconf.h"],
+    hdrs = glob(
+        ["include/openssl/*.h"],
+        exclude = ["include/openssl/opensslconf.h"],
+    ) + ["include/openssl/opensslconf.h"],
     srcs = ["libssl.a"],
     includes = ["include"],
     visibility = ["//visibility:public"],
@@ -26,7 +32,15 @@ cc_library(
 
 genrule(
     name = "openssl-build",
-    srcs = glob(["**/*"], exclude=["bazel-*"]),
+    srcs = glob(
+        ["**/*"],
+        exclude=[
+            "bazel-*",
+            "libcrypto.a",
+            "libssl.a",
+            "include/openssl/opensslconf.h",
+        ]
+    ),
     outs = [
         "libcrypto.a",
         "libssl.a",
