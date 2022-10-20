@@ -4,11 +4,14 @@
   "description": "Web service (frontend and backend) for EnvTrackerNode",
   "main": "dist/server.js",
   "scripts": {
+    "preinstall": "cd frontend && yarn",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint . --ext .ts",
     "build_only": "tsc --project ./",
-    "build": "yarn run build_only",
-    "start_dev": "yarn run build && yarn start",
+    "prebuild_frontend": "yarn preinstall",
+    "build_frontend": "cd frontend && yarn build",
+    "build": "yarn build_frontend && yarn build_only",
+    "start_dev": "yarn build && yarn start",
     "start": "node dist/server.js"
   },
   "repository": {
