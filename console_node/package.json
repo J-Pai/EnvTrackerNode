@@ -2,9 +2,9 @@
   "name": "console_node",
   "version": "1.0.0",
   "scripts": {
-    "vite-dev": "vite",
-    "nodemon-dev": "nodemon --exec 'ts-node --project tsconfig.server.json src/server/server.ts'",
-    "dev": "run-p vite-dev nodemon-dev",
+    "vite-dev": "vite --clearScreen=false",
+    "nodemon-dev": "nodemon --watch src/server/* --exec 'ts-node --project tsconfig.server.json src/server/server.ts'",
+    "dev": "run-p nodemon-dev vite-dev",
     "build": "run-p type-check build-only build-only-server",
     "preview": "vite preview --port 4173",
     "test:unit": "vitest --environment jsdom",
