@@ -1,48 +1,25 @@
 {
   "name": "console_node",
-  "version": "1.0.0",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "vite-dev": "vite --clearScreen=false",
-    "nodemon-dev": "nodemon --watch src/server/* --exec 'ts-node --project tsconfig.server.json src/server/server.ts'",
-    "dev": "run-p nodemon-dev vite-dev",
-    "build": "run-p type-check build-only build-only-server",
-    "preview": "vite preview --port 4173",
-    "test:unit": "vitest --environment jsdom",
-    "build-only": "vite build",
-    "build-only-server": "tsc --project tsconfig.server.json",
-    "type-check": "vue-tsc --noEmit -p tsconfig.vitest.json --composite false",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
-    "start": "node server_dist/server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
-  "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "pinia": "^2.0.21",
-    "vue": "^3.2.38",
-    "vue-router": "^4.1.5"
+    "next": "12.3.1",
+    "passport-google-oauth20": "^2.0.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
-    "@rushstack/eslint-patch": "^1.1.4",
-    "@types/express": "^4.17.14",
-    "@types/jsdom": "^20.0.0",
-    "@types/node": "^16.11.56",
-    "@vitejs/plugin-vue": "^3.0.3",
-    "@vitejs/plugin-vue-jsx": "^2.0.1",
-    "@vue/eslint-config-prettier": "^7.0.0",
-    "@vue/eslint-config-typescript": "^11.0.0",
-    "@vue/test-utils": "^2.0.2",
-    "@vue/tsconfig": "^0.1.3",
-    "eslint": "^8.22.0",
-    "eslint-plugin-cypress": "^2.12.1",
-    "eslint-plugin-vue": "^9.3.0",
-    "jsdom": "^20.0.0",
-    "nodemon": "^2.0.20",
-    "npm-run-all": "^4.1.5",
-    "prettier": "^2.7.1",
-    "start-server-and-test": "^1.14.0",
-    "typescript": "~4.7.4",
-    "vite": "^3.0.9",
-    "vitest": "^0.23.0",
-    "vue-tsc": "^0.40.7"
+    "@types/node": "18.11.3",
+    "@types/react": "18.0.21",
+    "@types/react-dom": "18.0.6",
+    "eslint": "8.26.0",
+    "eslint-config-next": "12.3.1",
+    "typescript": "4.8.4"
   }
 }
