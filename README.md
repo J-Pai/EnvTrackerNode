@@ -246,3 +246,44 @@ tmpfs            30M     0   30M   0% /var/spool/mqueue
 tmpfs           100M     0  100M   0% /var/tmp
 ...
 ```
+
+### Setup Static Ethernet
+
+Personal development setup involves a direct ethernet connection between
+the development computer and the Raspberry Pi. Internet connection comes from
+WiFi.
+
+To enable eth0 interface on boot, update `/etc/netplan/50-cloud-init.yaml` to
+match the following:
+
+```
+network:
+    version: 2
+    renderer: networkd
+    wifis:
+        wlan0:
+            access-points:
+                <WIFI>:
+                    password: <WIFI_PWD>
+            dhcp4: true
+            optional: true
+
+    ethernets:
+        eth0:
+            addresses: [192.168.10.10/24]
+            dhcp4: false                      # static IP assignment
+```
+
+The run:
+
+```
+sudo netplan --debug apply
+```
+
+### Disable Auto-updates
+
+```
+# /etc/apt/apt.conf.d/20auto-upgrades
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "0";
+```
