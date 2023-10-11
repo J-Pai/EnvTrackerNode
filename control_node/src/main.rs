@@ -15,9 +15,13 @@ async fn index(req: HttpRequest) -> Result<NamedFile> {
     } else if req_path.starts_with(PathBuf::from("_next/static")) {
         path.push(req_path.strip_prefix("_next").unwrap());
     } else if req_path.parent().unwrap() == PathBuf::from("") {
-        path.push(std::format!("{}/public", root));
+        path.clear();
+        path.push(root);
+        path.push("public");
         path.push(req_path);
     }
+
+    println!("index: {}", path.display());
 
     Ok(NamedFile::open(path)?)
 }
@@ -31,7 +35,7 @@ async fn echo(req_body: String) -> impl Responder {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     if std::env::var_os("CONSOLE_NODE_ROOT").is_none() {
-        std::env::set_var("CONSOLE_NODE_ROOT", "..");
+        std::env::set_var("CONSOLE_NODE_ROOT", "../console_node");
     }
 
     HttpServer::new(|| {
