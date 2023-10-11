@@ -1,5 +1,5 @@
 use actix_files::NamedFile;
-use actix_web::{web, App, HttpRequest, HttpServer, Result};
+use actix_web::{post, web, App, HttpRequest, HttpResponse, HttpServer, Responder, Result};
 use std::path::PathBuf;
 
 async fn index(req: HttpRequest) -> Result<NamedFile> {
@@ -22,14 +22,24 @@ async fn index(req: HttpRequest) -> Result<NamedFile> {
     Ok(NamedFile::open(path)?)
 }
 
+#[post("/echo")]
+async fn echo(req_body: String) -> impl Responder {
+    println!("ECHO {req_body}");
+    HttpResponse::Ok().body(req_body)
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     if std::env::var_os("CONSOLE_NODE_ROOT").is_none() {
         std::env::set_var("CONSOLE_NODE_ROOT", "..");
     }
 
-    HttpServer::new(|| App::new().route("/{filename:.*}", web::get().to(index)))
-        .bind(("127.0.0.1", 8080))?
-        .run()
-        .await
+    HttpServer::new(|| {
+        App::new()
+            .service(echo)
+            .route("/{filename:.*}", web::get().to(index))
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
 }
