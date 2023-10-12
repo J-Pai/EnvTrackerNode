@@ -38,7 +38,7 @@ export default function ThemeController({
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, mobile }}>
-      <Theme appearance={theme as ThemeOptions["appearance"]}>
+      <Theme appearance={theme as ThemeOptions["appearance"]} accentColor="gray">
         <NavBar />
         {children}
       </Theme>
