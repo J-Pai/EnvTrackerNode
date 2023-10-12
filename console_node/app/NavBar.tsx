@@ -1,6 +1,6 @@
 "use client";
 
-import { Flex, Heading } from "@radix-ui/themes";
+import { Card, Flex, Heading } from "@radix-ui/themes";
 
 import { useContext } from "react";
 
@@ -11,9 +11,9 @@ export default function NavBar() {
   const { mobile } = useContext(ThemeContext);
 
   return (
-    <Flex gap="3" align="center" justify="start" style={{ height: "5em" }}>
+    <Flex gap="3" align="center" justify="start">
       <Flex width="100%">
-        <Heading>Control Node</Heading>
+        <Heading mt="1">Control Node</Heading>
       </Flex>
       <Flex gap="5" width="100%" align="center" justify="end">
         {mobile ? undefined : <ToggleThemeButton />}
