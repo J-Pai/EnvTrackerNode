@@ -4,9 +4,9 @@ import type { ThemeOptions } from '@radix-ui/themes';
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { MoonIcon, SunIcon } from '@radix-ui/react-icons';
-import { Button, Theme } from '@radix-ui/themes';
+import { IconButton, Theme } from '@radix-ui/themes';
 
-const ThemeContext = createContext({
+export const ThemeContext = createContext({
   theme: '',
   setTheme: (_: string) => {},
 });
@@ -19,7 +19,7 @@ export default function ThemeController({
   const [theme, setTheme] = useState('dark');
 
   useEffect(() => {
-    setTheme(localStorage.getItem('theme') || 'light')
+    setTheme(localStorage.getItem('theme') || 'light');
   }, []);
 
   return (
@@ -39,8 +39,12 @@ export function ToggleThemeButton() {
   };
 
   return (
-    <Button variant='ghost' color='gray' onClick={onClick}>
-      {theme == 'light' ? <SunIcon /> : <MoonIcon />}
-    </Button>
+    <IconButton variant='ghost' color='gray' onClick={onClick} size='4'>
+      {theme == 'light' ? (
+        <SunIcon width='24' height='24' />
+      ) : (
+        <MoonIcon width='24' height='24' />
+      )}
+    </IconButton>
   );
 }
