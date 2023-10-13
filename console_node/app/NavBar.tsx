@@ -2,6 +2,7 @@
 
 import { GearIcon } from "@radix-ui/react-icons";
 import { Box, Flex, Heading } from "@radix-ui/themes";
+import { SessionProvider } from "next-auth/react";
 
 import { useContext } from "react";
 
@@ -13,20 +14,22 @@ export default function NavBar() {
 
   const handleTitleBarClick = () => {
     console.log("Redirect to home");
-  }
+  };
 
   return (
-    <Flex gap="3" align="center" justify="start">
-      <Flex width="100%" gap="2" onClick={handleTitleBarClick}>
-        <Box width="5" height="5" mt="1" mx="1">
-          <GearIcon height="30" width="30" />
-        </Box>
-        <Heading mt="1">Control Node</Heading>
+    <SessionProvider>
+      <Flex gap="3" align="center" justify="start">
+        <Flex width="100%" gap="2" onClick={handleTitleBarClick}>
+          <Box width="5" height="5" mt="1" mx="1">
+            <GearIcon height="30" width="30" />
+          </Box>
+          <Heading mt="1">Control Node</Heading>
+        </Flex>
+        <Flex gap="5" width="100%" align="center" justify="end">
+          {mobile ? undefined : <ToggleThemeButton />}
+          <ProfileDropdown />
+        </Flex>
       </Flex>
-      <Flex gap="5" width="100%" align="center" justify="end">
-        {mobile ? undefined : <ToggleThemeButton />}
-        <ProfileDropdown />
-      </Flex>
-    </Flex>
+    </SessionProvider>
   );
 }
