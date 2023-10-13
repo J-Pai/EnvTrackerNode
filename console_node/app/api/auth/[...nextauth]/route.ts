@@ -1,5 +1,9 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+import NextAuth, { NextAuthOptions, Session } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+
+export interface ControlNodeSession extends Session {
+  sub: string;
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -8,7 +12,16 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_SECRET as string,
     }),
   ],
-  // secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET,
+  callbacks: {
+    session: async ({ session, token }) => {
+      if (session.user) {
+        (session as ControlNodeSession).sub = token.sub as string;
+      }
+      console.log(token);
+      return session;
+    },
+  },
 };
 
 const handler = NextAuth(authOptions);

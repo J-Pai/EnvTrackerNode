@@ -1,5 +1,7 @@
 "use client";
 
+import type { ControlNodeSession } from "./api/auth/[...nextauth]/route"
+
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useContext } from "react";
 import {
@@ -17,6 +19,10 @@ import { ThemeContext } from "./ThemeController";
 export default function ProfileDropdown() {
   const { mobile } = useContext(ThemeContext);
 
+  const { data: session, status } = useSession();
+
+  console.log(session, status, (session as ControlNodeSession)?.sub);
+
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
@@ -31,18 +37,18 @@ export default function ProfileDropdown() {
           <Flex gap="4" align="center">
             <Avatar
               size="3"
-              src="https://images.unsplash.com/photo-1607346256330-dee7af15f7c5?&w=64&h=64&dpr=2&q=70&crop=focalpoint&fp-x=0.67&fp-y=0.5&fp-z=1.4&fit=crop"
+              src={session?.user?.image || undefined}
               radius="full"
-              fallback="T"
+              fallback="X"
             />
             {mobile ? undefined : (
               <Flex>
                 <Box>
                   <Text as="div" size="2" weight="bold">
-                    Teodros Girmay
+                    {session?.user?.name}
                   </Text>
                   <Text as="div" size="2" color="gray">
-                    Engineering
+                    {session?.user?.email}
                   </Text>
                 </Box>
               </Flex>
