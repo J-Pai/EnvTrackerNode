@@ -1,12 +1,28 @@
 "use client";
 
-import { Button, Flex, Text } from "@radix-ui/themes";
+import { Button, Flex, Section, Text } from "@radix-ui/themes";
 
 export default function Home() {
   return (
     <Flex direction="column">
-      <Text>Hello from Radix Themes :)</Text>
-      <Button>Let&apos;s go</Button>
+      <Section>
+        <Button>Let&apos;s go</Button>
+      </Section>
+      <Section>
+        <Text>Section 1</Text>
+      </Section>
+      <Section>
+        <Text>Section 2</Text>
+      </Section>
+      <Section>
+        <Text>Section 3</Text>
+      </Section>
+      <Section>
+        <Text>Section 3</Text>
+      </Section>
+      <Section>
+        <Text>Section 3</Text>
+      </Section>
     </Flex>
   );
 }

@@ -15,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body style={{ margin: "0", overflow: "hidden" }}>
+      <body style={{ margin: "0", overflowY: "hidden" }}>
         <Main>{children}</Main>
       </body>
     </html>

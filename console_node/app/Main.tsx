@@ -4,7 +4,7 @@ import type { ThemeOptions } from "@radix-ui/themes";
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { MoonIcon, SunIcon } from "@radix-ui/react-icons";
-import { Box, IconButton, Theme } from "@radix-ui/themes";
+import { Box, IconButton, Section, Theme } from "@radix-ui/themes";
 
 import NavBar from "./NavBar";
 
@@ -37,10 +37,11 @@ export default function Main({ children }: { children: React.ReactNode }) {
       <Theme
         appearance={theme as ThemeOptions["appearance"]}
         accentColor="gray"
-        style={{ margin: "0" }}
       >
         <NavBar />
-        {children}
+        <Box style={{ overflowY: "auto", height: "calc(100vh - 80px)" }}>
+          {children}
+        </Box>
       </Theme>
     </ThemeContext.Provider>
   );
