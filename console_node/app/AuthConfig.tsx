@@ -1,4 +1,4 @@
-import { NextAuthOptions, JWT, User, Account, Profile } from "next-auth";
+import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
 export const authOptions: NextAuthOptions = {
@@ -10,15 +10,26 @@ export const authOptions: NextAuthOptions = {
   ],
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
+    signIn: async ({ user }) => {
+      console.log("signIn");
+      return true;
+    },
     session: async ({ session, token }) => {
-      console.log(session);
+      if (session.user?.email !== "jesse.pai@gmail.com") {
+        session.user = undefined;
+        session.expires = undefined;
+      }
       return session;
     },
-    jwt: async ({ token }) => {
-      return token;
+    redirect: async ({ url, baseUrl }) => {
+      return baseUrl;
     },
   },
-  session: {
-    strategy: "jwt",
+  pages: {
+    signIn: "/404",
+    signOut: "/404",
+    error: "/404", // Error code passed in query string as ?error=
+    verifyRequest: "/404", // (used for check email message)
+    newUser: "/404", // New users will be directed here on first sign in (leave the property out if not of interest)
   },
 };

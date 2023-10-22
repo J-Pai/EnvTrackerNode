@@ -4,7 +4,7 @@ import type { ThemeOptions } from "@radix-ui/themes";
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { MoonIcon, SunIcon } from "@radix-ui/react-icons";
-import { IconButton, Separator, Theme } from "@radix-ui/themes";
+import { Box, IconButton, Theme } from "@radix-ui/themes";
 
 import NavBar from "./NavBar";
 
@@ -14,11 +14,7 @@ export const ThemeContext = createContext({
   mobile: false,
 });
 
-export default function ThemeController({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function Main({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<string>("dark");
   const [mobile, setMobile] = useState<boolean>(false);
 
@@ -41,9 +37,9 @@ export default function ThemeController({
       <Theme
         appearance={theme as ThemeOptions["appearance"]}
         accentColor="gray"
+        style={{ margin: "0" }}
       >
         <NavBar />
-        <Separator my="2" size="4" />
         {children}
       </Theme>
     </ThemeContext.Provider>

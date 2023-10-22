@@ -13,7 +13,7 @@ import {
 } from "@radix-ui/themes";
 import { FcGoogle } from "react-icons/fc";
 
-import { ThemeContext } from "./ThemeController";
+import { ThemeContext } from "./Main";
 
 export default function ProfileDropdown() {
   const { mobile } = useContext(ThemeContext);
@@ -23,6 +23,8 @@ export default function ProfileDropdown() {
   let profileInfo = undefined;
   let userActionMenu = undefined;
   let triggerContents = undefined;
+
+  console.log(status);
 
   if (status === "authenticated") {
     profileInfo = (
