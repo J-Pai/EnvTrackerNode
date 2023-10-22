@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <Flex direction="column">
       <Section>
-        <Button>Let&apos;s go</Button>
+        <Button>Send Echo Request</Button>
       </Section>
       <Section>
         <Text>Section 1</Text>
