@@ -1,4 +1,4 @@
-import { NextAuthOptions, Session } from "next-auth";
+import { NextAuthOptions, JWT, User, Account, Profile } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
 export const authOptions: NextAuthOptions = {
@@ -11,9 +11,14 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     session: async ({ session, token }) => {
-      console.log(token);
+      console.log(session);
       return session;
     },
+    jwt: async ({ token }) => {
+      return token;
+    },
+  },
+  session: {
+    strategy: "jwt",
   },
 };
-

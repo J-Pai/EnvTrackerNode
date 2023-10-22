@@ -18,14 +18,14 @@ export default function NavBar() {
 
   return (
     <SessionProvider>
-      <Flex gap="3" align="center" justify="start">
+      <Flex gap="3" width="auto" align="center" justify="start">
         <Flex width="100%" gap="2" onClick={handleTitleBarClick}>
           <Box width="5" height="5" mt="1" mx="1">
             <GearIcon height="30" width="30" />
           </Box>
           <Heading mt="1">Control Node</Heading>
         </Flex>
-        <Flex gap="5" width="100%" align="center" justify="end">
+        <Flex gap="5" width="5" align="center" justify="end">
           {mobile ? undefined : <ToggleThemeButton />}
           <ProfileDropdown />
         </Flex>
