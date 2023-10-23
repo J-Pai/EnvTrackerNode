@@ -1,13 +1,14 @@
 export const postEcho = async (
   message: string,
 ): Promise<{ echo: string }> => {
-  const requestOptions = {
+  const resp = await fetch("http://localhost:8080/api/echo", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message: message }),
-  };
+    mode: "no-cors",
+  });
 
-  const resp = await fetch("http://localhost:8080/api/echo", requestOptions);
+  console.log(resp);
 
-  return resp.json();
+  return { echo: "Hello World" };
 };

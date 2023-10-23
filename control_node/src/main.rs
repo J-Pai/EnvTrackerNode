@@ -1,16 +1,25 @@
-use actix_web::{post, App, HttpResponse, HttpServer, Responder};
-use serde::Serialize;
+use actix_web::{post, web, App, HttpServer, Result, Responder};
+use serde::{Serialize, Deserialize};
 
 #[derive(Serialize)]
 struct EchoResp {
     echo: String,
 }
 
-#[post("/api/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    println!("ECHO {req_body}");
+#[derive(Deserialize, Debug)]
+struct EchoReq {
+    message: String,
+}
 
-    HttpResponse::Ok().body(req_body)
+#[post("/api/echo")]
+async fn echo(req_body: web::Json<EchoReq>) -> Result<impl Responder> {
+    println!("ECHO {:?}", req_body);
+
+    let resp = EchoResp {
+        echo: req_body.message.to_string(),
+    };
+
+    Ok(web::Json(resp))
 }
 
 #[actix_web::main]
@@ -20,7 +29,7 @@ async fn main() -> std::io::Result<()> {
     }
 
     HttpServer::new(|| App::new().service(echo))
-        .bind(("127.0.0.1", 8080))?
+        .bind(("localhost", 8080))?
         .run()
         .await
 }
