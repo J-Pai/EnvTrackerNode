@@ -1,7 +1,7 @@
 use actix_web::{post, web, App, HttpServer, Result, Responder};
 use serde::{Serialize, Deserialize};
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct EchoResp {
     echo: String,
 }
@@ -15,11 +15,13 @@ struct EchoReq {
 async fn echo(req_body: web::Json<EchoReq>) -> Result<impl Responder> {
     println!("ECHO {:?}", req_body);
 
-    let resp = EchoResp {
-        echo: req_body.message.to_string(),
+    let res = EchoResp {
+        echo: std::format!("From Rust ~~~ {:}", req_body.message.to_string()),
     };
 
-    Ok(web::Json(resp))
+    println!("res {:?}", res);
+
+    Ok(web::Json(res))
 }
 
 #[actix_web::main]

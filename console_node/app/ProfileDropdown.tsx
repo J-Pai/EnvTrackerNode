@@ -24,8 +24,6 @@ export default function ProfileDropdown() {
   let userActionMenu = undefined;
   let triggerContents = undefined;
 
-  console.log(status);
-
   if (status === "authenticated") {
     profileInfo = (
       <Flex>

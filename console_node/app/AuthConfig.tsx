@@ -11,14 +11,9 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     signIn: async ({ user }) => {
-      console.log("signIn");
       return true;
     },
     session: async ({ session, token }) => {
-      if (session.user?.email !== "jesse.pai@gmail.com") {
-        session.user = undefined;
-        session.expires = undefined;
-      }
       return session;
     },
     redirect: async ({ url, baseUrl }) => {
