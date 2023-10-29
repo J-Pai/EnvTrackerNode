@@ -43,8 +43,8 @@ fn load_rustls_config() -> rustls::ServerConfig {
         .with_safe_defaults()
         .with_no_client_auth();
 
-    let cert_file = &mut BufReader::new(File::open("certificates/server.crt").unwrap());
-    let key_file = &mut BufReader::new(File::open("certificates/server.key").unwrap());
+    let cert_file = &mut BufReader::new(File::open("certificates/control-node.crt").unwrap());
+    let key_file = &mut BufReader::new(File::open("certificates/control-node.key").unwrap());
 
     let cert_chain = certs(cert_file)
         .unwrap()
