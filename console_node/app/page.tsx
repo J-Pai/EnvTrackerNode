@@ -7,19 +7,34 @@ import * as ControlNode from "./ControlNode";
 
 export default function Home() {
   const [echoMessage, setEchoMessage] = useState<string>("");
+  const [count, setCount] = useState<number>(0);
 
-  const sendEchoRequestButtonClick = async () => {
-    const resp = await ControlNode.postEcho("Echo {}");
+  const sendEchoRequestBtnClick = async () => {
+    const resp = await ControlNode.postEcho(`Echo ${count + 1}`);
     setEchoMessage(resp.echo);
+    setCount(count + 1);
+  };
+
+  const resetCountBtnClick = async () => {
+    const resp = await ControlNode.postEcho(`Echo 0`);
+    setEchoMessage(resp.echo);
+    setCount(0);
   };
 
   return (
     <Flex direction="column">
       <Section>
-        <Button onClick={() => sendEchoRequestButtonClick()}>
-          Send Echo Request
-        </Button>
-        <Text>{echoMessage}</Text>
+        <Flex direction="column">
+          <Flex direction="row" gap="3">
+            <Button onClick={() => sendEchoRequestBtnClick()}>
+              Send Echo Request
+            </Button>
+            <Button onClick={() => resetCountBtnClick()}>
+              Reset Count
+            </Button>
+          </Flex>
+          <Text>FROM ControlNode: {echoMessage}</Text>
+        </Flex>
       </Section>
       <Section>
         <Text>Section 1</Text>

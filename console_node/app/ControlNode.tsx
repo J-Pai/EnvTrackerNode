@@ -1,5 +1,5 @@
 export const postEcho = async (message: string): Promise<{ echo: string }> => {
-  const res = await fetch("/api/echo", {
+  const res = await fetch("/api/controlnode/echo", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message: message }),
