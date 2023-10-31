@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package envtrackernode;
+
+service ControlNode {
+    // Our SayHello rpc accepts HelloRequests and returns HelloReplies
+    rpc Echo (EchoRequest) returns (EchoReply);
+}
+
+message EchoRequest {
+    // Request message contains the name to be greeted
+    string message = 1;
+}
+
+message EchoReply {
+    // Reply contains the greeting message
+    string message = 1;
+}

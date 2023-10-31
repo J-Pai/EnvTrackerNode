@@ -1,67 +1,38 @@
-use std::{fs::File, io::BufReader};
+use tonic::{transport::Server, Request, Response, Status};
 
-use actix_web::{post, web, App, HttpServer, Responder, Result};
-use rustls::{Certificate, PrivateKey, ServerConfig};
-use rustls_pemfile::{certs, pkcs8_private_keys};
-use serde::{Deserialize, Serialize};
+use envtrackernode::control_node_server::{ControlNode, ControlNodeServer};
+use envtrackernode::{EchoReply, EchoRequest};
 
-#[derive(Serialize, Debug)]
-struct EchoResp {
-    echo: String,
+mod envtrackernode {
+    tonic::include_proto!("envtrackernode");
 }
 
-#[derive(Deserialize, Debug)]
-struct EchoReq {
-    message: String,
-}
+#[derive(Debug, Default)]
+struct ControlNodeRpc {}
 
-#[post("/api/echo")]
-async fn echo(req_body: web::Json<EchoReq>) -> Result<impl Responder> {
-    println!("ECHO {:?}", req_body);
+#[tonic::async_trait]
+impl ControlNode for ControlNodeRpc {
+    async fn echo(&self, request: Request<EchoRequest>) -> Result<Response<EchoReply>, Status> {
+        println!("Got a request: {:?}", request);
 
-    let res = EchoResp {
-        echo: std::format!("From Rust ~~~ {:}", req_body.message.to_string()),
-    };
+        let reply = EchoReply {
+            message: format!("Rust Hello {}!", request.into_inner().message).into(),
+        };
 
-    println!("res {:?}", res);
-
-    Ok(web::Json(res))
-}
-
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    let config = load_rustls_config();
-
-    HttpServer::new(|| App::new().service(echo))
-        .bind_rustls_021(("localhost", 8443), config)?
-        .run()
-        .await
-}
-
-fn load_rustls_config() -> rustls::ServerConfig {
-    let config = ServerConfig::builder()
-        .with_safe_defaults()
-        .with_no_client_auth();
-
-    let cert_file = &mut BufReader::new(File::open("certificates/control-node.crt").unwrap());
-    let key_file = &mut BufReader::new(File::open("certificates/control-node.key").unwrap());
-
-    let cert_chain = certs(cert_file)
-        .unwrap()
-        .into_iter()
-        .map(Certificate)
-        .collect();
-
-    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(key_file)
-        .unwrap()
-        .into_iter()
-        .map(PrivateKey)
-        .collect();
-
-    if keys.is_empty() {
-        eprintln!("Could not locate PKCS 8 private keys.");
-        std::process::exit(1);
+        Ok(Response::new(reply))
     }
+}
 
-    config.with_single_cert(cert_chain, keys.remove(0)).unwrap()
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let addr = "localhost:58051".parse()?;
+
+    let control_node = ControlNodeRpc::default();
+
+    Server::builder()
+        .add_service(ControlNodeServer::new(control_node))
+        .serve(addr)
+        .await?;
+
+    Ok(())
 }
