@@ -1,27 +1,38 @@
-# Console Node
-Provides a UI for interacting with the Control Node.
+# Welcome to Remix!
 
-## Launching with Custom CA
+- [Remix Docs](https://remix.run/docs)
 
-See [Control Node README](../control_node/README.md) for information on
-generating myCA.pem.
+## Development
 
-```shell
-env NODE_EXTRA_CA_CERTS=certificates/myCA.pem npm run dev
+From your terminal:
+
+```sh
+npm run dev
 ```
 
-## Logging SSL Secrets for Wireshark PCAP Analysis
+This starts your app in development mode, rebuilding assets on file changes.
 
-```shell
-env NODE_EXTRA_CA_CERTS=certificates/myCA.pem \
-    NODE_OPTIONS="--tls-keylog=certificates/sslkeys.log" \
-    npm run dev
+## Deployment
+
+First, build your app for production:
+
+```sh
+npm run build
 ```
 
-In Wireshark:
+Then run the app in production mode:
 
-```
-Edit > Preferences > Protocols > TLS > (Pre)-Master-Secret log filename
+```sh
+npm start
 ```
 
-Set to the path provided by `--tls-keylog`.
+Now you'll need to pick a host to deploy it to.
+
+### DIY
+
+If you're familiar with deploying node applications, the built-in Remix app server is production-ready.
+
+Make sure to deploy the output of `remix build`
+
+- `build/`
+- `public/build/`
