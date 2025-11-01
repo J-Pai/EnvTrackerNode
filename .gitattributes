@@ -1,2 +1,0 @@
-*.BUILD linguist-language=starlark
-*.bazel linguist-language=starlark

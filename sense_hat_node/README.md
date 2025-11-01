@@ -1,1 +1,0 @@
-# Sense HAT Node

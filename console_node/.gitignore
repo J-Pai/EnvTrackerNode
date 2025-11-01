@@ -1,7 +1,0 @@
-node_modules
-certificates
-
-/.cache
-/build
-/public/build
-.env
