@@ -1,0 +1,16 @@
+aiohappyeyeballs==2.6.1
+aiohttp==3.13.2
+aiosignal==1.4.0
+asyncclick==8.3.0.7
+attrs==25.4.0
+cffi==2.0.0
+cryptography==46.0.3
+frozenlist==1.8.0
+idna==3.11
+mashumaro==3.17
+multidict==6.7.0
+propcache==0.4.1
+pycparser==2.23
+python-kasa @ git+https://github.com/ZeliardM/python-kasa@496cbb66c9b8af33632d0b131b498e5f39d21b1b
+typing_extensions==4.15.0
+yarl==1.22.0
