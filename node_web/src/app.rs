@@ -35,7 +35,7 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
-    let theme = RwSignal::new(Theme::custom_dark(&HashMap::from([
+    let brand_color = HashMap::from([
         (10, "#030303"),
         (20, "#171717"),
         (30, "#252525"),
@@ -52,7 +52,10 @@ pub fn App() -> impl IntoView {
         (140, "#B9B9B9"),
         (150, "#C8C8C8"),
         (160, "#D7D7D7"),
-    ])));
+    ]);
+
+    let theme = RwSignal::new(Theme::custom_dark(&brand_color));
+    // let theme = RwSignal::new(Theme::custom_light(&brand_color));
 
     view! {
         <ConfigProvider theme>
@@ -139,13 +142,17 @@ fn HomePage() -> impl IntoView {
                 <Layout>
                     <Style>
                         "
-                            div._chartistry {
-                                background: var(--colorNeutralForegroundOnBrand);
+                            ._chartistry {
+                                background: var(--colorNeutralBackground1);
                                 padding: 20px;
                             }
                         
                             aside {
                                 color: black;
+                            }
+
+                            text {
+                                fill: var(--colorNeutralForeground1);
                             }
                         "
                     </Style>
