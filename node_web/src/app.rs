@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
@@ -11,16 +13,16 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
         <SSRMountStyleProvider>
             <!DOCTYPE html>
             <html lang="en">
-                    <head>
-                        <meta charset="utf-8"/>
-                        <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                        <AutoReload options=options.clone() />
-                        <HydrationScripts options/>
-                        <MetaTags/>
-                    </head>
-                    <body>
-                        <App/>
-                    </body>
+                <head>
+                    <meta charset="utf-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1" />
+                    <AutoReload options=options.clone() />
+                    <HydrationScripts options />
+                    <MetaTags />
+                </head>
+                <body>
+                    <App />
+                </body>
             </html>
         </SSRMountStyleProvider>
     }
@@ -33,21 +35,38 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
-    let theme = RwSignal::new(Theme::dark());
+    let theme = RwSignal::new(Theme::custom_dark(&HashMap::from([
+        (10, "#030303"),
+        (20, "#171717"),
+        (30, "#252525"),
+        (40, "#313131"),
+        (50, "#3D3D3D"),
+        (60, "#494949"),
+        (70, "#565656"),
+        (80, "#636363"),
+        (90, "#717171"),
+        (100, "#7F7F7F"),
+        (110, "#8D8D8D"),
+        (120, "#9B9B9B"),
+        (130, "#AAAAAA"),
+        (140, "#B9B9B9"),
+        (150, "#C8C8C8"),
+        (160, "#D7D7D7"),
+    ])));
 
     view! {
         <ConfigProvider theme>
             // injects a stylesheet into the document <head>
             // id=leptos means cargo-leptos will hot-reload this stylesheet
-            <Stylesheet id="leptos" href="/pkg/node_web.css"/>
+            <Stylesheet id="leptos" href="/pkg/node_web.css" />
 
             // sets the document title
-            <Title text="Welcome to Leptos"/>
+            <Title text="Welcome to Leptos" />
 
             // content for this welcome page
             <Router>
                 <Routes fallback=|| "Page not found.".into_view()>
-                    <Route path=StaticSegment("") view=HomePage/>
+                    <Route path=StaticSegment("") view=HomePage />
                 </Routes>
             </Router>
         </ConfigProvider>
@@ -109,11 +128,12 @@ fn HomePage() -> impl IntoView {
 
     view! {
         <Layout position=LayoutPosition::Absolute>
-            <LayoutHeader attr:style="padding: 20px; font-size: 36px">
-                "Web Node"
-            </LayoutHeader>
+            <LayoutHeader attr:style="padding: 20px; font-size: 36px">"Web Node"</LayoutHeader>
             <Layout attr:style="padding: 10px;">
-                <Button on:click=on_click appearance=ButtonAppearance::Primary>"Click Me: " {count}</Button>
+                <Button on:click=on_click appearance=ButtonAppearance::Primary>
+                    "Click Me: "
+                    {count}
+                </Button>
             </Layout>
             <Layout>
                 <Layout>
@@ -123,7 +143,7 @@ fn HomePage() -> impl IntoView {
                                 background: var(--colorNeutralForegroundOnBrand);
                                 padding: 20px;
                             }
-
+                        
                             aside {
                                 color: black;
                             }
