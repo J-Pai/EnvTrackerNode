@@ -90,6 +90,7 @@ pub fn App() -> impl IntoView {
 fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) -> impl IntoView {
     use leptos_chartistry::*;
     use leptos_meta::*;
+    use leptos_use::*;
     use thaw::*;
 
     #[derive(Debug)]
@@ -146,9 +147,15 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
         .with_y_range(-1000.0, 1000.0)
         .with_x_range(0.0, 10.0);
 
+    let UseWindowSizeReturn { width, height } = use_window_size();
+
     view! {
         <Layout position=LayoutPosition::Absolute>
-            <LayoutHeader attr:style="padding: 20px; font-size: 36px">"Web Node"</LayoutHeader>
+            <LayoutHeader attr:style="padding: 20px; font-size: 20px">
+                <Space justify=SpaceJustify::FlexStart>
+                    "Web Node" {width} x {height}
+                </Space>
+            </LayoutHeader>
             <Layout attr:style="padding: 10px;">
                 <Space justify=SpaceJustify::Center>
                     <Button on:click=on_click appearance=ButtonAppearance::Primary>
@@ -160,49 +167,51 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                     </Button>
                 </Space>
             </Layout>
+            <Space justify=SpaceJustify::Center>
+                <Style>
+                    "
+                        ._chartistry {
+                            background: var(--colorNeutralBackground1Pressed);
+                            padding: 0px 40px 40px 40px;
+                        }
+                        ._chartistry > svg > g._chartistry_axis_marker, g._chartistry_grid_line_x, g._chartistry_grid_line_y {
+                            stroke: var(--colorNeutralForeground1);
+                        }
+                        aside {
+                            color: black;
+                        }
+                        text {
+                            fill: var(--colorNeutralForeground1);
+                        }
+                    "
+                </Style>
+
+                <Chart
+                    aspect_ratio=AspectRatio::from_outer_ratio(500.0, 300.0)
+                    series=series
+                    data=load_data(count)
+
+                    top=RotatedLabel::middle("Power Consumption (Watts)")
+                    inner=[
+                        AxisMarker::left_edge().into_inner(),
+                        AxisMarker::bottom_edge().into_inner(),
+                        XGridLine::default().into_inner(),
+                        YGridLine::default().into_inner(),
+                        YGuideLine::over_mouse().into_inner(),
+                        XGuideLine::over_data().into_inner(),
+                    ]
+                    tooltip=Tooltip::left_cursor().show_x_ticks(false)
+                />
+            </Space>
             <Layout>
-                <Layout>
-                    <Style>
-                        "
-                            ._chartistry {
-                                background: var(--colorNeutralBackground1);
-                                padding: 20px;
-                            }
-                            aside {
-                                color: black;
-                            }
-                            text {
-                                fill: var(--colorNeutralForeground1);
-                            }
-                        "
-                    </Style>
-
-                    <Chart
-                        attr:style="display: inline-block;"
-
-                        aspect_ratio=AspectRatio::from_outer_ratio(800.0, 400.0)
-                        series=series
-                        data=load_data(count)
-
-                        top=RotatedLabel::middle("Hello, hydration!")
-                        left=TickLabels::aligned_floats()
-                        bottom=TickLabels::aligned_floats()
-                        right=Legend::middle()
-                        inner=[
-                            AxisMarker::left_edge().into_inner(),
-                            AxisMarker::bottom_edge().into_inner(),
-                            XGridLine::default().into_inner(),
-                            YGridLine::default().into_inner(),
-                            YGuideLine::over_mouse().into_inner(),
-                            XGuideLine::over_data().into_inner(),
-                        ]
-                        tooltip=Tooltip::left_cursor().show_x_ticks(false)
-                    />
-                </Layout>
                 <Layout attr:style="padding: 10px;">
                     <Space justify=SpaceJustify::Center>
                         <Button>"Secondary"</Button>
                         <Button appearance=ButtonAppearance::Primary>"Primary"</Button>
+                    </Space>
+                </Layout>
+                <Layout attr:style="padding: 10px;">
+                    <Space justify=SpaceJustify::Center>
                         <Button appearance=ButtonAppearance::Subtle>"Subtle"</Button>
                         <Button appearance=ButtonAppearance::Transparent>"Transparent"</Button>
                     </Space>
