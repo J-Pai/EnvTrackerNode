@@ -6,6 +6,7 @@ use leptos_router::{
     components::{Route, Router, Routes},
     StaticSegment,
 };
+use thaw::Theme;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     use thaw::ssr::SSRMountStyleProvider;
@@ -30,7 +31,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
 
 #[component]
 pub fn App() -> impl IntoView {
-    use thaw::{ConfigProvider, Theme};
+    use thaw::ConfigProvider;
 
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
@@ -69,7 +70,14 @@ pub fn App() -> impl IntoView {
             // content for this welcome page
             <Router>
                 <Routes fallback=|| "Page not found.".into_view()>
-                    <Route path=StaticSegment("") view=HomePage />
+                    <Route
+                        path=StaticSegment("")
+                        view=move || {
+                            view! {
+                                <HomePage theme=theme.clone() brand_colors=brand_color.clone() />
+                            }
+                        }
+                    />
                 </Routes>
             </Router>
         </ConfigProvider>
@@ -78,7 +86,7 @@ pub fn App() -> impl IntoView {
 
 /// Renders the home page of your application.
 #[component]
-fn HomePage() -> impl IntoView {
+fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) -> impl IntoView {
     use leptos_chartistry::*;
     use leptos_meta::Style;
     use thaw::*;
@@ -120,6 +128,14 @@ fn HomePage() -> impl IntoView {
     let count = RwSignal::new(0);
     let on_click = move |_| *count.write() += 1;
 
+    let on_click_toggle_theme = move |_| {
+        if theme.get().name == "dark" {
+            theme.set(Theme::custom_light(&brand_colors))
+        } else {
+            theme.set(Theme::custom_dark(&brand_colors))
+        }
+    };
+
     let series = Series::new(|data: &MyData| data.x)
         .bar(Bar::new(|data: &MyData| data.y1).with_name("data1"))
         .bar(
@@ -133,10 +149,15 @@ fn HomePage() -> impl IntoView {
         <Layout position=LayoutPosition::Absolute>
             <LayoutHeader attr:style="padding: 20px; font-size: 36px">"Web Node"</LayoutHeader>
             <Layout attr:style="padding: 10px;">
-                <Button on:click=on_click appearance=ButtonAppearance::Primary>
-                    "Click Me: "
-                    {count}
-                </Button>
+                <Space justify=SpaceJustify::Center>
+                    <Button on:click=on_click appearance=ButtonAppearance::Primary>
+                        "Click Me: "
+                        {count}
+                    </Button>
+                    <Button on:click=on_click_toggle_theme appearance=ButtonAppearance::Primary>
+                        "Dark/Light"
+                    </Button>
+                </Space>
             </Layout>
             <Layout>
                 <Layout>
@@ -150,16 +171,17 @@ fn HomePage() -> impl IntoView {
                             aside {
                                 color: black;
                             }
-
+                        
                             text {
                                 fill: var(--colorNeutralForeground1);
                             }
                         "
                     </Style>
+
                     <Chart
                         attr:style="display: inline-block;"
 
-                        aspect_ratio=AspectRatio::from_outer_height(800.0, 2.0)
+                        aspect_ratio=AspectRatio::from_outer_ratio(800.0, 400.0)
                         series=series
                         data=load_data(count)
 
