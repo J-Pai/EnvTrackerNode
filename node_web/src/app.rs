@@ -90,92 +90,75 @@ pub fn App() -> impl IntoView {
 fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) -> impl IntoView {
     use leptos_chartistry::*;
     use leptos_meta::*;
-    use leptos_use::*;
     use thaw::*;
 
-    #[derive(Debug)]
-    pub struct MyData {
-        x: f64,
-        y1: f64,
-        y2: f64,
-    }
-
-    impl MyData {
-        fn new(x: f64, y1: f64, y2: f64) -> Self {
-            Self { x, y1, y2 }
+    /// Renders the home page of your application.
+    #[component]
+    fn PowerConsumptionGraph() -> impl IntoView {
+        #[derive(Debug)]
+        pub struct MyData {
+            x: f64,
+            y1: f64,
+            y2: f64,
         }
-    }
 
-    pub fn load_data(count: RwSignal<i32>) -> Signal<Vec<MyData>> {
-        Signal::derive(move || {
-            let val = count.get() as f64 + 1.0;
-
-            vec![
-                MyData::new(0.0, 1.0 * val, 0.0 * val),
-                MyData::new(1.0, 3.0 * val, 1.0 * val),
-                MyData::new(2.0, 5.0 * val, 2.5 * val),
-                MyData::new(3.0, 5.5 * val, 3.0 * val),
-                MyData::new(4.0, 5.0 * val, 3.0 * val),
-                MyData::new(5.0, 2.5 * val, 4.0 * val),
-                MyData::new(6.0, 2.25 * val, 9.0 * val),
-                MyData::new(7.0, 3.0 * val, 5.0 * val),
-                MyData::new(8.0, 7.0 * val, 3.5 * val),
-                MyData::new(9.0, 8.5 * val, 3.2 * val),
-                MyData::new(10.0, 10.0 * val, 3.0 * val),
-            ]
-        })
-    }
-
-    // Creates a reactive value to update the button
-    let count = RwSignal::new(0);
-    let on_click = move |_| *count.write() += 1;
-
-    let on_click_toggle_theme = move |_| {
-        if theme.get().name == "dark" {
-            theme.set(Theme::custom_light(&brand_colors))
-        } else {
-            theme.set(Theme::custom_dark(&brand_colors))
+        impl MyData {
+            fn new(x: f64, y1: f64, y2: f64) -> Self {
+                Self { x, y1, y2 }
+            }
         }
-    };
 
-    let series = Series::new(|data: &MyData| data.x)
-        .bar(Bar::new(|data: &MyData| data.y1).with_name("data1"))
-        .bar(
-            Bar::new(|data: &MyData| if data.x < 6.0 { data.y2 } else { -data.y2 })
-                .with_name("data2"),
-        )
-        .with_y_range(-1000.0, 1000.0)
-        .with_x_range(0.0, 10.0);
+        pub fn load_data() -> Signal<Vec<MyData>> {
+            Signal::derive(move || {
+                vec![
+                    MyData::new(0.0, 1.0, 0.0),
+                    MyData::new(1.0, 3.0, 1.0),
+                    MyData::new(2.0, 5.0, 2.5),
+                    MyData::new(3.0, 5.5, 3.0),
+                    MyData::new(4.0, 5.0, 3.0),
+                    MyData::new(5.0, 2.5, 4.0),
+                    MyData::new(6.0, 2.25, 9.0),
+                    MyData::new(7.0, 3.0, 5.0),
+                    MyData::new(8.0, 7.0, 3.5),
+                    MyData::new(9.0, 8.5, 3.2),
+                    MyData::new(10.0, 10.0, 3.0),
+                ]
+            })
+        }
 
-    let UseWindowSizeReturn { width, height } = use_window_size();
+        let series = Series::new(|data: &MyData| data.x)
+            .line(
+                Line::new(|data: &MyData| data.y1)
+                    .with_name("data1")
+                    .with_marker(MarkerShape::Diamond)
+                    .with_interpolation(Step::Horizontal),
+            )
+            .line(
+                Line::new(|data: &MyData| if data.x < 6.0 { data.y2 } else { -data.y2 })
+                    .with_name("data2")
+                    .with_marker(MarkerShape::Triangle)
+                    .with_interpolation(Step::Horizontal),
+            )
+            .with_y_range(-20.0, 20.0)
+            .with_x_range(0.0, 10.0);
 
-    view! {
-        <Layout position=LayoutPosition::Absolute>
-            <LayoutHeader attr:style="padding: 20px; font-size: 20px">
-                <Space justify=SpaceJustify::FlexStart>
-                    "Web Node" {width} x {height}
-                </Space>
-            </LayoutHeader>
-            <Layout attr:style="padding: 10px;">
-                <Space justify=SpaceJustify::Center>
-                    <Button on:click=on_click appearance=ButtonAppearance::Primary>
-                        "Click Me: "
-                        {count}
-                    </Button>
-                    <Button on:click=on_click_toggle_theme appearance=ButtonAppearance::Primary>
-                        "Dark/Light"
-                    </Button>
-                </Space>
-            </Layout>
-            <Space justify=SpaceJustify::Center>
+        view! {
+            <Space justify=SpaceJustify::FlexStart gap=SpaceGap::Size(0)>
                 <Style>
                     "
                         ._chartistry {
                             background: var(--colorNeutralBackground1Pressed);
-                            padding: 0px 40px 40px 40px;
+                            padding: 0px 10px 0px 10px;
+                            width: calc(100% - 20px) !important;
                         }
-                        ._chartistry > svg > g._chartistry_axis_marker, g._chartistry_grid_line_x, g._chartistry_grid_line_y {
+                        ._chartistry > svg > 
+                        g._chartistry_axis_marker, 
+                        g._chartistry_grid_line_x, 
+                        g._chartistry_grid_line_y {
                             stroke: var(--colorNeutralForeground1);
+                        }
+                        ._chartistry > svg {
+                            width: calc(100% - 5px);
                         }
                         aside {
                             color: black;
@@ -187,22 +170,63 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                 </Style>
 
                 <Chart
-                    aspect_ratio=AspectRatio::from_outer_ratio(500.0, 300.0)
+                    aspect_ratio=AspectRatio::from_env_width_apply_ratio(2.0)
                     series=series
-                    data=load_data(count)
-
-                    top=RotatedLabel::middle("Power Consumption (Watts)")
+                    data=load_data()
+                    top=RotatedLabel::start("Power Consumption (Watts)")
                     inner=[
                         AxisMarker::left_edge().into_inner(),
                         AxisMarker::bottom_edge().into_inner(),
-                        XGridLine::default().into_inner(),
-                        YGridLine::default().into_inner(),
-                        YGuideLine::over_mouse().into_inner(),
                         XGuideLine::over_data().into_inner(),
                     ]
-                    tooltip=Tooltip::left_cursor().show_x_ticks(false)
                 />
             </Space>
+        }
+    }
+
+    // Creates a reactive value to update the button
+    let count = RwSignal::new(0);
+    let on_click = move |_| *count.write() += 1;
+
+    let toggle_theme_icon = RwSignal::new(icondata::BsSun);
+    let on_click_toggle_theme = move |_| {
+        if theme.get().name == "dark" {
+            theme.set(Theme::custom_light(&brand_colors));
+            toggle_theme_icon.set(icondata::BsMoonStars);
+        } else {
+            theme.set(Theme::custom_dark(&brand_colors));
+            toggle_theme_icon.set(icondata::BsSun);
+        }
+    };
+
+    view! {
+        <Layout position=LayoutPosition::Absolute>
+            <LayoutHeader>
+                <Grid cols=2 x_gap=0 y_gap=0>
+                    <GridItem>
+                        <Flex justify=FlexJustify::Start>
+                            <h2 style="margin-left: 20px;">"Web Node"</h2>
+                        </Flex>
+                    </GridItem>
+                    <GridItem>
+                        <Layout attr:style="padding: 10px;">
+                            <Flex justify=FlexJustify::End>
+                                <Button icon=toggle_theme_icon on:click=on_click_toggle_theme appearance=ButtonAppearance::Primary>
+                                </Button>
+                            </Flex>
+                        </Layout>
+                    </GridItem>
+                </Grid>
+            </LayoutHeader>
+            <PowerConsumptionGraph />
+            <Layout attr:style="padding: 10px;">
+                <Flex justify=FlexJustify::Center>
+                    <Button on:click=on_click appearance=ButtonAppearance::Primary>
+                        "Click Me: "
+                        {count}
+                    </Button>
+                </Flex>
+            </Layout>
             <Layout>
                 <Layout attr:style="padding: 10px;">
                     <Space justify=SpaceJustify::Center>
