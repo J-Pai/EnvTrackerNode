@@ -143,7 +143,7 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
             .with_x_range(0.0, 10.0);
 
         view! {
-            <Space justify=SpaceJustify::FlexStart gap=SpaceGap::Size(0)>
+            <Space justify=SpaceJustify::FlexStart gap=SpaceGap::Size(0) attr:style="height: 25vh">
                 <Style>
                     "
                         ._chartistry {
@@ -170,7 +170,7 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                 </Style>
 
                 <Chart
-                    aspect_ratio=AspectRatio::from_env_width_apply_ratio(2.0)
+                    aspect_ratio=AspectRatio::from_env()
                     series=series
                     data=load_data()
                     top=RotatedLabel::start("Power Consumption (Watts)")
@@ -184,9 +184,38 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
         }
     }
 
-    // Creates a reactive value to update the button
-    let count = RwSignal::new(0);
-    let on_click = move |_| *count.write() += 1;
+    #[component]
+    fn PowerConsumptionDataCard() -> impl IntoView {
+        view! {
+            <Card attr:style="width: 45vw;">
+                <CardHeader>
+                    <Body1>
+                        <b>"Header"</b>
+                        " 2022-02-22"
+                    </Body1>
+                    <CardHeaderDescription slot>
+                        <Caption1>"Description"</Caption1>
+                    </CardHeaderDescription>
+                    <CardHeaderAction slot>
+                        <Button
+                            appearance=ButtonAppearance::Transparent
+                            icon=icondata::AiMoreOutlined
+                        />
+                    </CardHeaderAction>
+                </CardHeader>
+                <CardPreview>
+                    <img
+                        src="https://s3.bmp.ovh/imgs/2021/10/2c3b013418d55659.jpg"
+                        style="width: 30vw"
+                    />
+                </CardPreview>
+                <CardFooter>
+                    <Button>"Reply"</Button>
+                    <Button>"Share"</Button>
+                </CardFooter>
+            </Card>
+        }
+    }
 
     let toggle_theme_icon = RwSignal::new(icondata::BsSun);
     let on_click_toggle_theme = move |_| {
@@ -211,35 +240,35 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                     <GridItem>
                         <Layout attr:style="padding: 10px;">
                             <Flex justify=FlexJustify::End>
-                                <Button icon=toggle_theme_icon on:click=on_click_toggle_theme appearance=ButtonAppearance::Primary>
-                                </Button>
+                                <Button
+                                    icon=toggle_theme_icon
+                                    on:click=on_click_toggle_theme
+                                    appearance=ButtonAppearance::Primary
+                                ></Button>
                             </Flex>
                         </Layout>
                     </GridItem>
                 </Grid>
             </LayoutHeader>
             <PowerConsumptionGraph />
-            <Layout attr:style="padding: 10px;">
-                <Flex justify=FlexJustify::Center>
-                    <Button on:click=on_click appearance=ButtonAppearance::Primary>
-                        "Click Me: "
-                        {count}
-                    </Button>
-                </Flex>
-            </Layout>
             <Layout>
-                <Layout attr:style="padding: 10px;">
+                <Space vertical=true attr:style="padding-top: 10px; padding-bottom: 10px">
+                    <Flex justify=FlexJustify::Center>
+                        <PowerConsumptionDataCard />
+                    </Flex>
                     <Space justify=SpaceJustify::Center>
-                        <Button>"Secondary"</Button>
-                        <Button appearance=ButtonAppearance::Primary>"Primary"</Button>
+                        <PowerConsumptionDataCard />
+                        <PowerConsumptionDataCard />
                     </Space>
-                </Layout>
-                <Layout attr:style="padding: 10px;">
                     <Space justify=SpaceJustify::Center>
-                        <Button appearance=ButtonAppearance::Subtle>"Subtle"</Button>
-                        <Button appearance=ButtonAppearance::Transparent>"Transparent"</Button>
+                        <PowerConsumptionDataCard />
+                        <PowerConsumptionDataCard />
                     </Space>
-                </Layout>
+                    <Space justify=SpaceJustify::Center>
+                        <PowerConsumptionDataCard />
+                        <PowerConsumptionDataCard />
+                    </Space>
+                </Space>
             </Layout>
         </Layout>
     }
