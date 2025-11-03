@@ -10,6 +10,10 @@ use thaw::Theme;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     use thaw::ssr::SSRMountStyleProvider;
+
+    // Provides context that manages stylesheets, titles, meta tags, etc.
+    provide_meta_context();
+
     view! {
         <SSRMountStyleProvider>
             <!DOCTYPE html>
@@ -17,6 +21,11 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <head>
                     <meta charset="utf-8" />
                     <meta name="viewport" content="width=device-width, initial-scale=1" />
+                    // injects a stylesheet into the document <head>
+                    // id=leptos means cargo-leptos will hot-reload this stylesheet
+                    <Stylesheet id="leptos" href="/pkg/node_web.css" />
+                    // sets the document title
+                    <Title text="Web Node" />
                     <AutoReload options=options.clone() />
                     <HydrationScripts options />
                     <MetaTags />
@@ -56,20 +65,12 @@ pub fn App() -> impl IntoView {
     ]);
 
     let theme = RwSignal::new(Theme::custom_dark(&brand_color));
-    // let theme = RwSignal::new(Theme::custom_light(&brand_color));
 
     view! {
         <ConfigProvider theme>
-            // injects a stylesheet into the document <head>
-            // id=leptos means cargo-leptos will hot-reload this stylesheet
-            <Stylesheet id="leptos" href="/pkg/node_web.css" />
-
-            // sets the document title
-            <Title text="Welcome to Leptos" />
-
-            // content for this welcome page
             <Router>
                 <Routes fallback=|| "Page not found.".into_view()>
+                    // content for this welcome page
                     <Route
                         path=StaticSegment("")
                         view=move || {
@@ -88,7 +89,7 @@ pub fn App() -> impl IntoView {
 #[component]
 fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) -> impl IntoView {
     use leptos_chartistry::*;
-    use leptos_meta::Style;
+    use leptos_meta::*;
     use thaw::*;
 
     #[derive(Debug)]
@@ -167,11 +168,9 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                                 background: var(--colorNeutralBackground1);
                                 padding: 20px;
                             }
-                        
                             aside {
                                 color: black;
                             }
-                        
                             text {
                                 fill: var(--colorNeutralForeground1);
                             }
