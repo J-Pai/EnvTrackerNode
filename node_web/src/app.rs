@@ -242,8 +242,9 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                         <div style="height: max-content; width: max-content;">
                             <Button
                                 icon=icondata::FaPowerOffSolid
-                                appearance=ButtonAppearance::Primary
+                                appearance=ButtonAppearance::Subtle
                                 shape=ButtonShape::Circular
+                                attr:style="color: green"
                             ></Button>
                         </div>
                     </Space>
