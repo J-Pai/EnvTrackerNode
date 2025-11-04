@@ -143,7 +143,11 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
             .with_x_range(0.0, 10.0);
 
         view! {
-            <Space justify=SpaceJustify::FlexStart gap=SpaceGap::Size(0) attr:style="height: 25vh">
+            <Space
+                justify=SpaceJustify::Start
+                gap=SpaceGap::Size(0)
+                attr:style="height: 25vh; font-family: monospace !important;"
+            >
                 <Style>
                     "
                         ._chartistry {
@@ -158,7 +162,8 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                             stroke: var(--colorNeutralForeground1);
                         }
                         ._chartistry > svg {
-                            width: calc(100% - 5px);
+                            padding-left: 5px;
+                            width: calc(100% - 15px);
                         }
                         aside {
                             color: black;
@@ -181,13 +186,21 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                     ]
                 />
             </Space>
+            <RangeSlider step=1.0 value=RwSignal::new((0.0, 10.0)) max=10.0 style="width: calc(100% - 15px); margin-bottom:10px;">
+                <SliderLabel value=0.0>"0"</SliderLabel>
+                <SliderLabel value=5.0>"5"</SliderLabel>
+                <SliderLabel value=10.0>"10"</SliderLabel>
+            </RangeSlider>
         }
     }
 
     #[component]
     fn PowerConsumptionDataCard() -> impl IntoView {
         view! {
-            <Grid cols=4 attr:style="background: var(--colorNeutralBackground1Pressed); width: 100%; height: 100px">
+            <Grid
+                cols=4
+                attr:style="background: var(--colorNeutralBackground1Pressed); width: 100%; height: 100px; border-radius: 10px;"
+            >
                 <GridItem column=4>
                     <Space align=SpaceAlign::Center attr:style="height: 100%;">
                         "content"
@@ -200,52 +213,58 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
     #[component]
     fn DevicePowerControlCard(name: RwSignal<&'static str>) -> impl IntoView {
         view! {
-            <Grid cols=6 attr:style="background: var(--colorNeutralBackground1Pressed); width: 400px; height: 130px">
-                <GridItem>
-                    <Space align=SpaceAlign::Center justify=SpaceJustify::Center attr:style="height: 100%;">
+            <Grid
+                cols=6
+                attr:style="background: var(--colorNeutralBackground1Pressed); width: 400px; height: 130px; border-radius: 10px;"
+            >
+                <GridItem attr:style="place-items: center;">
+                    <Space
+                        align=SpaceAlign::Center
+                        justify=SpaceJustify::Center
+                        attr:style="height: 100%;"
+                    >
                         <div style="height: max-content; width: max-content;">
-                            <Checkbox size=CheckboxSize::Large checked=true />
+                            <Button
+                                icon=icondata::FaPowerOffSolid
+                                appearance=ButtonAppearance::Secondary
+                                shape=ButtonShape::Circular
+                                attr:style="color: green"
+                            ></Button>
                         </div>
                     </Space>
                 </GridItem>
                 <GridItem column=4>
-                    <Space align=SpaceAlign::Center attr:style="height: 100%; font-family: monospace !important">
+                    <Space
+                        align=SpaceAlign::Center
+                        attr:style="height: 100%; font-family: monospace !important;"
+                    >
                         <div style="height: max-content; width: max-content;">
-                            <Space vertical=true justify=SpaceJustify::Start align=SpaceAlign::Start>
+                            <Space
+                                vertical=true
+                                justify=SpaceJustify::Start
+                                align=SpaceAlign::Start
+                            >
                                 <b>{name} " / YYYY:MM::DD HH:SS"</b>
                                 <Grid cols=2 attr:style="text-align: start; width: 350px;">
-                                    <GridItem>
-                                        "Current Usage"
-                                    </GridItem>
-                                    <GridItem>
-                                        "106.7 W"
-                                    </GridItem>
-                                    <GridItem>
-                                        "Today's Usage"
-                                    </GridItem>
-                                    <GridItem>
-                                        "106.7 kWh"
-                                    </GridItem>
-                                    <GridItem>
-                                        "Total Usage"
-                                    </GridItem>
-                                    <GridItem>
-                                        "106.7 kWh"
-                                    </GridItem>
+                                    <GridItem>"Current Usage"</GridItem>
+                                    <GridItem>"106.7 W"</GridItem>
+                                    <GridItem>"Today's Usage"</GridItem>
+                                    <GridItem>"106.7 kWh"</GridItem>
+                                    <GridItem>"Total Usage"</GridItem>
+                                    <GridItem>"106.7 kWh"</GridItem>
                                 </Grid>
                             </Space>
                         </div>
                     </Space>
                 </GridItem>
-                <GridItem attr:style="place-items: center;">
-                    <Space align=SpaceAlign::Center justify=SpaceJustify::Center attr:style="height: 100%;">
+                <GridItem>
+                    <Space
+                        align=SpaceAlign::Center
+                        justify=SpaceJustify::Center
+                        attr:style="height: 100%;"
+                    >
                         <div style="height: max-content; width: max-content;">
-                            <Button
-                                icon=icondata::FaPowerOffSolid
-                                appearance=ButtonAppearance::Subtle
-                                shape=ButtonShape::Circular
-                                attr:style="color: green"
-                            ></Button>
+                            <Checkbox size=CheckboxSize::Large checked=true />
                         </div>
                     </Space>
                 </GridItem>
@@ -294,12 +313,24 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                     </GridItem>
                     <GridItem>
                         <Flex attr:style="flex-wrap: wrap;">
-                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device1")/></GridItem>
-                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device2")/></GridItem>
-                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device3")/></GridItem>
-                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device4")/></GridItem>
-                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device5")/></GridItem>
-                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device6")/></GridItem>
+                            <GridItem>
+                                <DevicePowerControlCard name=RwSignal::new("Device1") />
+                            </GridItem>
+                            <GridItem>
+                                <DevicePowerControlCard name=RwSignal::new("Device2") />
+                            </GridItem>
+                            <GridItem>
+                                <DevicePowerControlCard name=RwSignal::new("Device3") />
+                            </GridItem>
+                            <GridItem>
+                                <DevicePowerControlCard name=RwSignal::new("Device4") />
+                            </GridItem>
+                            <GridItem>
+                                <DevicePowerControlCard name=RwSignal::new("Device5") />
+                            </GridItem>
+                            <GridItem>
+                                <DevicePowerControlCard name=RwSignal::new("Device6") />
+                            </GridItem>
                         </Flex>
                     </GridItem>
                 </Grid>
