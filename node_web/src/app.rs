@@ -151,9 +151,9 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                             padding: 0px 10px 0px 10px;
                             width: calc(100% - 20px) !important;
                         }
-                        ._chartistry > svg > 
-                        g._chartistry_axis_marker, 
-                        g._chartistry_grid_line_x, 
+                        ._chartistry > svg >
+                        g._chartistry_axis_marker,
+                        g._chartistry_grid_line_x,
                         g._chartistry_grid_line_y {
                             stroke: var(--colorNeutralForeground1);
                         }
@@ -187,33 +187,44 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
     #[component]
     fn PowerConsumptionDataCard() -> impl IntoView {
         view! {
-            <Card attr:style="width: 45vw;">
-                <CardHeader>
-                    <Body1>
-                        <b>"Header"</b>
-                        " 2022-02-22"
-                    </Body1>
-                    <CardHeaderDescription slot>
-                        <Caption1>"Description"</Caption1>
-                    </CardHeaderDescription>
-                    <CardHeaderAction slot>
-                        <Button
-                            appearance=ButtonAppearance::Transparent
-                            icon=icondata::AiMoreOutlined
-                        />
-                    </CardHeaderAction>
-                </CardHeader>
-                <CardPreview>
-                    <img
-                        src="https://s3.bmp.ovh/imgs/2021/10/2c3b013418d55659.jpg"
-                        style="width: 30vw"
-                    />
-                </CardPreview>
-                <CardFooter>
-                    <Button>"Reply"</Button>
-                    <Button>"Share"</Button>
-                </CardFooter>
-            </Card>
+            <Grid cols=4 attr:style="background: var(--colorNeutralBackground1Pressed); width: 100%; height: 100px">
+                <GridItem column=4>
+                    <Space align=SpaceAlign::Center attr:style="height: 100%;">
+                        "content"
+                    </Space>
+                </GridItem>
+            </Grid>
+        }
+    }
+
+    #[component]
+    fn DevicePowerControlCard() -> impl IntoView {
+        view! {
+            <Grid cols=6 attr:style="background: var(--colorNeutralBackground1Pressed); width: 400px; height: 100px">
+                <GridItem>
+                    <Space align=SpaceAlign::Center attr:style="height: 100%;">
+                        <div style="height: max-content; width: max-content;">
+                            <Checkbox size=CheckboxSize::Large checked=true />
+                        </div>
+                    </Space>
+                </GridItem>
+                <GridItem column=4>
+                    <Space align=SpaceAlign::Center attr:style="height: 100%;">
+                        "content"
+                    </Space>
+                </GridItem>
+                <GridItem attr:style="place-items: center;">
+                    <Space align=SpaceAlign::Center attr:style="height: 100%;">
+                        <div style="height: max-content; width: max-content;">
+                            <Button
+                                icon=icondata::FaPowerOffSolid
+                                appearance=ButtonAppearance::Primary
+                                shape=ButtonShape::Circular
+                            ></Button>
+                        </div>
+                    </Space>
+                </GridItem>
+            </Grid>
         }
     }
 
@@ -238,7 +249,7 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                         </Flex>
                     </GridItem>
                     <GridItem>
-                        <Layout attr:style="padding: 10px;">
+                        <Layout attr:style="margin: 10px;">
                             <Flex justify=FlexJustify::End>
                                 <Button
                                     icon=toggle_theme_icon
@@ -251,24 +262,22 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                 </Grid>
             </LayoutHeader>
             <PowerConsumptionGraph />
-            <Layout>
-                <Space vertical=true attr:style="padding-top: 10px; padding-bottom: 10px">
-                    <Flex justify=FlexJustify::Center>
+            <Layout attr:style="margin: 10px;">
+                <Grid cols=1 x_gap=8 y_gap=8>
+                    <GridItem>
                         <PowerConsumptionDataCard />
-                    </Flex>
-                    <Space justify=SpaceJustify::Center>
-                        <PowerConsumptionDataCard />
-                        <PowerConsumptionDataCard />
-                    </Space>
-                    <Space justify=SpaceJustify::Center>
-                        <PowerConsumptionDataCard />
-                        <PowerConsumptionDataCard />
-                    </Space>
-                    <Space justify=SpaceJustify::Center>
-                        <PowerConsumptionDataCard />
-                        <PowerConsumptionDataCard />
-                    </Space>
-                </Space>
+                    </GridItem>
+                    <GridItem>
+                        <Flex attr:style="flex-wrap: wrap;">
+                            <GridItem><DevicePowerControlCard/></GridItem>
+                            <GridItem><DevicePowerControlCard/></GridItem>
+                            <GridItem><DevicePowerControlCard/></GridItem>
+                            <GridItem><DevicePowerControlCard/></GridItem>
+                            <GridItem><DevicePowerControlCard/></GridItem>
+                            <GridItem><DevicePowerControlCard/></GridItem>
+                        </Flex>
+                    </GridItem>
+                </Grid>
             </Layout>
         </Layout>
     }
