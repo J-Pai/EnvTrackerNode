@@ -198,23 +198,47 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
     }
 
     #[component]
-    fn DevicePowerControlCard() -> impl IntoView {
+    fn DevicePowerControlCard(name: RwSignal<&'static str>) -> impl IntoView {
         view! {
-            <Grid cols=6 attr:style="background: var(--colorNeutralBackground1Pressed); width: 400px; height: 100px">
+            <Grid cols=6 attr:style="background: var(--colorNeutralBackground1Pressed); width: 400px; height: 130px">
                 <GridItem>
-                    <Space align=SpaceAlign::Center attr:style="height: 100%;">
+                    <Space align=SpaceAlign::Center justify=SpaceJustify::Center attr:style="height: 100%;">
                         <div style="height: max-content; width: max-content;">
                             <Checkbox size=CheckboxSize::Large checked=true />
                         </div>
                     </Space>
                 </GridItem>
                 <GridItem column=4>
-                    <Space align=SpaceAlign::Center attr:style="height: 100%;">
-                        "content"
+                    <Space align=SpaceAlign::Center attr:style="height: 100%; font-family: monospace !important">
+                        <div style="height: max-content; width: max-content;">
+                            <Space vertical=true justify=SpaceJustify::Start align=SpaceAlign::Start>
+                                <b>{name} " / YYYY:MM::DD HH:SS"</b>
+                                <Grid cols=2 attr:style="text-align: start; width: 350px;">
+                                    <GridItem>
+                                        "Current Usage"
+                                    </GridItem>
+                                    <GridItem>
+                                        "106.7 W"
+                                    </GridItem>
+                                    <GridItem>
+                                        "Today's Usage"
+                                    </GridItem>
+                                    <GridItem>
+                                        "106.7 kWh"
+                                    </GridItem>
+                                    <GridItem>
+                                        "Total Usage"
+                                    </GridItem>
+                                    <GridItem>
+                                        "106.7 kWh"
+                                    </GridItem>
+                                </Grid>
+                            </Space>
+                        </div>
                     </Space>
                 </GridItem>
                 <GridItem attr:style="place-items: center;">
-                    <Space align=SpaceAlign::Center attr:style="height: 100%;">
+                    <Space align=SpaceAlign::Center justify=SpaceJustify::Center attr:style="height: 100%;">
                         <div style="height: max-content; width: max-content;">
                             <Button
                                 icon=icondata::FaPowerOffSolid
@@ -269,12 +293,12 @@ fn HomePage(theme: RwSignal<Theme>, brand_colors: HashMap<i32, &'static str>) ->
                     </GridItem>
                     <GridItem>
                         <Flex attr:style="flex-wrap: wrap;">
-                            <GridItem><DevicePowerControlCard/></GridItem>
-                            <GridItem><DevicePowerControlCard/></GridItem>
-                            <GridItem><DevicePowerControlCard/></GridItem>
-                            <GridItem><DevicePowerControlCard/></GridItem>
-                            <GridItem><DevicePowerControlCard/></GridItem>
-                            <GridItem><DevicePowerControlCard/></GridItem>
+                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device1")/></GridItem>
+                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device2")/></GridItem>
+                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device3")/></GridItem>
+                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device4")/></GridItem>
+                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device5")/></GridItem>
+                            <GridItem><DevicePowerControlCard name=RwSignal::new("Device6")/></GridItem>
                         </Flex>
                     </GridItem>
                 </Grid>
