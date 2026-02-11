@@ -4,7 +4,7 @@ aiosignal==1.4.0
 asyncclick==8.3.0.7
 attrs==25.4.0
 cffi==2.0.0
-cryptography==46.0.3
+cryptography==46.0.5
 frozenlist==1.8.0
 idna==3.11
 mashumaro==3.17
