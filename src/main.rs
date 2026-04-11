@@ -7,6 +7,26 @@ use config::Config;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut venv_setup = Command::new("virtualenv")
+        .arg("venv")
+        .spawn()
+        .expect("Failed to setup virtualenv");
+
+    let status = venv_setup.wait().await?;
+
+    println!("==> virtualenv status: {status}");
+
+    let mut venv_requirements_setup = Command::new("venv/bin/pip")
+        .arg("install")
+        .arg("-r")
+        .arg("requirements.txt")
+        .spawn()
+        .expect("Failed to setup virtualenv");
+
+    let status = venv_requirements_setup.wait().await?;
+
+    println!("==> virtualenv requirements setup status: {status}");
+
     let home_dir = env::home_dir().expect("HOME dir not specified.");
     let config_dir = format!("{}/.config/envtrackernode", home_dir.to_str().unwrap());
     let config_file = format!("{}/config.toml", config_dir);
@@ -42,26 +62,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
     };
-
-    let mut venv_setup = Command::new("virtualenv")
-        .arg("venv")
-        .spawn()
-        .expect("Failed to setup virtualenv");
-
-    let status = venv_setup.wait().await?;
-
-    println!("==> virtualenv status: {status}");
-
-    let mut venv_requirements_setup = Command::new("venv/bin/pip")
-        .arg("install")
-        .arg("-r")
-        .arg("requirements.txt")
-        .spawn()
-        .expect("Failed to setup virtualenv");
-
-    let status = venv_requirements_setup.wait().await?;
-
-    println!("==> virtualenv requirements setup status: {status}");
 
     let mut venv_requirements_setup = Command::new("venv/bin/kasa")
         .arg("install")
