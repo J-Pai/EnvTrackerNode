@@ -1,6 +1,10 @@
 //! Kasa handler
 
+use std::time::SystemTime;
+
+use chrono::{DateTime, Utc};
 use tokio::process::Command;
+use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::config::SysConfig;
 
@@ -21,6 +25,16 @@ pub(crate) async fn handlers(config: &SysConfig)  -> Result<(), Box<dyn std::err
 
         println!("==> kasa data status: {status}");
     }
+
+    let mut sched = JobScheduler::new().await?;
+
+    sched.add(Job::new("1/10 * * * * *", |_uuid, _l| {
+        let system_time = SystemTime::now();
+        let datetime: DateTime<Utc> = system_time.into();
+        println!("[{}] I run every 10 seconds", datetime.format("%d/%m/%Y %T"));
+    })?).await?;
+
+    sched.start().await?;
 
     Ok(())
 }
