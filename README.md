@@ -1,18 +1,9 @@
 # Environment Tracker Node
 
-### Example Config File
+### Launch
 
-```toml
-[settings]
-option1 = true
-option2 = false
-
-[kasa]
-
-[kasa.smart_plug]
-host = "123.456.789.123"
-username = "xxx"
-password = "xxx"
+```shell
+cargo run
 ```
 
 ### Development
