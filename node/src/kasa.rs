@@ -6,7 +6,9 @@ use chrono::DateTime;
 use chrono::Utc;
 use kasa_core::Credentials;
 use kasa_core::DeviceConfig;
+use kasa_core::commands::INFO;
 use kasa_core::connect;
+use serde_json::Value;
 use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
 
@@ -20,8 +22,11 @@ pub(crate) async fn handler(config: &SysConfig) -> Result<(), Box<dyn std::error
             Credentials::new(kasa_device.username.as_str(), kasa_device.password.as_str()),
         );
         let transport = connect(kasa_config).await?;
-        let response = transport.send(r#"{"system":{"get_sysinfo":{}}}"#).await?;
-        println!("{}", response);
+        let response = transport.send(INFO).await?;
+
+        let data: Value = serde_json::from_str(&response.as_str())?;
+
+        println!("{:#?}", data);
     }
 
     let sched = JobScheduler::new().await?;
