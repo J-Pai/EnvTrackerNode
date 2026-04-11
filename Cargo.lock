@@ -353,19 +353,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "envtrackernode"
-version = "0.1.0"
-dependencies = [
- "axum",
- "config",
- "serde",
- "tokio",
- "tokio-cron-scheduler",
- "toml",
- "toml_writer",
-]
-
-[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -380,6 +367,16 @@ dependencies = [
  "serde",
  "serde_core",
  "typeid",
+]
+
+[[package]]
+name = "errno"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
+dependencies = [
+ "libc",
+ "windows-sys",
 ]
 
 [[package]]
@@ -724,6 +721,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "node"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "config",
+ "serde",
+ "tokio",
+ "tokio-cron-scheduler",
+ "toml",
+ "toml_writer",
+]
+
+[[package]]
 name = "num-derive"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1058,10 +1068,11 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "signal-hook-registry"
-version = "1.4.6"
+version = "1.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2a4719bff48cee6b39d12c020eeb490953ad2443b7055bd0b21fca26bd8c28b"
+checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
 dependencies = [
+ "errno",
  "libc",
 ]
 

@@ -1,3 +1,8 @@
+use std::collections::HashMap;
+use std::env;
+use std::fs;
+use std::io;
+
 use config::Config;
 use config::ConfigError;
 use serde::Deserialize;
@@ -18,13 +23,13 @@ struct Settings {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ConfigToml {
+struct SysConfig {
     settings: Settings,
-    kasa: Option<std::collections::HashMap<String, KasaDevice>>,
+    kasa: Option<HashMap<String, KasaDevice>>,
 }
 
 pub(super) fn parse_config() -> Result<KasaDevice, Box<dyn std::error::Error>> {
-    let home_dir = std::env::home_dir().expect("HOME dir not specified.");
+    let home_dir = env::home_dir().expect("HOME dir not specified.");
     let config_dir = format!("{}/.config/envtrackernode", home_dir.to_str().unwrap());
     let config_file = format!("{}/config.toml", config_dir);
     let settings = match Config::builder()
@@ -38,17 +43,17 @@ pub(super) fn parse_config() -> Result<KasaDevice, Box<dyn std::error::Error>> {
             println!("Error obtaining config file: {:?}", e);
             println!("Create configuration file? ([Y]es / [n]o)");
             let mut response = String::new();
-            std::io::stdin().read_line(&mut response)?;
+            io::stdin().read_line(&mut response)?;
             if response.to_uppercase().trim() == "Y" {
                 println!("Creating {}", config_file);
-                std::fs::create_dir_all(config_dir)?;
+                fs::create_dir_all(config_dir)?;
 
-                let config = ConfigToml {
+                let config = SysConfig {
                     settings: Settings {
                         jwt_secret: "placeholder".to_string(),
                         authorized_api_keys: Some(vec!["placeholder".to_string(), "placeholder".to_string()]),
                     },
-                    kasa: Some(std::collections::HashMap::from([(
+                    kasa: Some(HashMap::from([(
                         "smart_strip".to_string(),
                         KasaDevice {
                             ip: "placeholder".to_string(),
@@ -60,7 +65,7 @@ pub(super) fn parse_config() -> Result<KasaDevice, Box<dyn std::error::Error>> {
                 };
                 let text = toml::to_string(&config)?;
 
-                std::fs::write(config_file, text)?;
+                fs::write(config_file, text)?;
             } else if response.to_uppercase().trim() != "N" {
                 println!("Please specify either [Y]es or [N]o.")
             }
@@ -68,7 +73,7 @@ pub(super) fn parse_config() -> Result<KasaDevice, Box<dyn std::error::Error>> {
         }
     };
 
-    let settings = settings.try_deserialize::<ConfigToml>()?;
+    let settings = settings.try_deserialize::<SysConfig>()?;
 
     println!("Config: {:#?}", settings);
 
