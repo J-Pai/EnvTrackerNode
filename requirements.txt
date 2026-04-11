@@ -11,6 +11,6 @@ mashumaro==3.17
 multidict==6.7.0
 propcache==0.4.1
 pycparser==2.23
-python-kasa @ git+https://github.com/ZeliardM/python-kasa@496cbb66c9b8af33632d0b131b498e5f39d21b1b
+python-kasa @ git+https://github.com/ZeliardM/python-kasa@00847a0d020a67c494703fe7b431dd40037aea16
 typing_extensions==4.15.0
 yarl==1.22.0

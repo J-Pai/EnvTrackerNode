@@ -1,6 +1,10 @@
 [package]
-name = "env_tracker_node"
+name = "envtrackernode"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+axum = "0.8.8"
+config = "0.15.22"
+tokio = { version = "1.51.1", features = ["full"] }
+tokio-cron-scheduler = "0.15.1"
