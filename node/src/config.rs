@@ -1,3 +1,4 @@
+/// Parses and handles the system configuration from a config.toml file.
 use std::collections::HashMap;
 use std::env;
 use std::fs;
