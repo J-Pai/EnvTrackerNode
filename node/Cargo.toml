@@ -7,6 +7,7 @@ edition = "2024"
 axum = "0.8.8"
 chrono = "0.4.44"
 config = "0.15.22"
+kasa-core = "0.6.0"
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.51.1", features = ["full"] }
 tokio-cron-scheduler = "0.15.1"
