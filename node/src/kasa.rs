@@ -3,7 +3,7 @@
 use std::time::SystemTime;
 
 use chrono::DateTime;
-use chrono::Utc;
+use chrono::Local;
 use kasa_core::Credentials;
 use kasa_core::DeviceConfig;
 use kasa_core::commands::INFO;
@@ -31,16 +31,19 @@ pub(crate) async fn handler(config: &SysConfig) -> Result<(), Box<dyn std::error
 
     let sched = JobScheduler::new().await?;
 
-    sched
-        .add(Job::new("1/10 * * * * *", |_uuid, _l| {
-            let system_time = SystemTime::now();
-            let datetime: DateTime<Utc> = system_time.into();
-            println!(
-                "[{}] I run every 10 seconds",
-                datetime.format("%d/%m/%Y %T")
-            );
-        })?)
-        .await?;
+    for i in 0..10 {
+        sched
+            .add(Job::new("1/10 * * * * *", move |_uuid, _l| {
+                let system_time = SystemTime::now();
+                let datetime: DateTime<Local> = system_time.into();
+                println!(
+                    "[{}] {:05} I run every 10 seconds",
+                    i,
+                    datetime.format("%d/%m/%Y %T")
+                );
+            })?)
+            .await?;
+    }
 
     sched.start().await?;
 
