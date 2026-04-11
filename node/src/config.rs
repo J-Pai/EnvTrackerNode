@@ -2,83 +2,84 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io;
+use std::process::exit;
 
 use config::Config;
-use config::ConfigError;
 use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub(super) struct KasaDevice {
-    pub ip: String,
-    pub username: String,
-    pub password: String,
-    pub description: Option<String>,
+pub(crate) struct KasaDevice {
+    pub(crate) ip: String,
+    pub(crate) username: String,
+    pub(crate) password: String,
+    pub(crate) description: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Settings {
-    jwt_secret: String,
-    authorized_api_keys: Option<Vec<String>>,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct Settings {
+    pub(crate) jwt_secret: String,
+    pub(crate) authorized_api_keys: Option<Vec<String>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct SysConfig {
-    settings: Settings,
-    kasa: Option<HashMap<String, KasaDevice>>,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct SysConfig {
+    pub(crate) settings: Settings,
+    pub(crate) kasa: Option<HashMap<String, KasaDevice>>,
 }
 
-pub(super) fn parse_config() -> Result<KasaDevice, Box<dyn std::error::Error>> {
-    let home_dir = env::home_dir().expect("HOME dir not specified.");
-    let config_dir = format!("{}/.config/envtrackernode", home_dir.to_str().unwrap());
-    let config_file = format!("{}/config.toml", config_dir);
-    let settings = match Config::builder()
-        .add_source(config::File::with_name(&config_file))
-        .build()
-    {
-        Ok(built_config) => {
-            built_config
-        }
-        Err(e) => {
-            println!("Error obtaining config file: {:?}", e);
-            println!("Create configuration file? ([Y]es / [n]o)");
-            let mut response = String::new();
-            io::stdin().read_line(&mut response)?;
-            if response.to_uppercase().trim() == "Y" {
-                println!("Creating {}", config_file);
-                fs::create_dir_all(config_dir)?;
+impl SysConfig {
+    pub(crate) fn new() -> Self {
+        let home_dir = env::home_dir().expect("HOME dir not specified.");
+        let config_dir = format!("{}/.config/envtrackernode", home_dir.to_str().unwrap());
+        let config_file = format!("{}/config.toml", config_dir);
+        let settings = match Config::builder()
+            .add_source(config::File::with_name(&config_file))
+            .build()
+        {
+            Ok(built_config) => built_config,
+            Err(e) => {
+                println!("Error obtaining config file: {:?}", e);
+                println!("Create configuration file? ([Y]es / [n]o)");
+                let mut response = String::new();
+                io::stdin().read_line(&mut response).unwrap();
+                if response.to_uppercase().trim() == "Y" {
+                    println!("Creating {}", config_file);
+                    fs::create_dir_all(config_dir).unwrap();
 
-                let config = SysConfig {
-                    settings: Settings {
-                        jwt_secret: "placeholder".to_string(),
-                        authorized_api_keys: Some(vec!["placeholder".to_string(), "placeholder".to_string()]),
-                    },
-                    kasa: Some(HashMap::from([(
-                        "smart_strip".to_string(),
-                        KasaDevice {
-                            ip: "placeholder".to_string(),
-                            username: "placeholder".to_string(),
-                            password: "placeholder".to_string(),
-                            description: Some("placeholder".to_string()),
+                    let config = SysConfig {
+                        settings: Settings {
+                            jwt_secret: "placeholder".to_string(),
+                            authorized_api_keys: Some(vec![
+                                "placeholder".to_string(),
+                                "placeholder".to_string(),
+                            ]),
                         },
-                    )])),
-                };
-                let text = toml::to_string(&config)?;
+                        kasa: Some(HashMap::from([(
+                            "smart_strip".to_string(),
+                            KasaDevice {
+                                ip: "placeholder".to_string(),
+                                username: "placeholder".to_string(),
+                                password: "placeholder".to_string(),
+                                description: Some("placeholder".to_string()),
+                            },
+                        )])),
+                    };
+                    let text = toml::to_string(&config).unwrap();
 
-                fs::write(config_file, text)?;
-            } else if response.to_uppercase().trim() != "N" {
-                println!("Please specify either [Y]es or [N]o.")
+                    fs::write(&config_file, text).unwrap();
+                } else if response.to_uppercase().trim() != "N" {
+                    println!("Please specify either [Y]es or [N]o.")
+                }
+                println!("Created {}. Restart application.", config_file);
+                exit(0);
             }
-            return Err(Box::new(ConfigError::Message("".to_string())));
-        }
-    };
+        };
 
-    let settings = settings.try_deserialize::<SysConfig>()?;
+        settings.try_deserialize::<SysConfig>().unwrap()
+    }
 
-    println!("Config: {:#?}", settings);
-
-    let kasa_map = settings.kasa.unwrap();
-    let kasa_device = kasa_map.get("smart_strip").unwrap();
-
-    Ok(kasa_device.clone())
+    pub(crate) fn get_kasa_devices(&self) -> Option<HashMap<String, KasaDevice>> {
+        self.kasa.clone()
+    }
 }

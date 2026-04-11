@@ -1,3 +1,5 @@
+//! General web server.
+
 use tokio::process::Command;
 
 mod config;
@@ -24,21 +26,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("==> virtualenv requirements setup status: {status}");
 
-    let kasa_device = config::parse_config()?;
+    let config = config::SysConfig::new();
+    if let Some(kasa_devices) = config.get_kasa_devices() {
+        let kasa_device = kasa_devices.get("smart_strip").unwrap();
+        let mut kasa_data = Command::new("venv/bin/kasa")
+            .arg("--host")
+            .arg(kasa_device.ip.as_str())
+            .arg("--username")
+            .arg(kasa_device.username.as_str())
+            .arg("--password")
+            .arg(kasa_device.password.as_str())
+            .spawn()
+            .expect("Failed to setup virtualenv");
 
-    let mut kasa_data = Command::new("venv/bin/kasa")
-        .arg("--host")
-        .arg(kasa_device.ip.as_str())
-        .arg("--username")
-        .arg(kasa_device.username.as_str())
-        .arg("--password")
-        .arg(kasa_device.password.as_str())
-        .spawn()
-        .expect("Failed to setup virtualenv");
+        let status = kasa_data.wait().await?;
 
-    let status = kasa_data.wait().await?;
-
-    println!("==> kasa data status: {status}");
+        println!("==> kasa data status: {status}");
+    }
 
     Ok(())
 }

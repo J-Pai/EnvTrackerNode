@@ -9,5 +9,6 @@ config = "0.15.22"
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.51.1", features = ["full"] }
 tokio-cron-scheduler = "0.15.1"
+tokio-memq = "1.0.0"
 toml = "1.1.2"
 toml_writer = "1.1.1"

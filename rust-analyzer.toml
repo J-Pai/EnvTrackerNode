@@ -1,0 +1,3 @@
+rust-analyzer.imports.group.enable = false
+rust-analyzer.imports.granularity.enforce = true
+rust-analyzer.imports.granularity.group = "item"
