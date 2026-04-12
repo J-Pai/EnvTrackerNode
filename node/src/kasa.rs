@@ -1,5 +1,6 @@
-/// Sets up and manages interactions with Kasa devices.
-/// - Kasa Smart Power Strip HS300
+//! Sets up and manages interactions with Kasa devices.
+//! - Kasa Smart Power Strip HS300
+
 use std::time::SystemTime;
 
 use chrono::DateTime;
@@ -11,10 +12,15 @@ use kasa_core::connect;
 use serde_json::Value;
 use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
+use tokio_memq::AsyncMessagePublisher;
+use tokio_memq::MessageQueue;
 
 use crate::config::SysConfig;
 
-pub(crate) async fn handler(config: &SysConfig) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) async fn handler(
+    config: &SysConfig,
+    mq: &'static MessageQueue,
+) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(kasa_devices) = config.get_kasa_devices() {
         let kasa_device = kasa_devices.get("smart_strip").unwrap();
 
@@ -33,14 +39,24 @@ pub(crate) async fn handler(config: &SysConfig) -> Result<(), Box<dyn std::error
 
     for i in 0..10 {
         sched
-            .add(Job::new("1/10 * * * * *", move |_uuid, _l| {
-                let system_time = SystemTime::now();
-                let datetime: DateTime<Local> = system_time.into();
-                println!(
-                    "[{}] {:05} I run every 10 seconds",
-                    i,
-                    datetime.format("%d/%m/%Y %T")
-                );
+            .add(Job::new_async("1/10 * * * * *", move |_uuid, _l| {
+                let pub_instance = mq.publisher("kasa".to_string());
+                Box::pin(async move {
+                    let system_time = SystemTime::now();
+                    let datetime: DateTime<Local> = system_time.into();
+                    println!(
+                        "[{}] {:05} I run every 10 seconds",
+                        i,
+                        datetime.format("%d/%m/%Y %T")
+                    );
+                    pub_instance
+                        .publish(format!(
+                            "[{}] {:05} I run every 10 seconds",
+                            i,
+                            datetime.format("%d/%m/%Y %T")
+                        ))
+                        .await.unwrap();
+                })
             })?)
             .await?;
     }
