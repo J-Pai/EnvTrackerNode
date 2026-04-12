@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    web::server(&config, &SUB).await?;
+    web::server(&config, &MQ, &SUB).await?;
 
     Ok(())
 }
