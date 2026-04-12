@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use axum::Router;
 use axum::routing;
+use serde_json::Value;
 use tokio::sync::Mutex;
 use tokio::time::timeout;
 use tokio_memq::MessageSubscriber;
@@ -32,8 +33,7 @@ pub(crate) async fn server(
             let current_offset = sub.current_offset().await.unwrap();
             let mut output: String = "".to_owned();
             for (i, m) in msg.iter().enumerate() {
-                output
-                    .push_str(format!("{}. {}\n", i, m.deserialize::<String>().unwrap()).as_str());
+                output.push_str(format!("{}. {}\n", i, m.deserialize::<Value>().unwrap()).as_str());
             }
             format!("Hello, World! [{}] \n{}", current_offset, output)
         }),
