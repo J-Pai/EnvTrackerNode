@@ -38,7 +38,7 @@ pub(crate) async fn handler(
 
     let sched = JobScheduler::new().await?;
 
-    for i in 0..10 {
+    for i in 0..1000 {
         let pub_instance = {
             let mq_lock = mq.lock().await;
             let mq = mq_lock.as_ref().unwrap();
@@ -61,7 +61,8 @@ pub(crate) async fn handler(
                             i,
                             datetime.format("%d/%m/%Y %T")
                         ))
-                        .await.unwrap();
+                        .await
+                        .unwrap();
                 })
             })?)
             .await?;

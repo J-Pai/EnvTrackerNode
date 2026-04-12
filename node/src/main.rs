@@ -27,7 +27,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mq = mq_lock.as_ref().unwrap();
         let mut sub_lock = SUB.lock().await;
         sub_lock.replace(
-            mq.subscriber_with_options_and_mode("kasa".to_string(), TopicOptions::default(), ConsumptionMode::Earliest).await.unwrap()
+            mq.subscriber_with_options_and_mode(
+                "kasa".to_string(),
+                TopicOptions::default(),
+                ConsumptionMode::Earliest,
+            )
+            .await
+            .unwrap(),
         );
     }
 
