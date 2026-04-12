@@ -15,6 +15,7 @@ use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::AsyncMessagePublisher;
 use tokio_memq::MessageQueue;
+use tokio_memq::TopicOptions;
 
 use crate::config::SysConfig;
 
@@ -42,6 +43,14 @@ pub(crate) async fn handler(
         let pub_instance = {
             let mq_lock = mq.lock().await;
             let mq = mq_lock.as_ref().unwrap();
+            mq.create_topic(
+                "kasa".to_string(),
+                TopicOptions {
+                    max_messages: Some(1000),
+                    ..Default::default()
+                },
+            )
+            .await?;
             mq.publisher("kasa".to_string())
         };
         sched

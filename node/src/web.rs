@@ -1,9 +1,11 @@
 //! Sets up the web services.
 
+use std::time::Duration;
+
 use axum::Router;
 use axum::routing;
 use tokio::sync::Mutex;
-use tokio_memq::MessageQueue;
+use tokio::time::timeout;
 use tokio_memq::MessageSubscriber;
 use tokio_memq::Subscriber;
 
@@ -11,45 +13,29 @@ use crate::config::SysConfig;
 
 pub(crate) async fn server(
     _config: &SysConfig,
-    mq: &'static Mutex<Option<MessageQueue>>,
     subscriber: &'static Mutex<Option<Subscriber>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // build our application with a single route
     let app = Router::new().route(
         "/",
         routing::get(|| async {
-            let message_count = {
-                let mq_lock = mq.lock().await;
-                if let Some(stats) = mq_lock
-                    .as_ref()
-                    .unwrap()
-                    .get_topic_stats("kasa".to_string())
-                    .await
-                {
-                    stats.message_count
-                } else {
-                    return format!("Hello, World! No messages! [{}, {}]", -1, -1).to_string();
-                }
-            };
             let sub_lock = subscriber.lock().await;
             let sub = sub_lock.as_ref().unwrap();
             let current_offset = sub.current_offset().await.unwrap();
 
-            if current_offset == message_count {
-                return format!(
-                    "Hello, World! No messages! [{}, {}]",
-                    message_count, current_offset
-                )
-                .to_string();
-            }
-
-            let msg = sub.recv_batch(10).await.expect("It's wrong");
+            let msg = match timeout(Duration::from_millis(100), sub.recv_batch(100)).await {
+                Ok(result) => result.unwrap(),
+                Err(_) => {
+                    return format!("Hello, World! [{}]", current_offset);
+                }
+            };
+            let current_offset = sub.current_offset().await.unwrap();
             let mut output: String = "".to_owned();
             for (i, m) in msg.iter().enumerate() {
                 output
                     .push_str(format!("{}. {}\n", i, m.deserialize::<String>().unwrap()).as_str());
             }
-            format!("Hello, World! \n{}", output)
+            format!("Hello, World! [{}] \n{}", current_offset, output)
         }),
     );
 
