@@ -70,7 +70,8 @@ impl SysConfig {
 
                     fs::write(&config_file, text).unwrap();
                 } else if response.to_uppercase().trim() != "N" {
-                    println!("Please specify either [Y]es or [N]o.")
+                    println!("Please specify either [Y]es or [N]o.");
+                    exit(1);
                 }
                 println!("Created {}. Restart application.", config_file);
                 exit(0);
