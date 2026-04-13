@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub(crate) struct KasaDevice {
+pub(crate) struct KasaDeviceConfig {
     pub(crate) ip: String,
     pub(crate) username: String,
     pub(crate) password: String,
@@ -27,7 +27,7 @@ pub(crate) struct Settings {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct SysConfig {
     pub(crate) settings: Settings,
-    pub(crate) kasa: Option<HashMap<String, KasaDevice>>,
+    pub(crate) kasa: Option<HashMap<String, KasaDeviceConfig>>,
 }
 
 macro_rules! tagged_fmt {
@@ -74,7 +74,7 @@ impl SysConfig {
         settings
     }
 
-    pub(crate) fn get_kasa_devices(&self) -> Option<HashMap<String, KasaDevice>> {
+    pub(crate) fn get_kasa_devices(&self) -> Option<HashMap<String, KasaDeviceConfig>> {
         self.kasa.clone()
     }
 
@@ -134,7 +134,7 @@ impl SysConfig {
                 return Some(response);
             }
 
-            let mut device = KasaDevice::default();
+            let mut device = KasaDeviceConfig::default();
 
             println!("Provide kasa device name (leave empty to skip): ");
             let device_name = if let Some(resp) = handle_response() {

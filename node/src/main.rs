@@ -1,43 +1,46 @@
 //! Entrypoint for services.
 
+use kasa_core::Transport;
 use tokio::sync::Mutex;
-use tokio_memq::ConsumptionMode;
+use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::MessageQueue;
-use tokio_memq::Subscriber;
-use tokio_memq::TopicOptions;
+use tokio_memq::Publisher;
+
+use crate::kasa::Kasa;
 
 mod config;
 mod kasa;
+mod traits;
 mod web;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = config::SysConfig::new();
+
     static MQ: Mutex<Option<MessageQueue>> = Mutex::const_new(None);
     {
         let mut mq_lock = MQ.lock().await;
         mq_lock.replace(MessageQueue::new());
     }
-    let config = config::SysConfig::new();
 
-    let mq = kasa::handler(&config, &MQ).await?;
-
-    static SUB: Mutex<Option<Subscriber>> = Mutex::const_new(None);
+    static SCHEDULER: Mutex<Option<JobScheduler>> = Mutex::const_new(None);
     {
-        let mq_lock = mq.lock().await;
-        let mq = mq_lock.as_ref().unwrap();
-        let mut sub_lock = SUB.lock().await;
-        sub_lock.replace(
-            mq.subscriber_with_options_and_mode(
-                "kasa".to_string(),
-                TopicOptions::default(),
-                ConsumptionMode::Earliest,
-            )
-            .await
-            .unwrap(),
-        );
+        let mut scheduler_lock = SCHEDULER.lock().await;
+        scheduler_lock.replace(JobScheduler::new().await?);
     }
 
-    web::server(&config, &MQ, &SUB).await?;
+    static TRANSPORTS: Mutex<Vec<Box<dyn Transport>>> = Mutex::const_new(Vec::new());
+
+    static PUBLISHERS: Mutex<Vec<Mutex<Option<Publisher>>>> = Mutex::const_new(Vec::new());
+
+    let kasa_devices = config.get_kasa_devices().unwrap();
+    let mut kasa = Kasa::new(&kasa_devices, &MQ, &TRANSPORTS).await;
+    kasa.add_polling(&MQ, &PUBLISHERS, &SCHEDULER, &TRANSPORTS).await?;
+
+    let scheduler_lock = SCHEDULER.lock().await;
+    scheduler_lock.as_ref().unwrap().start().await?;
+
+    web::server().await?;
 
     Ok(())
 }
