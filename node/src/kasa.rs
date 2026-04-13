@@ -53,7 +53,7 @@ impl KasaDevice {
         let mq_lock = mq.lock().await;
         let mq = mq_lock.as_ref().unwrap();
         mq.create_topic(
-            "kasa".to_string(),
+            self.topic.clone(),
             TopicOptions {
                 // Should track data for up to 3 months.
                 max_messages: Some(Duration::as_secs(&Duration::from_hours(24 * 90)) as usize),
@@ -137,21 +137,23 @@ impl KasaDevice {
 
 impl Subscribale for KasaDevice {
     async fn allocate_subscriber(
-            &mut self,
-            mq: &MessageQueue,
-            subscribers: &'static Mutex<Vec<Mutex<Option<Subscriber>>>>,
-            options: TopicOptions,
-            mode: ConsumptionMode,
-        ) -> Result<usize, Box<dyn std::error::Error>> {
+        &mut self,
+        mq: &'static Mutex<Option<MessageQueue>>,
+        subscribers: &'static Mutex<Vec<Mutex<Option<Subscriber>>>>,
+        options: TopicOptions,
+        mode: ConsumptionMode,
+    ) -> Result<usize, Box<dyn std::error::Error>> {
+        let mq = mq.lock().await;
         let mut subscribers = subscribers.lock().await;
         subscribers.push(Mutex::new(Some(
-            mq.subscriber_with_options_and_mode(self.topic.clone(), options, mode)
+            mq.as_ref()
+                .unwrap()
+                .subscriber_with_options_and_mode(self.topic.clone(), options, mode)
                 .await?,
         )));
         self.subscriber_indices.push(subscribers.len() - 1);
         Ok(subscribers.len() - 1)
     }
-
 }
 
 pub(crate) struct Kasa {
@@ -194,5 +196,20 @@ impl Kasa {
                 .await?;
         }
         Ok(())
+    }
+
+    pub(crate) async fn allocate_subscriber(
+        &mut self,
+        device: String,
+        mq: &'static Mutex<Option<MessageQueue>>,
+        subscribers: &'static Mutex<Vec<Mutex<Option<Subscriber>>>>,
+        options: TopicOptions,
+        mode: ConsumptionMode,
+    ) -> Result<usize, Box<dyn std::error::Error>> {
+        self.devices
+            .get_mut(&device)
+            .unwrap()
+            .allocate_subscriber(mq, subscribers, options, mode)
+            .await
     }
 }

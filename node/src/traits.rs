@@ -9,7 +9,7 @@ use tokio_memq::TopicOptions;
 pub trait Subscribale {
     async fn allocate_subscriber(
         &mut self,
-        mq: &MessageQueue,
+        mq: &'static Mutex<Option<MessageQueue>>,
         subscribers: &'static Mutex<Vec<Mutex<Option<Subscriber>>>>,
         options: TopicOptions,
         mode: ConsumptionMode,
