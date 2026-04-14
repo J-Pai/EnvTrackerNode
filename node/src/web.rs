@@ -14,52 +14,48 @@ use tokio_memq::Subscriber;
 
 use crate::config::SysConfig;
 
-pub(crate) async fn server(
-    _config: &SysConfig,
-    mq: &'static Mutex<Option<MessageQueue>>,
-    subscribers: &'static Mutex<Vec<Mutex<Option<Subscriber>>>>,
-    subscriber_indices: &'static Mutex<Option<HashMap<String, usize>>>,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) async fn server(_config: &SysConfig) -> Result<(), Box<dyn std::error::Error>> {
     // build our application with a single route
     let app = Router::new().route(
         "/",
         routing::get(|| async {
-            let topic = "smart_strip".to_string();
-            let subscriber_indices_lock = subscriber_indices.lock().await;
-            let index = *subscriber_indices_lock.as_ref().unwrap().get(&topic).unwrap();
-            let subscribers_lock = subscribers.lock().await;
-            let sub_lock = subscribers_lock[index].lock().await;
-            let sub = sub_lock.as_ref().unwrap();
-            let current_offset = sub.current_offset().await.unwrap();
+            // let topic = "smart_strip".to_string();
+            // let subscriber_indices_lock = subscriber_indices.lock().await;
+            // let index = *subscriber_indices_lock.as_ref().unwrap().get(&topic).unwrap();
+            // let subscribers_lock = subscribers.lock().await;
+            // let sub_lock = subscribers_lock[index].lock().await;
+            // let sub = sub_lock.as_ref().unwrap();
+            // let current_offset = sub.current_offset().await.unwrap();
 
-            let mq_lock = mq.lock().await;
-            let mq_stats = mq_lock
-                .as_ref()
-                .unwrap()
-                .get_topic_stats(topic)
-                .await
-                .unwrap();
+            // let mq_lock = mq.lock().await;
+            // let mq_stats = mq_lock
+            //     .as_ref()
+            //     .unwrap()
+            //     .get_topic_stats(topic)
+            //     .await
+            //     .unwrap();
 
-            let msg = match timeout(Duration::from_millis(100), sub.recv_batch(100)).await {
-                Ok(result) => result.unwrap(),
-                Err(_) => {
-                    return format!(
-                        "Hello, World! [{}, {}, {}]",
-                        current_offset, mq_stats.total_payload_size, mq_stats.message_count
-                    );
-                }
-            };
-            let current_offset = sub.current_offset().await.unwrap();
-            let mut output: String = "".to_owned();
-            for (i, m) in msg.iter().enumerate() {
-                let json = m.deserialize::<Value>().unwrap();
-                output.push_str(format!("{}. {}\n", i, json).as_str());
-            }
+            // let msg = match timeout(Duration::from_millis(100), sub.recv_batch(100)).await {
+            //     Ok(result) => result.unwrap(),
+            //     Err(_) => {
+            //         return format!(
+            //             "Hello, World! [{}, {}, {}]",
+            //             current_offset, mq_stats.total_payload_size, mq_stats.message_count
+            //         );
+            //     }
+            // };
+            // let current_offset = sub.current_offset().await.unwrap();
+            // let mut output: String = "".to_owned();
+            // for (i, m) in msg.iter().enumerate() {
+            //     let json = m.deserialize::<Value>().unwrap();
+            //     output.push_str(format!("{}. {}\n", i, json).as_str());
+            // }
 
-            format!(
-                "Hello, World! [{}, {}, {}] \n{}",
-                current_offset, mq_stats.total_payload_size, mq_stats.message_count, output
-            )
+            // format!(
+            //     "Hello, World! [{}, {}, {}] \n{}",
+            //     current_offset, mq_stats.total_payload_size, mq_stats.message_count, output
+            // )
+            format!("Hello, World!",)
         }),
     );
 
