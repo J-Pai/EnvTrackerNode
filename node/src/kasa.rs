@@ -24,7 +24,6 @@ use tokio_memq::Subscriber;
 use tokio_memq::TopicOptions;
 
 use crate::config::KasaDeviceConfig;
-use crate::traits::Subscribale;
 
 struct KasaDevice {
     topic: String,
@@ -32,18 +31,31 @@ struct KasaDevice {
     transport_index: Option<usize>,
     publishers: &'static RwLock<Vec<RwLock<Publisher>>>,
     publisher_indices: Vec<usize>,
-    subscribers: &'static RwLock<Vec<RwLock<Subscriber>>>,
-    subscriber_indices: Vec<usize>,
+    subscribers: &'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>,
+    subscriber_keys: Vec<String>,
     polling_schedule: String,
+    mq: &'static RwLock<Option<MessageQueue>>,
+    scheduler: &'static RwLock<Option<JobScheduler>>,
 }
 
 impl KasaDevice {
-    fn new(topic: String, polling_schedule: String) -> Self {
+    async fn new(
+        topic: String,
+        polling_schedule: String,
+        mq: &'static RwLock<Option<MessageQueue>>,
+        scheduler: &'static RwLock<Option<JobScheduler>>,
+    ) -> Self {
         static TRANSPORTS: RwLock<Vec<Box<dyn Transport>>> = RwLock::const_new(Vec::new());
 
         static PUBLISHERS: RwLock<Vec<RwLock<Publisher>>> = RwLock::const_new(Vec::new());
 
-        static SUBSCRIBERS: RwLock<Vec<RwLock<Subscriber>>> = RwLock::const_new(Vec::new());
+        static SUBSCRIBERS: RwLock<Option<HashMap<String, RwLock<Subscriber>>>> = RwLock::const_new(None);
+        {
+            let mut subscribers_lock = SUBSCRIBERS.write().await;
+            if subscribers_lock.is_none() {
+                subscribers_lock.replace(HashMap::new());
+            }
+        }
 
         let device: Self = Self {
             topic,
@@ -52,17 +64,16 @@ impl KasaDevice {
             publishers: &PUBLISHERS,
             publisher_indices: Vec::new(),
             subscribers: &SUBSCRIBERS,
-            subscriber_indices: Vec::new(),
+            subscriber_keys: Vec::new(),
             polling_schedule,
+            mq,
+            scheduler,
         };
         device
     }
 
-    async fn setup_topic(
-        self,
-        mq: &'static RwLock<Option<MessageQueue>>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let mq_lock = mq.read().await;
+    async fn setup_topic(self) -> Result<Self, Box<dyn std::error::Error>> {
+        let mq_lock = self.mq.read().await;
         let mq = mq_lock.as_ref().unwrap();
         mq.create_topic(
             self.topic.clone(),
@@ -94,11 +105,8 @@ impl KasaDevice {
         Ok(self)
     }
 
-    async fn allocate_publisher(
-        &mut self,
-        mq: &'static RwLock<Option<MessageQueue>>,
-    ) -> Result<usize, Box<dyn std::error::Error>> {
-        let mq = mq.read().await;
+    async fn allocate_publisher(&mut self) -> Result<usize, Box<dyn std::error::Error>> {
+        let mq = self.mq.read().await;
         let mut publishers = self.publishers.write().await;
         publishers.push(RwLock::new(
             mq.as_ref().unwrap().publisher(self.topic.clone()),
@@ -107,13 +115,9 @@ impl KasaDevice {
         Ok(publishers.len() - 1)
     }
 
-    async fn add_polling(
-        &mut self,
-        mq: &'static RwLock<Option<MessageQueue>>,
-        scheduler: &'static RwLock<Option<JobScheduler>>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let publisher_index = self.allocate_publisher(mq).await?.clone();
-        let scheduler = scheduler.read().await;
+    async fn add_polling(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let publisher_index = self.allocate_publisher().await?.clone();
+        let scheduler = self.scheduler.read().await;
         let transports = self.transports;
         let publishers = self.publishers;
         let index = self.transport_index.unwrap();
@@ -141,28 +145,25 @@ impl KasaDevice {
             .await?;
         Ok(())
     }
-}
 
-impl Subscribale for KasaDevice {
     async fn allocate_subscriber(
         &mut self,
-        mq: &'static RwLock<Option<MessageQueue>>,
+        key: &String,
         options: TopicOptions,
         mode: ConsumptionMode,
-    ) -> Result<(&'static RwLock<Vec<RwLock<Subscriber>>>, usize), Box<dyn std::error::Error>> {
-        let index = {
-            let mq = mq.read().await;
-            let mut subscribers = self.subscribers.write().await;
-            subscribers.push(RwLock::new(
-                mq.as_ref()
-                    .unwrap()
-                    .subscriber_with_options_and_mode(self.topic.clone(), options, mode)
-                    .await?,
-            ));
-            self.subscriber_indices.push(subscribers.len() - 1);
-            subscribers.len() - 1
-        };
-        Ok((self.subscribers, index))
+    ) -> Result<&'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>, Box<dyn std::error::Error>> {
+        let mq = self.mq.read().await;
+        let mut subscribers_lock = self.subscribers.write().await;
+        let mut subscribers = subscribers_lock.take().expect("No subscribers map.");
+        subscribers.insert(key.clone(), RwLock::new(
+            mq.as_ref()
+                .unwrap()
+                .subscriber_with_options_and_mode(self.topic.clone(), options, mode)
+                .await?,
+        ));
+        subscribers_lock.replace(subscribers);
+        self.subscriber_keys.push(key.clone());
+        Ok(self.subscribers)
     }
 }
 
@@ -174,33 +175,34 @@ impl Kasa {
     pub(crate) async fn new(
         config: &HashMap<String, KasaDeviceConfig>,
         mq: &'static RwLock<Option<MessageQueue>>,
+        scheduler: &'static RwLock<Option<JobScheduler>>,
     ) -> Self {
         let mut kasa = Self {
             devices: HashMap::new(),
         };
         for (name, device_config) in config {
-            let device = KasaDevice::new(name.to_owned(), "1/1 * * * * *".to_string())
-                .setup_topic(mq)
-                .await
-                .expect(format!("Topic creation for [{}] failed.", name).as_str())
-                .setup_transport(device_config)
-                .await
-                .expect(format!("Transport creation for [{}] failed.", name).as_str());
+            let device = KasaDevice::new(
+                name.to_owned(),
+                device_config.polling_schedule.clone(),
+                mq,
+                scheduler,
+            )
+            .await
+            .setup_topic()
+            .await
+            .expect(format!("Topic creation for [{}] failed.", name).as_str())
+            .setup_transport(device_config)
+            .await
+            .expect(format!("Transport creation for [{}] failed.", name).as_str());
             kasa.devices.insert(name.clone(), device);
         }
 
         kasa
     }
 
-    pub(crate) async fn add_polling(
-        &mut self,
-        mq: &'static RwLock<Option<MessageQueue>>,
-        scheduler: &'static RwLock<Option<JobScheduler>>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) async fn add_polling(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         for (_, device) in &mut self.devices {
-            device
-                .add_polling(mq, scheduler)
-                .await?;
+            device.add_polling().await?;
         }
         Ok(())
     }
@@ -208,14 +210,14 @@ impl Kasa {
     pub(crate) async fn allocate_subscriber(
         &mut self,
         device: String,
-        mq: &'static RwLock<Option<MessageQueue>>,
+        key: String,
         options: TopicOptions,
         mode: ConsumptionMode,
-    ) -> Result<(&'static RwLock<Vec<RwLock<Subscriber>>>, usize), Box<dyn std::error::Error>> {
+    ) -> Result<&'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>, Box<dyn std::error::Error>> {
         self.devices
             .get_mut(&device)
             .unwrap()
-            .allocate_subscriber(mq, options, mode)
+            .allocate_subscriber(&key, options, mode)
             .await
     }
 }

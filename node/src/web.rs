@@ -4,60 +4,100 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use axum::Router;
+use axum::extract::Path;
 use axum::routing;
 use serde_json::Value;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use tokio::time::timeout;
+use tokio_memq::ConsumptionMode;
 use tokio_memq::MessageQueue;
 use tokio_memq::MessageSubscriber;
 use tokio_memq::Subscriber;
+use tokio_memq::TopicOptions;
 
 use crate::config::SysConfig;
+use crate::kasa::Kasa;
 
-pub(crate) async fn server(_config: &SysConfig) -> Result<(), Box<dyn std::error::Error>> {
-    // build our application with a single route
-    let app = Router::new().route(
-        "/",
-        routing::get(|| async {
-            // let topic = "smart_strip".to_string();
-            // let subscriber_indices_lock = subscriber_indices.lock().await;
-            // let index = *subscriber_indices_lock.as_ref().unwrap().get(&topic).unwrap();
-            // let subscribers_lock = subscribers.lock().await;
-            // let sub_lock = subscribers_lock[index].lock().await;
-            // let sub = sub_lock.as_ref().unwrap();
-            // let current_offset = sub.current_offset().await.unwrap();
+pub(crate) async fn server(
+    config: &SysConfig,
+    devices: &mut Kasa,
+    mq: &'static RwLock<Option<MessageQueue>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut sitemap: Vec<String> = Vec::new();
 
-            // let mq_lock = mq.lock().await;
-            // let mq_stats = mq_lock
-            //     .as_ref()
-            //     .unwrap()
-            //     .get_topic_stats(topic)
-            //     .await
-            //     .unwrap();
+    let mut app = Router::new();
 
-            // let msg = match timeout(Duration::from_millis(100), sub.recv_batch(100)).await {
-            //     Ok(result) => result.unwrap(),
-            //     Err(_) => {
-            //         return format!(
-            //             "Hello, World! [{}, {}, {}]",
-            //             current_offset, mq_stats.total_payload_size, mq_stats.message_count
-            //         );
-            //     }
-            // };
-            // let current_offset = sub.current_offset().await.unwrap();
-            // let mut output: String = "".to_owned();
-            // for (i, m) in msg.iter().enumerate() {
-            //     let json = m.deserialize::<Value>().unwrap();
-            //     output.push_str(format!("{}. {}\n", i, json).as_str());
-            // }
+    let mut subscribers: Option<&'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>> = None;
 
-            // format!(
-            //     "Hello, World! [{}, {}, {}] \n{}",
-            //     current_offset, mq_stats.total_payload_size, mq_stats.message_count, output
-            // )
-            format!("Hello, World!",)
+    for device in config.get_kasa_devices().unwrap() {
+        let device = device.clone();
+        let route_path = format!("/kasa/{}", device.0);
+        sitemap.push(route_path.clone());
+        subscribers.replace(devices
+            .allocate_subscriber(
+                device.0.clone(),
+                route_path.clone(),
+                TopicOptions::default(),
+                ConsumptionMode::Earliest,
+            )
+            .await?
+        );
+    }
+
+    let subscribers = subscribers.to_owned().unwrap();
+
+    app = app.route(
+        "/kasa/{topic}",
+        routing::get(async |Path(topic): Path<String>| {
+            let subscribers = subscribers.read().await;
+            let subscriber = subscribers.as_ref().unwrap()[&format!("/kasa/{}", topic.clone())].read().await;
+            let current_offset = subscriber.current_offset().await.unwrap();
+
+            let mq_lock = mq.read().await;
+            let mq_stats = mq_lock
+                .as_ref()
+                .unwrap()
+                .get_topic_stats(topic)
+                .await
+                .unwrap();
+
+            let msg = match timeout(Duration::from_millis(100), subscriber.recv_batch(100)).await {
+                Ok(result) => result.unwrap(),
+                Err(_) => {
+                    return format!(
+                        "Hello, World! [{}, {}, {}]",
+                        current_offset, mq_stats.total_payload_size, mq_stats.message_count
+                    );
+                }
+            };
+
+            let current_offset = subscriber.current_offset().await.unwrap();
+            let mut output: String = "".to_owned();
+            for (i, m) in msg.iter().enumerate() {
+                let json = m.deserialize::<Value>().unwrap();
+                output.push_str(format!("{}. {}\n", i, json).as_str());
+            }
+
+            format!(
+                "Hello, World! [{}, {}, {}] \n{}",
+                current_offset, mq_stats.total_payload_size, mq_stats.message_count, output
+            )
         }),
     );
+
+    app = app.route(
+        "/",
+        routing::get(async || {
+            let mut routes = String::new();
+
+            for l in sitemap {
+                routes.push_str(format!("- {}\n", l).as_str());
+            }
+
+            format!("Routes:\n{}", routes)
+        })
+    );
+
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

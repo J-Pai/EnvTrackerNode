@@ -4,8 +4,11 @@ use std::env;
 use std::fs;
 use std::io;
 use std::process::exit;
+use std::str::FromStr;
 
+use chrono::Local;
 use config::Config;
+use cron::Schedule;
 use rand::RngExt;
 use serde::Deserialize;
 use serde::Serialize;
@@ -15,6 +18,7 @@ pub(crate) struct KasaDeviceConfig {
     pub(crate) ip: String,
     pub(crate) username: String,
     pub(crate) password: String,
+    pub(crate) polling_schedule: String,
     pub(crate) description: Option<String>,
 }
 
@@ -80,9 +84,7 @@ impl SysConfig {
 
     fn config_generator() -> Self {
         let config = SysConfig::default();
-        config
-            .update_settings()
-            .update_kasa()
+        config.update_settings().update_kasa()
     }
 
     fn update_settings(mut self) -> Self {
@@ -98,7 +100,9 @@ impl SysConfig {
         } else {
             self.settings.jwt_secret = Some(response.clone());
         }
-        println!("Generate authorized API key (provide the name of the authorized application, leave empty when done):");
+        println!(
+            "Generate authorized API key (provide the name of the authorized application, leave empty when done):"
+        );
         loop {
             io::stdin().read_line(&mut response).unwrap();
             response = response.trim().to_string();
@@ -109,9 +113,7 @@ impl SysConfig {
             let hex = hex::encode(&random_api_key);
             println!("Generated api_key for [{}]: {}", response.trim(), hex);
             self.settings.authorized_api_keys = match self.settings.authorized_api_keys {
-                None => {
-                    Some(HashMap::from([(response.to_string(), hex)]))
-                }
+                None => Some(HashMap::from([(response.to_string(), hex)])),
                 Some(mut api_keys) => {
                     api_keys.insert(response.to_string(), hex);
                     Some(api_keys)
@@ -164,13 +166,25 @@ impl SysConfig {
                 break;
             };
 
+            println!(
+                "Provide kasa device polling schedule (CRON-like, leave empty for poll every 1 second): "
+            );
+            device.polling_schedule = if let Some(resp) = handle_response() {
+                let schedule = Schedule::from_str(resp.as_str()).unwrap();
+                println!("Upcoming fire times:");
+                for datetime in schedule.upcoming(Local).take(10) {
+                    println!("-> {}", datetime)
+                }
+                resp
+            } else {
+                "1/1 * * * * *".to_string()
+            };
+
             println!("Provide kasa device description: ");
             device.description = handle_response();
 
             self.kasa = match self.kasa {
-                None => {
-                    Some(HashMap::from([(device_name, device)]))
-                }
+                None => Some(HashMap::from([(device_name, device)])),
                 Some(mut kasa_device_map) => {
                     kasa_device_map.insert(device_name, device);
                     Some(kasa_device_map)
