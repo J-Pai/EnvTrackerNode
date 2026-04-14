@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use axum::Router;
 use axum::extract::Path;
+use axum::response::Html;
 use axum::routing;
 use serde_json::Value;
 use tokio::sync::RwLock;
@@ -29,7 +30,7 @@ pub(crate) async fn server(
 
     let mut subscribers: Option<&'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>> = None;
 
-    for device in config.get_kasa_devices().unwrap() {
+    for device in config.get_kasa_devices().expect("No kasa devices configured.") {
         let device = device.clone();
         let route_path = format!("/kasa/{}", device.0);
         sitemap.push(route_path.clone());
@@ -44,60 +45,46 @@ pub(crate) async fn server(
         );
     }
 
-    let subscribers = subscribers.to_owned().unwrap();
+    if let Some(subscribers) = subscribers.to_owned() {
+        app = app.route(
+            "/kasa/{topic}",
+            routing::get(async |Path(topic): Path<String>| {
+                let subscribers = subscribers.read().await;
+                let subscriber = subscribers.as_ref().unwrap()[&format!("/kasa/{}", topic.clone())].read().await;
+                let current_offset = subscriber.current_offset().await.unwrap();
 
-    app = app.route(
-        "/kasa/{topic}",
-        routing::get(async |Path(topic): Path<String>| {
-            let subscribers = subscribers.read().await;
-            let subscriber = subscribers.as_ref().unwrap()[&format!("/kasa/{}", topic.clone())].read().await;
-            let current_offset = subscriber.current_offset().await.unwrap();
+                let mq_lock = mq.read().await;
+                let mq_stats = mq_lock
+                    .as_ref()
+                    .unwrap()
+                    .get_topic_stats(topic)
+                    .await
+                    .unwrap();
 
-            let mq_lock = mq.read().await;
-            let mq_stats = mq_lock
-                .as_ref()
-                .unwrap()
-                .get_topic_stats(topic)
-                .await
-                .unwrap();
+                let msg = match timeout(Duration::from_millis(100), subscriber.recv_batch(100)).await {
+                    Ok(result) => result.unwrap(),
+                    Err(_) => {
+                        return format!(
+                            "Hello, World! [{}, {}, {}]",
+                            current_offset, mq_stats.total_payload_size, mq_stats.message_count
+                        );
+                    }
+                };
 
-            let msg = match timeout(Duration::from_millis(100), subscriber.recv_batch(100)).await {
-                Ok(result) => result.unwrap(),
-                Err(_) => {
-                    return format!(
-                        "Hello, World! [{}, {}, {}]",
-                        current_offset, mq_stats.total_payload_size, mq_stats.message_count
-                    );
+                let current_offset = subscriber.current_offset().await.unwrap();
+                let mut output: String = "".to_owned();
+                for (i, m) in msg.iter().enumerate() {
+                    let json = m.deserialize::<Value>().unwrap();
+                    output.push_str(format!("{}. {}\n", i, json).as_str());
                 }
-            };
 
-            let current_offset = subscriber.current_offset().await.unwrap();
-            let mut output: String = "".to_owned();
-            for (i, m) in msg.iter().enumerate() {
-                let json = m.deserialize::<Value>().unwrap();
-                output.push_str(format!("{}. {}\n", i, json).as_str());
-            }
-
-            format!(
-                "Hello, World! [{}, {}, {}] \n{}",
-                current_offset, mq_stats.total_payload_size, mq_stats.message_count, output
-            )
-        }),
-    );
-
-    app = app.route(
-        "/",
-        routing::get(async || {
-            let mut routes = String::new();
-
-            for l in sitemap {
-                routes.push_str(format!("- {}\n", l).as_str());
-            }
-
-            format!("Routes:\n{}", routes)
-        })
-    );
-
+                format!(
+                    "Hello, World! [{}, {}, {}] \n{}",
+                    current_offset, mq_stats.total_payload_size, mq_stats.message_count, output
+                )
+            }),
+        );
+    }
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
