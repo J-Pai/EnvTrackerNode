@@ -26,9 +26,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         scheduler_lock.replace(JobScheduler::new().await?);
     }
 
-    let kasa_devices = config.get_kasa_devices().unwrap();
-    let mut kasa = Kasa::new(&kasa_devices, &MQ, &SCHEDULER).await;
-    kasa.add_polling().await?;
+    let mut kasa = if let Some(kasa_devices) = config.get_kasa_devices() {
+        let mut kasa = Kasa::new(&kasa_devices, &MQ, &SCHEDULER).await;
+        kasa.add_polling().await?;
+        Some(kasa)
+    } else {
+        None
+    };
 
     let scheduler_lock = SCHEDULER.write().await;
     scheduler_lock.as_ref().unwrap().start().await?;

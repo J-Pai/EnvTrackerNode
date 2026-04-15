@@ -21,27 +21,34 @@ use crate::kasa::Kasa;
 
 pub(crate) async fn server(
     config: &SysConfig,
-    devices: &mut Kasa,
+    devices: &mut Option<Kasa>,
     mq: &'static RwLock<Option<MessageQueue>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut sitemap: Vec<String> = Vec::new();
 
     let mut app = Router::new();
 
-    let mut subscribers: Option<&'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>> = None;
+    let mut subscribers: Option<&'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>> =
+        None;
 
-    for device in config.get_kasa_devices().expect("No kasa devices configured.") {
+    for device in config
+        .get_kasa_devices()
+        .unwrap_or(HashMap::new())
+    {
         let device = device.clone();
         let route_path = format!("/kasa/{}", device.0);
         sitemap.push(route_path.clone());
-        subscribers.replace(devices
-            .allocate_subscriber(
-                device.0.clone(),
-                route_path.clone(),
-                TopicOptions::default(),
-                ConsumptionMode::Earliest,
-            )
-            .await?
+        subscribers.replace(
+            devices
+                .as_mut()
+                .unwrap()
+                .allocate_subscriber(
+                    device.0.clone(),
+                    route_path.clone(),
+                    TopicOptions::default(),
+                    ConsumptionMode::Earliest,
+                )
+                .await?,
         );
     }
 
@@ -50,7 +57,9 @@ pub(crate) async fn server(
             "/kasa/{topic}",
             routing::get(async |Path(topic): Path<String>| {
                 let subscribers = subscribers.read().await;
-                let subscriber = subscribers.as_ref().unwrap()[&format!("/kasa/{}", topic.clone())].read().await;
+                let subscriber = subscribers.as_ref().unwrap()[&format!("/kasa/{}", topic.clone())]
+                    .read()
+                    .await;
                 let current_offset = subscriber.current_offset().await.unwrap();
 
                 let mq_lock = mq.read().await;
@@ -61,15 +70,16 @@ pub(crate) async fn server(
                     .await
                     .unwrap();
 
-                let msg = match timeout(Duration::from_millis(100), subscriber.recv_batch(100)).await {
-                    Ok(result) => result.unwrap(),
-                    Err(_) => {
-                        return format!(
-                            "Hello, World! [{}, {}, {}]",
-                            current_offset, mq_stats.total_payload_size, mq_stats.message_count
-                        );
-                    }
-                };
+                let msg =
+                    match timeout(Duration::from_millis(100), subscriber.recv_batch(100)).await {
+                        Ok(result) => result.unwrap(),
+                        Err(_) => {
+                            return format!(
+                                "Hello, World! [{}, {}, {}]",
+                                current_offset, mq_stats.total_payload_size, mq_stats.message_count
+                            );
+                        }
+                    };
 
                 let current_offset = subscriber.current_offset().await.unwrap();
                 let mut output: String = "".to_owned();
@@ -85,6 +95,13 @@ pub(crate) async fn server(
             }),
         );
     }
+
+    app = app.route(
+        "/",
+        routing::get(async || {
+            "Hello, World!"
+        })
+    );
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
