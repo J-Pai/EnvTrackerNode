@@ -1,0 +1,4 @@
+[toolchain]
+channel = "1.94.1" # or "stable", "beta", "nightly"
+targets = ["wasm32-unknown-unknown", "x86_64-unknown-linux-gnu"]
+

@@ -1,10 +1,9 @@
 [package]
-name = "eframe_template"
+name = "site"
 version = "0.1.0"
-authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
+authors = ["j-pai <jesse.pai@gmail.com>"]
 edition = "2024"
-license = "MIT OR Apache-2.0"
-include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+include = ["**/*.rs", "Cargo.toml"]
 rust-version = "1.92"
 
 [package.metadata.docs.rs]
@@ -28,15 +27,7 @@ env_logger = "0.11.8"
 wasm-bindgen-futures = "0.4.50"
 web-sys = "0.3.70"              # to access the DOM (to hide the loading text)
 
-[profile.release]
-opt-level = 2 # fast and small wasm
-
-# Optimize all dependencies even in debug builds:
-[profile.dev.package."*"]
-opt-level = 2
-
-
-[patch.crates-io]
+# [patch.crates-io]
 
 # If you want to use the bleeding edge version of egui and eframe:
 # egui = { git = "https://github.com/emilk/egui", branch = "main" }
@@ -46,14 +37,12 @@ opt-level = 2
 # egui = { path = "../egui/crates/egui" }
 # eframe = { path = "../egui/crates/eframe" }
 
-
 # ----------------------------------------------------------------------------------------
 # Lints:
 
 [lints]
-workspace = true
 
-[workspace.lints.rust]
+[lints.rust]
 unsafe_code = "deny"
 
 elided_lifetimes_in_paths = "warn"
@@ -72,13 +61,13 @@ unused_lifetimes = "warn"
 trivial_casts = "allow"
 unused_qualifications = "allow"
 
-[workspace.lints.rustdoc]
+[lints.rustdoc]
 all = "warn"
 broken_intra_doc_links = "warn"
 missing_crate_level_docs = "warn"
 
 # See also clippy.toml
-[workspace.lints.clippy]
+[lints.clippy]
 all = { level = "warn", priority = -1 }
 
 allow_attributes = "warn"
