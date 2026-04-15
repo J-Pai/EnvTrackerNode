@@ -19,3 +19,4 @@ tokio-cron-scheduler = "0.15.1"
 tokio-memq = "1.0.0"
 toml = "1.1.2"
 toml_writer = "1.1.1"
+tower = { version = "0.5.3", features = ["full"] }
