@@ -1,0 +1,3 @@
+[build]
+target = "site/index.html"
+filehash = false
