@@ -24,12 +24,9 @@ use crate::config::KasaDeviceConfig;
 
 struct KasaDevice {
     topic: String,
-    transports: &'static RwLock<Vec<Box<dyn Transport>>>,
-    transport_index: Option<usize>,
-    publishers: &'static RwLock<Vec<RwLock<Publisher>>>,
-    publisher_indices: Vec<usize>,
-    subscribers: &'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>,
-    subscriber_keys: Vec<String>,
+    transports: (&'static RwLock<Vec<Box<dyn Transport>>>, Option<usize>),
+    publishers: (&'static RwLock<Vec<RwLock<Publisher>>>, Vec<usize>),
+    subscribers: (&'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>, Vec<String>),
     polling_schedule: String,
     mq: &'static RwLock<Option<MessageQueue>>,
     scheduler: &'static RwLock<Option<JobScheduler>>,
@@ -56,12 +53,9 @@ impl KasaDevice {
 
         let device: Self = Self {
             topic,
-            transports: &TRANSPORTS,
-            transport_index: None,
-            publishers: &PUBLISHERS,
-            publisher_indices: Vec::new(),
-            subscribers: &SUBSCRIBERS,
-            subscriber_keys: Vec::new(),
+            transports: (&TRANSPORTS, None),
+            publishers: (&PUBLISHERS, Vec::new()),
+            subscribers: (&SUBSCRIBERS, Vec::new()),
             polling_schedule,
             mq,
             scheduler,
@@ -93,10 +87,10 @@ impl KasaDevice {
         );
 
         {
-            let mut transports_lock = self.transports.write().await;
+            let mut transports_lock = self.transports.0.write().await;
             let index = transports_lock.len();
             transports_lock.push(connect(transport_config).await?);
-            self.transport_index = Some(index);
+            self.transports.1 = Some(index);
         }
 
         Ok(self)
@@ -104,11 +98,11 @@ impl KasaDevice {
 
     async fn allocate_publisher(&mut self) -> Result<usize, Box<dyn std::error::Error>> {
         let mq = self.mq.read().await;
-        let mut publishers = self.publishers.write().await;
+        let mut publishers = self.publishers.0.write().await;
         publishers.push(RwLock::new(
             mq.as_ref().unwrap().publisher(self.topic.clone()),
         ));
-        self.publisher_indices.push(publishers.len() - 1);
+        self.publishers.1.push(publishers.len() - 1);
         Ok(publishers.len() - 1)
     }
 
@@ -116,8 +110,8 @@ impl KasaDevice {
         let publisher_index = self.allocate_publisher().await?.clone();
         let scheduler = self.scheduler.read().await;
         let transports = self.transports;
-        let publishers = self.publishers;
-        let index = self.transport_index.unwrap();
+        let index = self.transports.1.unwrap();
+        let publishers = self.publishers.0;
         scheduler
             .as_ref()
             .unwrap()
@@ -125,7 +119,7 @@ impl KasaDevice {
                 self.polling_schedule.clone(),
                 move |_uuid, _l| {
                     Box::pin(async move {
-                        let response = transports.read().await[index]
+                        let response = transports.0.read().await[index]
                             .send(INFO)
                             .await
                             .expect("Something went wrong with sampling.");
@@ -148,7 +142,7 @@ impl KasaDevice {
         mode: ConsumptionMode,
     ) -> Result<&'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>, Box<dyn std::error::Error>> {
         let mq = self.mq.read().await;
-        let mut subscribers_lock = self.subscribers.write().await;
+        let mut subscribers_lock = self.subscribers.0.write().await;
         let mut subscribers = subscribers_lock.take().expect("No subscribers map.");
         subscribers.insert(key.clone(), RwLock::new(
             mq.as_ref()
@@ -157,8 +151,8 @@ impl KasaDevice {
                 .await?,
         ));
         subscribers_lock.replace(subscribers);
-        self.subscriber_keys.push(key.clone());
-        Ok(self.subscribers)
+        self.subscribers.1.push(key.clone());
+        Ok(self.subscribers.0)
     }
 }
 
