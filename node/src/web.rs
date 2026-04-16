@@ -6,8 +6,6 @@ use std::time::Duration;
 use axum::Router;
 use axum::extract::Path;
 use axum::extract::Request;
-use axum::handler::HandlerWithoutStateExt;
-use axum::http::StatusCode;
 use axum::routing;
 use serde_json::Value;
 use tokio::sync::RwLock;
@@ -98,30 +96,22 @@ pub(crate) async fn server(
         );
     }
 
-    async fn handle_404() -> (StatusCode, &'static str) {
-        (StatusCode::NOT_FOUND, "Not found :)")
-    }
-
-    // you can convert handler function to service
-    let service = handle_404.into_service();
-
-    let serve_dir = ServeDir::new("dist").not_found_service(service);
-
+    let index_service = ServeFile::new("dist/index.html");
+    let serve_dir = ServeDir::new("dist").not_found_service(index_service.clone());
     app = app
         .route(
             "/",
             routing::get(|request: Request| async {
-                let service = ServeFile::new("dist/index.html");
+                let service = index_service;
                 let result = service.oneshot(request).await;
                 result
             }),
         )
         .fallback_service(serve_dir);
 
-    // app = app.route("/", routing::get(async || { "Hello World" }));
-
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    tracing::debug!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await?;
 
     Ok(())

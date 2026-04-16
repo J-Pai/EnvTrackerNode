@@ -3,6 +3,7 @@
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::MessageQueue;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::kasa::Kasa;
 
@@ -12,6 +13,15 @@ mod web;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                format!("{}=debug,tower_http=debug", env!("CARGO_CRATE_NAME")).into()
+            }),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
     let config = config::SysConfig::new();
 
     static MQ: RwLock<Option<MessageQueue>> = RwLock::const_new(None);

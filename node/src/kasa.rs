@@ -3,10 +3,7 @@
 
 use std::collections::HashMap;
 use std::time::Duration;
-use std::time::SystemTime;
 
-use chrono::DateTime;
-use chrono::Local;
 use kasa_core::Credentials;
 use kasa_core::DeviceConfig;
 use kasa_core::Transport;
@@ -128,9 +125,6 @@ impl KasaDevice {
                 self.polling_schedule.clone(),
                 move |_uuid, _l| {
                     Box::pin(async move {
-                        let system_time = SystemTime::now();
-                        let datetime: DateTime<Local> = system_time.into();
-                        println!("[{}] Sampling...", datetime.format("%d/%m/%Y %T"));
                         let response = transports.read().await[index]
                             .send(INFO)
                             .await
@@ -139,6 +133,7 @@ impl KasaDevice {
                         let publishers = publishers.read().await;
                         let publisher = publishers[publisher_index].read().await;
                         publisher.publish(data).await.unwrap();
+                        tracing::debug!("Sampled: {}", publisher.topic());
                     })
                 },
             )?)
