@@ -5,7 +5,9 @@ use std::time::Duration;
 
 use axum::Router;
 use axum::extract::Path;
-use axum::response::Html;
+use axum::extract::Request;
+use axum::handler::HandlerWithoutStateExt;
+use axum::http::StatusCode;
 use axum::routing;
 use serde_json::Value;
 use tokio::sync::RwLock;
@@ -15,6 +17,9 @@ use tokio_memq::MessageQueue;
 use tokio_memq::MessageSubscriber;
 use tokio_memq::Subscriber;
 use tokio_memq::TopicOptions;
+use tower::ServiceExt;
+use tower_http::services::ServeDir;
+use tower_http::services::ServeFile;
 
 use crate::config::SysConfig;
 use crate::kasa::Kasa;
@@ -31,10 +36,7 @@ pub(crate) async fn server(
     let mut subscribers: Option<&'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>> =
         None;
 
-    for device in config
-        .get_kasa_devices()
-        .unwrap_or(HashMap::new())
-    {
+    for device in config.get_kasa_devices().unwrap_or(HashMap::new()) {
         let device = device.clone();
         let route_path = format!("/kasa/{}", device.0);
         sitemap.push(route_path.clone());
@@ -55,7 +57,7 @@ pub(crate) async fn server(
     if let Some(subscribers) = subscribers.to_owned() {
         app = app.route(
             "/kasa/{topic}",
-            routing::get(async |Path(topic): Path<String>| {
+            routing::get(|Path(topic): Path<String>| async {
                 let subscribers = subscribers.read().await;
                 let subscriber = subscribers.as_ref().unwrap()[&format!("/kasa/{}", topic.clone())]
                     .read()
@@ -96,12 +98,27 @@ pub(crate) async fn server(
         );
     }
 
-    app = app.route(
-        "/",
-        routing::get(async || {
-            "Hello, World!"
-        })
-    );
+    async fn handle_404() -> (StatusCode, &'static str) {
+        (StatusCode::NOT_FOUND, "Not found :)")
+    }
+
+    // you can convert handler function to service
+    let service = handle_404.into_service();
+
+    let serve_dir = ServeDir::new("dist").not_found_service(service);
+
+    app = app
+        .route(
+            "/",
+            routing::get(|request: Request| async {
+                let service = ServeFile::new("dist/index.html");
+                let result = service.oneshot(request).await;
+                result
+            }),
+        )
+        .fallback_service(serve_dir);
+
+    // app = app.route("/", routing::get(async || { "Hello World" }));
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

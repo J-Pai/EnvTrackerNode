@@ -20,3 +20,4 @@ tokio-memq = "1.0.0"
 toml = "1.1.2"
 toml_writer = "1.1.1"
 tower = { version = "0.5.3", features = ["full"] }
+tower-http = { version = "0.6.8", features = ["full"] }
