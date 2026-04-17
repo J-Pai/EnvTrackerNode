@@ -167,7 +167,7 @@ impl SysConfig {
             };
 
             println!(
-                "Provide kasa device polling schedule (CRON-like, leave empty for poll every 1 second): "
+                "Provide kasa device polling schedule (CRON-like, leave empty for poll every 2 second): "
             );
             device.polling_schedule = if let Some(resp) = handle_response() {
                 let schedule = Schedule::from_str(resp.as_str()).unwrap();
@@ -177,7 +177,7 @@ impl SysConfig {
                 }
                 resp
             } else {
-                "1/1 * * * * *".to_string()
+                "1/2 * * * * *".to_string()
             };
 
             println!("Provide kasa device description: ");

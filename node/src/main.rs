@@ -10,6 +10,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::kasa::Kasa;
 
 mod config;
+mod error;
 mod kasa;
 mod web;
 

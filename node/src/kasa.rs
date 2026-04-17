@@ -9,7 +9,10 @@ use kasa_core::Credentials;
 use kasa_core::DeviceConfig;
 use kasa_core::Transport;
 use kasa_core::commands::INFO;
+use kasa_core::commands::energy_for_child;
 use kasa_core::connect;
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::Job;
@@ -22,13 +25,39 @@ use tokio_memq::Subscriber;
 use tokio_memq::TopicOptions;
 
 use crate::config::KasaDeviceConfig;
+use crate::error::NodeError;
+
+#[derive(Clone, Serialize, Deserialize)]
+struct KasaDeviceChild {
+    /// Human-readable name of the device.
+    alias: String,
+    /// On/Off state.
+    state: bool,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct EMeter {
+    current_ma: u64,
+    power_mw: u64,
+    voltage_mv: u64,
+    total_wh: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct KasaChildInfo {
+    info: KasaDeviceChild,
+    emeter: EMeter,
+}
 
 struct KasaDevice {
     topic: String,
+    alias: String,
     transport: Arc<RwLock<Option<Box<dyn Transport>>>>,
     polling_schedule: String,
     mq: Arc<RwLock<MessageQueue>>,
     scheduler: Arc<RwLock<JobScheduler>>,
+    /// Child Kasa devices keys is the id hash.
+    children: Arc<RwLock<HashMap<String, KasaDeviceChild>>>,
 }
 
 impl KasaDevice {
@@ -40,10 +69,12 @@ impl KasaDevice {
     ) -> Self {
         let device: Self = Self {
             topic,
+            alias: String::new(),
             transport: Arc::new(RwLock::const_new(None)),
             polling_schedule,
             mq,
             scheduler,
+            children: Arc::new(RwLock::const_new(HashMap::new())),
         };
         device
     }
@@ -79,6 +110,88 @@ impl KasaDevice {
         Ok(self)
     }
 
+    async fn setup_system_info(mut self) -> Result<Self, Box<dyn std::error::Error>> {
+        let transport = self.transport.clone();
+
+        let response = transport
+            .read()
+            .await
+            .as_ref()
+            .unwrap()
+            .send(INFO)
+            .await
+            .expect("System info inaccessible");
+        let data: Value = serde_json::from_str(&response.as_str()).unwrap();
+
+        let system = if let Value::Object(system) = data {
+            system
+        } else {
+            return Err(NodeError::new("`system` parsing error"));
+        };
+
+        let system: &Value = system
+            .get("system")
+            .ok_or(NodeError::new("No `system` in response"))?;
+
+        let get_sysinfo = if let Value::Object(get_sysinfo) = system {
+            get_sysinfo
+        } else {
+            return Err(NodeError::new("`get_sysinfo` parsing error"));
+        };
+
+        let get_sysinfo: &Value = get_sysinfo
+            .get("get_sysinfo")
+            .ok_or(NodeError::new("No `get_sysinfo` in system"))?;
+
+        self.alias = get_sysinfo
+            .get("alias")
+            .ok_or(NodeError::new("No `alias` in get_sysinfo"))?
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let children = get_sysinfo
+            .get("children")
+            .ok_or(NodeError::new("No `children` in get_sysinfo"))?
+            .as_array()
+            .ok_or(NodeError::new("`children` parsing error"))?;
+
+        for child in children {
+            tracing::debug!("Child: {:#?}", child);
+
+            let c = child
+                .as_object()
+                .ok_or(NodeError::new("`child` parsing error"))?;
+
+            let id = c
+                .get("id")
+                .ok_or(NodeError::new("No `id` in child"))?
+                .as_str()
+                .unwrap()
+                .to_string();
+
+            self.children.write().await.insert(
+                id.clone(),
+                KasaDeviceChild {
+                    alias: c
+                        .get("alias")
+                        .ok_or(NodeError::new("No `alias` in child"))?
+                        .as_str()
+                        .unwrap()
+                        .to_string(),
+                    state: c
+                        .get("state")
+                        .ok_or(NodeError::new("No `alias` in child"))?
+                        .as_i64()
+                        .unwrap()
+                        == 1,
+                },
+            );
+        }
+
+        Ok(self)
+    }
+
     async fn allocate_publisher(
         &mut self,
     ) -> Result<Arc<RwLock<Publisher>>, Box<dyn std::error::Error>> {
@@ -90,6 +203,7 @@ impl KasaDevice {
         let publisher = self.allocate_publisher().await?.clone();
         let scheduler = self.scheduler.read().await;
         let transport = self.transport.clone();
+        let children = self.children.clone();
         scheduler
             .add(Job::new_async(
                 self.polling_schedule.clone(),
@@ -97,19 +211,69 @@ impl KasaDevice {
                     Box::pin({
                         let transport = transport.clone();
                         let publisher = publisher.clone();
+                        let children = children.clone();
                         async move {
-                            let response = transport
-                                .read()
-                                .await
-                                .as_ref()
-                                .unwrap()
-                                .send(INFO)
-                                .await
-                                .expect("Something went wrong with sampling.");
-                            let data: Value = serde_json::from_str(&response.as_str()).unwrap();
+                            let children = children.read().await;
                             let publisher = publisher.read().await;
+
+                            let mut associated_data: Vec<KasaChildInfo> = Vec::new();
+
+                            for (k, v) in children.iter() {
+                                let response = transport
+                                    .read()
+                                    .await
+                                    .as_ref()
+                                    .unwrap()
+                                    .send(&energy_for_child(k.as_str()))
+                                    .await
+                                    .expect("emeter info inaccessible");
+                                let data: Value = serde_json::from_str(response.as_str()).unwrap();
+
+                                let data = match data.get("emeter") {
+                                    Some(data) => data,
+                                    None => {
+                                        tracing::warn!("Malformed emeter: {}", data);
+                                        return;
+                                    }
+                                };
+
+                                let data = match data.get("get_realtime") {
+                                    Some(data) => data,
+                                    None => {
+                                        tracing::warn!("Malformed get_realtime: {}", data);
+                                        return;
+                                    }
+                                };
+
+                                associated_data.push(KasaChildInfo {
+                                    info: v.clone(),
+                                    emeter: EMeter {
+                                        current_ma: data
+                                            .get("current_ma")
+                                            .unwrap()
+                                            .as_u64()
+                                            .unwrap(),
+                                        power_mw: data.get("power_mw").unwrap().as_u64().unwrap(),
+                                        voltage_mv: data
+                                            .get("voltage_mv")
+                                            .unwrap()
+                                            .as_u64()
+                                            .unwrap(),
+                                        total_wh: data.get("total_wh").unwrap().as_u64().unwrap(),
+                                    },
+                                })
+                            }
+
+                            let data: Value = serde_json::from_str(
+                                serde_json::to_string(&associated_data)
+                                    .unwrap()
+                                    .clone()
+                                    .as_str(),
+                            )
+                            .unwrap();
+
                             publisher.publish(data).await.unwrap();
-                            tracing::debug!("Sampled: {}", publisher.topic());
+                            tracing::debug!("Published to: {}", publisher.topic());
                         }
                     })
                 },
@@ -154,10 +318,13 @@ impl Kasa {
             .await
             .setup_topic()
             .await
-            .expect(format!("Topic creation for [{}] failed.", name).as_str())
+            .expect(format!("Topic creation for [{}] failed", name).as_str())
             .setup_transport(device_config)
             .await
-            .expect(format!("Transport creation for [{}] failed.", name).as_str());
+            .expect(format!("Transport creation for [{}] failed", name).as_str())
+            .setup_system_info()
+            .await
+            .expect(format!("System Info extraction for [{}] failed", name).as_str());
             kasa.devices.insert(name.clone(), device);
         }
 
