@@ -1,6 +1,7 @@
 //! Sets up the web services.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
@@ -25,26 +26,22 @@ use crate::kasa::Kasa;
 pub(crate) async fn server(
     config: &SysConfig,
     devices: &mut Option<Kasa>,
-    mq: &'static RwLock<Option<MessageQueue>>,
+    mq: Arc<RwLock<MessageQueue>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut sitemap: Vec<String> = Vec::new();
-
     let mut app = Router::new();
 
-    let mut subscribers: Option<&'static RwLock<Option<HashMap<String, RwLock<Subscriber>>>>> =
-        None;
+    let kasa_subscribers: Arc<RwLock<HashMap<String, Arc<RwLock<Subscriber>>>>> =
+        Arc::new(RwLock::new(HashMap::new()));
 
     for device in config.get_kasa_devices().unwrap_or(HashMap::new()) {
         let device = device.clone();
-        let route_path = format!("/kasa/{}", device.0);
-        sitemap.push(route_path.clone());
-        subscribers.replace(
+        kasa_subscribers.write().await.insert(
+            device.0.clone(),
             devices
                 .as_mut()
                 .unwrap()
                 .allocate_subscriber(
                     device.0.clone(),
-                    route_path.clone(),
                     TopicOptions::default(),
                     ConsumptionMode::Earliest,
                 )
@@ -52,26 +49,23 @@ pub(crate) async fn server(
         );
     }
 
-    if let Some(subscribers) = subscribers.to_owned() {
+    if !kasa_subscribers.read().await.is_empty() {
         app = app.route(
             "/kasa/{topic}",
-            routing::get(|Path(topic): Path<String>| async {
-                let subscribers = subscribers.read().await;
-                let subscriber = subscribers.as_ref().unwrap()[&format!("/kasa/{}", topic.clone())]
-                    .read()
-                    .await;
-                let current_offset = subscriber.current_offset().await.unwrap();
+            routing::get(move |Path(topic): Path<String>| {
+                let kasa_subscribers = kasa_subscribers.clone();
 
-                let mq_lock = mq.read().await;
-                let mq_stats = mq_lock
-                    .as_ref()
-                    .unwrap()
-                    .get_topic_stats(topic)
-                    .await
-                    .unwrap();
+                async move {
+                    let kasa_subscribers = kasa_subscribers.read().await;
+                    let subscriber = kasa_subscribers.get(&topic).unwrap().read().await;
+                    let current_offset = subscriber.current_offset().await.unwrap();
 
-                let msg =
-                    match timeout(Duration::from_millis(100), subscriber.recv_batch(100)).await {
+                    let mq_lock = mq.read().await;
+                    let mq_stats = mq_lock.get_topic_stats(topic).await.unwrap();
+
+                    let msg = match timeout(Duration::from_millis(100), subscriber.recv_batch(100))
+                        .await
+                    {
                         Ok(result) => result.unwrap(),
                         Err(_) => {
                             return format!(
@@ -81,17 +75,18 @@ pub(crate) async fn server(
                         }
                     };
 
-                let current_offset = subscriber.current_offset().await.unwrap();
-                let mut output: String = "".to_owned();
-                for (i, m) in msg.iter().enumerate() {
-                    let json = m.deserialize::<Value>().unwrap();
-                    output.push_str(format!("{}. {}\n", i, json).as_str());
-                }
+                    let current_offset = subscriber.current_offset().await.unwrap();
+                    let mut output: String = "".to_owned();
+                    for (i, m) in msg.iter().enumerate() {
+                        let json = m.deserialize::<Value>().unwrap();
+                        output.push_str(format!("{}. {}\n", i, json).as_str());
+                    }
 
-                format!(
-                    "Hello, World! [{}, {}, {}] \n{}",
-                    current_offset, mq_stats.total_payload_size, mq_stats.message_count, output
-                )
+                    format!(
+                        "Hello, World! [{}, {}, {}] \n{}",
+                        current_offset, mq_stats.total_payload_size, mq_stats.message_count, output
+                    )
+                }
             }),
         );
     }

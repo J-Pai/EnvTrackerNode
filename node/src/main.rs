@@ -1,5 +1,7 @@
 //! Entrypoint for services.
 
+use std::sync::Arc;
+
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::MessageQueue;
@@ -24,30 +26,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = config::SysConfig::new();
 
-    static MQ: RwLock<Option<MessageQueue>> = RwLock::const_new(None);
-    {
-        let mut mq_lock = MQ.write().await;
-        mq_lock.replace(MessageQueue::new());
-    }
-
-    static SCHEDULER: RwLock<Option<JobScheduler>> = RwLock::const_new(None);
-    {
-        let mut scheduler_lock = SCHEDULER.write().await;
-        scheduler_lock.replace(JobScheduler::new().await?);
-    }
+    let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
+    let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
 
     let mut kasa = if let Some(kasa_devices) = config.get_kasa_devices() {
-        let mut kasa = Kasa::new(&kasa_devices, &MQ, &SCHEDULER).await;
+        let mut kasa = Kasa::new(&kasa_devices, mq.clone(), scheduler.clone()).await;
         kasa.add_polling().await?;
         Some(kasa)
     } else {
         None
     };
 
-    let scheduler_lock = SCHEDULER.write().await;
-    scheduler_lock.as_ref().unwrap().start().await?;
+    let scheduler_lock = scheduler.write().await;
+    scheduler_lock.start().await?;
 
-    web::server(&config, &mut kasa, &MQ).await?;
+    web::server(&config, &mut kasa, mq).await?;
 
     Ok(())
 }
