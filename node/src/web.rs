@@ -26,7 +26,7 @@ use crate::kasa::Kasa;
 pub(crate) async fn server(
     config: &SysConfig,
     devices: &mut Option<Kasa>,
-    mq: Arc<RwLock<MessageQueue>>,
+    _mq: Arc<RwLock<MessageQueue>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut app = Router::new();
 
@@ -58,34 +58,22 @@ pub(crate) async fn server(
                 async move {
                     let kasa_subscribers = kasa_subscribers.read().await;
                     let subscriber = kasa_subscribers.get(&topic).unwrap().read().await;
-                    let current_offset = subscriber.current_offset().await.unwrap();
-
-                    let mq_lock = mq.read().await;
-                    let mq_stats = mq_lock.get_topic_stats(topic).await.unwrap();
-
                     let msg = match timeout(Duration::from_millis(100), subscriber.recv_batch(100))
                         .await
                     {
                         Ok(result) => result.unwrap(),
                         Err(_) => {
-                            return format!(
-                                "Hello, World! [{}, {}, {}]",
-                                current_offset, mq_stats.total_payload_size, mq_stats.message_count
-                            );
+                            return "[]".to_string();
                         }
                     };
 
-                    let current_offset = subscriber.current_offset().await.unwrap();
                     let mut output: String = "".to_owned();
-                    for (i, m) in msg.iter().enumerate() {
+                    for m in msg.iter() {
                         let json = m.deserialize::<Value>().unwrap();
-                        output.push_str(format!("{}. {}\n", i, json).as_str());
+                        output.push_str(format!("{}\n", json).as_str());
                     }
 
-                    format!(
-                        "Hello, World! [{}, {}, {}] \n{}",
-                        current_offset, mq_stats.total_payload_size, mq_stats.message_count, output
-                    )
+                    output
                 }
             }),
         );
