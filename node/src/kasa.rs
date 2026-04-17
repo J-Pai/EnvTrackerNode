@@ -31,6 +31,8 @@ use crate::error::NodeError;
 struct KasaDeviceChild {
     /// Human-readable name of the device.
     alias: String,
+    /// Unique identifier.
+    id: String,
     /// On/Off state.
     state: bool,
 }
@@ -179,6 +181,7 @@ impl KasaDevice {
                         .as_str()
                         .unwrap()
                         .to_string(),
+                    id,
                     state: c
                         .get("state")
                         .ok_or(NodeError::new("No `alias` in child"))?
