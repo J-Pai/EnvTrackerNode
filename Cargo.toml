@@ -1,5 +1,6 @@
 [workspace]
 members = ["node", "site"]
+default-members = ["node"]
 resolver = "3"
 
 [profile.release]
