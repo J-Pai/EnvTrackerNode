@@ -22,6 +22,7 @@ use tower_http::services::ServeFile;
 
 use crate::config::SysConfig;
 use crate::kasa::Kasa;
+use crate::kasa::KasaChildInfo;
 
 pub(crate) async fn server(
     config: &SysConfig,
@@ -67,10 +68,12 @@ pub(crate) async fn server(
                         }
                     };
 
-                    let mut output: String = "".to_owned();
+                    let mut output: String = String::new();
                     for m in msg.iter() {
                         let json = m.deserialize::<Value>().unwrap();
-                        output.push_str(format!("{}\n", json).as_str());
+                        let child_info: Vec<KasaChildInfo> =
+                            serde_json::from_value(json.clone()).unwrap();
+                        output.push_str(format!("{:#?}\n", child_info).as_str());
                     }
 
                     output

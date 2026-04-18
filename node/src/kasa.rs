@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use chrono::Utc;
 use kasa_core::Credentials;
 use kasa_core::DeviceConfig;
 use kasa_core::Transport;
@@ -28,28 +29,29 @@ use tokio_memq::TopicOptions;
 use crate::config::KasaDeviceConfig;
 use crate::error::NodeError;
 
-#[derive(Clone, Serialize, Deserialize)]
-struct KasaDeviceChild {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct KasaDeviceChild {
     /// Human-readable name of the device.
-    alias: String,
+    pub(crate) alias: String,
     /// Unique identifier.
-    id: String,
+    pub(crate) id: String,
     /// On/Off state.
-    state: bool,
+    pub(crate) state: bool,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-struct EMeter {
-    current_ma: u64,
-    power_mw: u64,
-    voltage_mv: u64,
-    total_wh: u64,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct EMeter {
+    pub(crate) current_ma: u64,
+    pub(crate) power_mw: u64,
+    pub(crate) voltage_mv: u64,
+    pub(crate) total_wh: u64,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-struct KasaChildInfo {
-    info: KasaDeviceChild,
-    emeter: EMeter,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct KasaChildInfo {
+    pub(crate) utc_ns: i64,
+    pub(crate) info: KasaDeviceChild,
+    pub(crate) emeter: EMeter,
 }
 
 struct KasaDevice {
@@ -248,7 +250,10 @@ impl KasaDevice {
                                     }
                                 };
 
+                                let utc = Utc::now().timestamp_nanos_opt().unwrap();
+
                                 associated_data.push(KasaChildInfo {
+                                    utc_ns: utc,
                                     info: v.clone(),
                                     emeter: EMeter {
                                         current_ma: data
