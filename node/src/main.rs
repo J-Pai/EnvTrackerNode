@@ -38,10 +38,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let scheduler_lock = scheduler.write().await;
-    scheduler_lock.start().await?;
+    {
+        let scheduler_lock = scheduler.write().await;
+        scheduler_lock.start().await?;
+    }
 
-    web::server(&config, &mut kasa, mq).await?;
+    web::server(&config, &mut kasa, mq, scheduler).await?;
 
     Ok(())
 }

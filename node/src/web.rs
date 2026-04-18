@@ -11,6 +11,8 @@ use axum::routing;
 use serde_json::Value;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
+use tokio_cron_scheduler::Job;
+use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::ConsumptionMode;
 use tokio_memq::MessageQueue;
 use tokio_memq::MessageSubscriber;
@@ -28,6 +30,7 @@ pub(crate) async fn server(
     config: &SysConfig,
     devices: &mut Option<Kasa>,
     _mq: Arc<RwLock<MessageQueue>>,
+    scheduler: Arc<RwLock<JobScheduler>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut app = Router::new();
 
@@ -98,7 +101,18 @@ pub(crate) async fn server(
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     tracing::info!("listening on {}", listener.local_addr().unwrap());
-    axum::serve(listener, app).await?;
-
+    let server = axum::serve(listener, app);
+    scheduler
+        .read()
+        .await
+        .add(Job::new_async("1/5 * * * * *", move |_uuid, _l| {
+            Box::pin({
+                async move {
+                    tracing::debug!("5 second poll.");
+                }
+            })
+        })?)
+        .await?;
+    server.await?;
     Ok(())
 }

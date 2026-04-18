@@ -9,7 +9,6 @@ use chrono::Utc;
 use kasa_core::Credentials;
 use kasa_core::DeviceConfig;
 use kasa_core::Transport;
-use kasa_core::commands::ENERGY;
 use kasa_core::commands::INFO;
 use kasa_core::commands::energy_for_child;
 use kasa_core::connect;
