@@ -9,6 +9,7 @@ use chrono::Utc;
 use kasa_core::Credentials;
 use kasa_core::DeviceConfig;
 use kasa_core::Transport;
+use kasa_core::commands::ENERGY;
 use kasa_core::commands::INFO;
 use kasa_core::commands::energy_for_child;
 use kasa_core::connect;
@@ -52,6 +53,39 @@ pub(crate) struct KasaChildInfo {
     pub(crate) utc_ns: i64,
     pub(crate) info: KasaDeviceChild,
     pub(crate) emeter: EMeter,
+}
+
+impl KasaChildInfo {
+    fn new(child_info: KasaDeviceChild, data: Value) -> Result<Self, Box<dyn std::error::Error>> {
+        let data = match data.get("emeter") {
+            Some(data) => data,
+            None => {
+                tracing::warn!("Malformed emeter: {}", data);
+                return Err(NodeError::new("malformed."));
+            }
+        };
+
+        let data = match data.get("get_realtime") {
+            Some(data) => data,
+            None => {
+                tracing::warn!("Malformed get_realtime: {}", data);
+                return Err(NodeError::new("malformed."));
+            }
+        };
+
+        let utc = Utc::now().timestamp_nanos_opt().unwrap();
+
+        Ok(KasaChildInfo {
+            utc_ns: utc,
+            info: child_info,
+            emeter: EMeter {
+                current_ma: data.get("current_ma").unwrap().as_u64().unwrap(),
+                power_mw: data.get("power_mw").unwrap().as_u64().unwrap(),
+                voltage_mv: data.get("voltage_mv").unwrap().as_u64().unwrap(),
+                total_wh: data.get("total_wh").unwrap().as_u64().unwrap(),
+            },
+        })
+    }
 }
 
 struct KasaDevice {
@@ -234,42 +268,7 @@ impl KasaDevice {
                                     .expect("emeter info inaccessible");
                                 let data: Value = serde_json::from_str(response.as_str()).unwrap();
 
-                                let data = match data.get("emeter") {
-                                    Some(data) => data,
-                                    None => {
-                                        tracing::warn!("Malformed emeter: {}", data);
-                                        return;
-                                    }
-                                };
-
-                                let data = match data.get("get_realtime") {
-                                    Some(data) => data,
-                                    None => {
-                                        tracing::warn!("Malformed get_realtime: {}", data);
-                                        return;
-                                    }
-                                };
-
-                                let utc = Utc::now().timestamp_nanos_opt().unwrap();
-
-                                associated_data.push(KasaChildInfo {
-                                    utc_ns: utc,
-                                    info: v.clone(),
-                                    emeter: EMeter {
-                                        current_ma: data
-                                            .get("current_ma")
-                                            .unwrap()
-                                            .as_u64()
-                                            .unwrap(),
-                                        power_mw: data.get("power_mw").unwrap().as_u64().unwrap(),
-                                        voltage_mv: data
-                                            .get("voltage_mv")
-                                            .unwrap()
-                                            .as_u64()
-                                            .unwrap(),
-                                        total_wh: data.get("total_wh").unwrap().as_u64().unwrap(),
-                                    },
-                                })
+                                associated_data.push(KasaChildInfo::new(v.clone(), data).unwrap());
                             }
 
                             let data: Value = serde_json::from_str(
