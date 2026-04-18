@@ -14,6 +14,7 @@ use kasa_core::connect;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
@@ -54,7 +55,7 @@ struct KasaChildInfo {
 struct KasaDevice {
     topic: String,
     alias: String,
-    transport: Arc<RwLock<Option<Box<dyn Transport>>>>,
+    transport: Arc<Mutex<Option<Box<dyn Transport>>>>,
     polling_schedule: String,
     mq: Arc<RwLock<MessageQueue>>,
     scheduler: Arc<RwLock<JobScheduler>>,
@@ -72,7 +73,7 @@ impl KasaDevice {
         let device: Self = Self {
             topic,
             alias: String::new(),
-            transport: Arc::new(RwLock::const_new(None)),
+            transport: Arc::new(Mutex::const_new(None)),
             polling_schedule,
             mq,
             scheduler,
@@ -105,7 +106,7 @@ impl KasaDevice {
         );
 
         {
-            let mut transport_lock = self.transport.write().await;
+            let mut transport_lock = self.transport.lock().await;
             transport_lock.replace(connect(transport_config).await?);
         }
 
@@ -116,7 +117,7 @@ impl KasaDevice {
         let transport = self.transport.clone();
 
         let response = transport
-            .read()
+            .lock()
             .await
             .as_ref()
             .unwrap()
@@ -197,9 +198,9 @@ impl KasaDevice {
 
     async fn allocate_publisher(
         &mut self,
-    ) -> Result<Arc<RwLock<Publisher>>, Box<dyn std::error::Error>> {
+    ) -> Result<Arc<Mutex<Publisher>>, Box<dyn std::error::Error>> {
         let mq = self.mq.read().await;
-        Ok(Arc::new(RwLock::new(mq.publisher(self.topic.clone()))))
+        Ok(Arc::new(Mutex::new(mq.publisher(self.topic.clone()))))
     }
 
     async fn add_polling(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -216,15 +217,14 @@ impl KasaDevice {
                         let publisher = publisher.clone();
                         let children = children.clone();
                         async move {
+                            let transport = transport.lock().await;
+                            let publisher = publisher.lock().await;
                             let children = children.read().await;
-                            let publisher = publisher.read().await;
 
                             let mut associated_data: Vec<KasaChildInfo> = Vec::new();
 
                             for (k, v) in children.iter() {
                                 let response = transport
-                                    .read()
-                                    .await
                                     .as_ref()
                                     .unwrap()
                                     .send(&energy_for_child(k.as_str()))

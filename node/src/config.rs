@@ -177,7 +177,7 @@ impl SysConfig {
                 }
                 resp
             } else {
-                "1/2 * * * * *".to_string()
+                "1/1 * * * * *".to_string()
             };
 
             println!("Provide kasa device description: ");
