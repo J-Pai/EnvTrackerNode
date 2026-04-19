@@ -29,14 +29,49 @@ pub(crate) struct Settings {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub(crate) struct Server {
+    pub(crate) node_ip: String,
+    pub(crate) db: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub(crate) struct Node {
+    pub(crate) kasa: HashMap<String, KasaDeviceConfig>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub(crate) struct Web {
+    server: Option<Server>,
+    node: Option<Node>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct SysConfig {
     pub(crate) settings: Settings,
-    pub(crate) kasa: Option<HashMap<String, KasaDeviceConfig>>,
+    pub(crate) web: Web,
 }
 
 macro_rules! tagged_fmt {
     ($e: expr) => {
         &format!("[SysConfig] {}", $e).to_string()
+    };
+}
+
+macro_rules! general_println {
+    ($e: expr) => {
+        println!("[general] {}", $e)
+    };
+}
+
+macro_rules! server_println {
+    ($e: expr) => {
+        println!("[server] {}", $e)
+    };
+}
+
+macro_rules! node_println {
+    ($e: expr) => {
+        println!("[node] {}", $e)
     };
 }
 
@@ -55,8 +90,8 @@ impl SysConfig {
         {
             Ok(built_config) => built_config.try_deserialize::<SysConfig>().unwrap(),
             Err(e) => {
-                println!("Error obtaining config file: {:?}", e);
-                println!("Create configuration file? ([Y]es / [n]o)");
+                general_println!(format!("Error obtaining config file: {:?}", e));
+                general_println!("Create configuration file? ([Y]es / [n]o)");
                 let mut response = String::new();
                 io::stdin()
                     .read_line(&mut response)
@@ -79,28 +114,88 @@ impl SysConfig {
     }
 
     pub(crate) fn get_kasa_devices(&self) -> Option<HashMap<String, KasaDeviceConfig>> {
-        self.kasa.clone()
+        if let Some(node) = &self.web.node {
+            Some(node.kasa.clone())
+        } else {
+            None
+        }
     }
 
     fn config_generator() -> Self {
         let config = SysConfig::default();
-        config.update_settings().update_kasa()
+        config.configure_servers().configure_settings()
     }
 
-    fn update_settings(mut self) -> Self {
-        println!("Provide jwt_secret (leave empty to generate a random value): ");
+    pub fn configure_servers(mut self) -> Self {
+        general_println!("List out deseired services, separated by commas.");
+        general_println!("Supported services:");
+        general_println!("- server");
+        general_println!("  - Serves the frontend application.");
+        general_println!("  - Queries the node (or nodes) for data.");
+        general_println!("  - Provides an endpoint for the frontend application to request data.");
+        general_println!("  - Saves/Manages data in database.");
+        general_println!("- node");
+        general_println!("  - Polls a device for data.");
+        general_println!("  - Maintains a queue of data.");
+        general_println!("  - Provides an endpoint for server to request data.");
+        let mut response = String::new();
+        io::stdin().read_line(&mut response).unwrap();
+        response = response.trim().to_string();
+
+        if response.is_empty() {
+            println!("No services provided.");
+            exit(0);
+        }
+
+        for service in response.split(",") {
+            match service.trim() {
+                "server" => {
+                    if self.web.server.is_some() {
+                        continue;
+                    }
+                    server_println!("Configuring");
+                    self = self.configure_server();
+                    server_println!("Done");
+                }
+                "node" => {
+                    if self.web.node.is_some() {
+                        continue;
+                    }
+                    node_println!("Configuring");
+                    self = self.configure_node();
+                    node_println!("Done");
+                }
+                s => println!("Unknown service: [{}]", s),
+            }
+        }
+
+        self
+    }
+
+    fn handle_response() -> Option<String> {
+        let mut response = String::new();
+        io::stdin().read_line(&mut response).unwrap();
+        response = response.trim().to_string();
+        if response.is_empty() {
+            return None;
+        }
+        return Some(response);
+    }
+
+    fn configure_settings(mut self) -> Self {
+        general_println!("Provide jwt_secret (leave empty to generate a random value): ");
         let mut response = String::new();
         io::stdin().read_line(&mut response).unwrap();
         response = response.trim().to_string();
         if response.is_empty() {
             let random_jwt: [u8; 64] = rand::rng().random();
             let hex = hex::encode(&random_jwt);
-            println!("Generated jwt_secret: {}", hex);
+            general_println!(format!("Generated jwt_secret: {}", hex));
             self.settings.jwt_secret = Some(hex);
         } else {
             self.settings.jwt_secret = Some(response.clone());
         }
-        println!(
+        general_println!(
             "Generate authorized API key (provide the name of the authorized application, leave empty when done):"
         );
         loop {
@@ -124,52 +219,71 @@ impl SysConfig {
         self
     }
 
-    fn update_kasa(mut self) -> Self {
-        loop {
-            fn handle_response() -> Option<String> {
-                let mut response = String::new();
-                io::stdin().read_line(&mut response).unwrap();
-                response = response.trim().to_string();
-                if response.is_empty() {
-                    return None;
+    fn configure_server(mut self) -> Self {
+        self.web.server = Some(Server {
+            node_ip: {
+                server_println!("Provide node ip address (default - 0.0.0.0:3000): ");
+                if let Some(resp) = Self::handle_response() {
+                    resp
+                } else {
+                    "0.0.0.0:3000".to_string()
                 }
-                return Some(response);
+            },
+            db: {
+                server_println!("Provide the path to the db file. (default - sqlite.db): ");
+                if let Some(resp) = Self::handle_response() {
+                    resp
+                } else {
+                    "sqlite.db".to_string()
+                }
             }
+        });
+        self
+    }
 
+    fn configure_node(mut self) -> Self {
+        self.web.node = Some(Node { kasa: Self::configure_kasa() });
+        self
+    }
+
+    fn configure_kasa() -> HashMap<String, KasaDeviceConfig> {
+        let mut kasa_device_map: HashMap<String, KasaDeviceConfig> = HashMap::new();
+
+        loop {
             let mut device = KasaDeviceConfig::default();
 
-            println!("Provide kasa device name (leave empty to skip): ");
-            let device_name = if let Some(resp) = handle_response() {
+            node_println!("Provide kasa device name (leave empty to skip): ");
+            let device_name = if let Some(resp) = Self::handle_response() {
                 resp
             } else {
                 break;
             };
 
-            println!("Provide kasa device ip address: ");
-            device.ip = if let Some(resp) = handle_response() {
+            node_println!("Provide kasa device ip address: ");
+            device.ip = if let Some(resp) = Self::handle_response() {
                 resp
             } else {
                 break;
             };
 
-            println!("Provide kasa device username: ");
-            device.username = if let Some(resp) = handle_response() {
+            node_println!("Provide kasa device username: ");
+            device.username = if let Some(resp) = Self::handle_response() {
                 resp
             } else {
                 break;
             };
 
-            println!("Provide kasa device password: ");
-            device.password = if let Some(resp) = handle_response() {
+            node_println!("Provide kasa device password: ");
+            device.password = if let Some(resp) = Self::handle_response() {
                 resp
             } else {
                 break;
             };
 
-            println!(
+            node_println!(
                 "Provide kasa device polling schedule (CRON-like, leave empty for poll every 2 second): "
             );
-            device.polling_schedule = if let Some(resp) = handle_response() {
+            device.polling_schedule = if let Some(resp) = Self::handle_response() {
                 let schedule = Schedule::from_str(resp.as_str()).unwrap();
                 println!("Upcoming fire times:");
                 for datetime in schedule.upcoming(Local).take(10) {
@@ -180,17 +294,12 @@ impl SysConfig {
                 "1/1 * * * * *".to_string()
             };
 
-            println!("Provide kasa device description: ");
-            device.description = handle_response();
+            node_println!("Provide kasa device description: ");
+            device.description = Self::handle_response();
+            kasa_device_map.insert(device_name, device);
 
-            self.kasa = match self.kasa {
-                None => Some(HashMap::from([(device_name, device)])),
-                Some(mut kasa_device_map) => {
-                    kasa_device_map.insert(device_name, device);
-                    Some(kasa_device_map)
-                }
-            }
         }
-        self
+
+        kasa_device_map
     }
 }

@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         scheduler_lock.start().await?;
     }
 
-    web::server(&config, &mut kasa, mq, scheduler).await?;
+    web::server(&config, &mut kasa, scheduler).await?;
 
     Ok(())
 }

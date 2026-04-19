@@ -8,13 +8,14 @@ use axum::Router;
 use axum::extract::Path;
 use axum::extract::Request;
 use axum::routing;
+use axum::serve::Serve;
 use serde_json::Value;
+use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
 use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::ConsumptionMode;
-use tokio_memq::MessageQueue;
 use tokio_memq::MessageSubscriber;
 use tokio_memq::Subscriber;
 use tokio_memq::TopicOptions;
@@ -26,10 +27,29 @@ use crate::config::SysConfig;
 use crate::kasa::Kasa;
 use crate::kasa::KasaChildInfo;
 
+pub(crate) struct Web {
+    server: Serve<TcpListener, Router, Router>,
+}
+
+impl Web {
+    pub(crate) async fn new(config: &SysConfig) -> Self {
+        Self {
+            server: axum::serve(Self::setup_listener().await, Self::setup_router()),
+        }
+    }
+
+    fn setup_router() -> Router {
+        Router::new()
+    }
+
+    async fn setup_listener() -> TcpListener {
+        tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap()
+    }
+}
+
 pub(crate) async fn server(
     config: &SysConfig,
     devices: &mut Option<Kasa>,
-    _mq: Arc<RwLock<MessageQueue>>,
     scheduler: Arc<RwLock<JobScheduler>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut app = Router::new();
