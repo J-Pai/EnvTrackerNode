@@ -24,26 +24,40 @@ use tower_http::services::ServeDir;
 use tower_http::services::ServeFile;
 
 use crate::config::SysConfig;
+use crate::error::NodeError;
 use crate::kasa::Kasa;
 use crate::kasa::KasaChildInfo;
 
 pub(crate) struct Web {
-    server: Serve<TcpListener, Router, Router>,
+    server: Option<Serve<TcpListener, Router, Router>>,
+    scheduler: Arc<RwLock<JobScheduler>>,
 }
 
 impl Web {
-    pub(crate) async fn new(config: &SysConfig) -> Self {
+    pub(crate) async fn new(scheduler: Arc<RwLock<JobScheduler>>) -> Self {
         Self {
-            server: axum::serve(Self::setup_listener().await, Self::setup_router()),
+            server: None,
+            scheduler,
         }
     }
 
-    fn setup_router() -> Router {
+    pub(crate) fn setup_router(config: &SysConfig) -> Router {
         Router::new()
     }
 
-    async fn setup_listener() -> TcpListener {
+    pub(crate) async fn setup_listener(config: &SysConfig) -> TcpListener {
         tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap()
+    }
+
+    pub(crate) async fn start(self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(server) = self.server {
+            let scheduler = self.scheduler.write().await;
+            scheduler.start().await?;
+            server.await?;
+            Ok(())
+        } else {
+            Err(NodeError::new("No server is configured."))
+        }
     }
 }
 

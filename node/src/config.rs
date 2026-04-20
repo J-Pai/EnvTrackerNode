@@ -32,6 +32,7 @@ pub(crate) struct Settings {
 pub(crate) struct Server {
     pub(crate) node_ip: String,
     pub(crate) db: String,
+    pub(crate) topics: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
