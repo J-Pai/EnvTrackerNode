@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io;
+use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
 
@@ -32,6 +33,7 @@ pub(crate) struct Settings {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct Server {
     pub(crate) db: String,
+    pub(crate) node_ip: Option<String>,
     pub(crate) frontend: bool,
 }
 
@@ -77,10 +79,14 @@ macro_rules! node_println {
 }
 
 impl SysConfig {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(config: Option<String>) -> Self {
         let home_dir = env::home_dir().expect(tagged_fmt!("HOME dir not specified."));
         let config_dir = home_dir.join(".config/envtrackernode");
-        let config_file = config_dir.join("config.toml");
+        let config_file = if let Some(config) = config {
+            PathBuf::from(config)
+        } else {
+            config_dir.join("config.toml")
+        };
         let settings = match Config::builder()
             .add_source(config::File::with_name(
                 config_file
@@ -248,6 +254,10 @@ impl SysConfig {
                 } else {
                     "sqlite.db".to_string()
                 }
+            },
+            node_ip: {
+                server_println!("Provide the ip to the node server. (default - None): ");
+                Self::handle_response()
             },
             frontend: {
                 server_println!("Serve frontend ([Y]es / [N]o, default - [Y]es)?: ");

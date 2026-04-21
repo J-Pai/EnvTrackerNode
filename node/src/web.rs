@@ -32,6 +32,7 @@ pub(crate) struct Web {
     listener: Option<TcpListener>,
     scheduler: Arc<RwLock<JobScheduler>>,
     kasa_devices: Option<Kasa>,
+    topic_routes: Arc<RwLock<Vec<String>>>,
 }
 
 impl Web {
@@ -44,6 +45,7 @@ impl Web {
             listener: None,
             scheduler,
             kasa_devices,
+            topic_routes: Arc::new(RwLock::const_new(Vec::new())),
         }
     }
 
@@ -67,6 +69,10 @@ impl Web {
                     )
                     .await?,
                 );
+                self.topic_routes
+                    .write()
+                    .await
+                    .push(format!("/kasa/{}", device_config.0.clone()));
             }
         }
 
@@ -125,6 +131,23 @@ impl Web {
         Ok(self)
     }
 
+    fn setup_routes_route(mut self) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut router = self.router.take().unwrap();
+        let topic_routes = self.topic_routes.clone();
+
+        router = router.route(
+            "/topics",
+            routing::get(|| async move {
+                let topic_routes = topic_routes.clone();
+                let routes = topic_routes.read().await;
+                format!("{:?}", routes)
+            }),
+        );
+
+        self.router = Some(router);
+        Ok(self)
+    }
+
     pub(crate) async fn setup_router(
         mut self,
         config: &SysConfig,
@@ -143,6 +166,10 @@ impl Web {
             self = self.setup_frontend_route()?;
         }
 
+        if !self.topic_routes.read().await.is_empty() {
+            self = self.setup_routes_route()?;
+        }
+
         Ok(self)
     }
 
@@ -150,7 +177,6 @@ impl Web {
         mut self,
         config: &SysConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-
         let listener = tokio::net::TcpListener::bind(config.get_ip())
             .await
             .unwrap();

@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use clap::Parser;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::MessageQueue;
@@ -16,8 +17,16 @@ mod error;
 mod kasa;
 mod web;
 
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(short, long)]
+    config: Option<String>,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -27,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let config = config::SysConfig::new();
+    let config = config::SysConfig::new(args.config);
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));

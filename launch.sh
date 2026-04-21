@@ -10,4 +10,4 @@ fi
 
 cd $SCRIPT_DIR
 trunk build $RELEASE_FLAG
-cargo run $RELEASE_FLAG
+cargo run $RELEASE_FLAG $@
