@@ -150,7 +150,8 @@ impl Web {
         mut self,
         config: &SysConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let listener = tokio::net::TcpListener::bind(config.get_server_config().unwrap().node_ip)
+
+        let listener = tokio::net::TcpListener::bind(config.get_ip())
             .await
             .unwrap();
 

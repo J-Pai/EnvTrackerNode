@@ -26,11 +26,11 @@ pub(crate) struct KasaDeviceConfig {
 pub(crate) struct Settings {
     pub(crate) jwt_secret: Option<String>,
     pub(crate) authorized_api_keys: Option<HashMap<String, String>>,
+    pub(crate) ip: String,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct Server {
-    pub(crate) node_ip: String,
     pub(crate) db: String,
     pub(crate) frontend: bool,
 }
@@ -130,6 +130,10 @@ impl SysConfig {
         }
     }
 
+    pub(crate) fn get_ip(&self) -> String {
+        self.settings.ip.clone()
+    }
+
     fn config_generator() -> Self {
         let config = SysConfig::default();
         config.configure_servers().configure_settings()
@@ -192,6 +196,13 @@ impl SysConfig {
     }
 
     fn configure_settings(mut self) -> Self {
+        general_println!("Provide server ip address (default - 0.0.0.0:3000): ");
+        self.settings.ip = if let Some(resp) = Self::handle_response() {
+            resp
+        } else {
+            "0.0.0.0:3000".to_string()
+        };
+
         general_println!("Provide jwt_secret (leave empty to generate a random value): ");
         let mut response = String::new();
         io::stdin().read_line(&mut response).unwrap();
@@ -230,14 +241,6 @@ impl SysConfig {
 
     fn configure_server(mut self) -> Self {
         self.web.server = Some(Server {
-            node_ip: {
-                server_println!("Provide node ip address (default - 0.0.0.0:3000): ");
-                if let Some(resp) = Self::handle_response() {
-                    resp
-                } else {
-                    "0.0.0.0:3000".to_string()
-                }
-            },
             db: {
                 server_println!("Provide the path to the db file. (default - sqlite.db): ");
                 if let Some(resp) = Self::handle_response() {
@@ -263,6 +266,7 @@ impl SysConfig {
     }
 
     fn configure_node(mut self) -> Self {
+
         self.web.node = Some(Node {
             kasa: Self::configure_kasa(),
         });
