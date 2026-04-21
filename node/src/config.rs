@@ -32,7 +32,7 @@ pub(crate) struct Settings {
 pub(crate) struct Server {
     pub(crate) node_ip: String,
     pub(crate) db: String,
-    pub(crate) topics: Vec<String>,
+    pub(crate) frontend: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -114,9 +114,17 @@ impl SysConfig {
         settings
     }
 
-    pub(crate) fn get_kasa_devices(&self) -> Option<HashMap<String, KasaDeviceConfig>> {
+    pub(crate) fn get_node_config(&self) -> Option<Node> {
         if let Some(node) = &self.web.node {
-            Some(node.kasa.clone())
+            Some(node.clone())
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn get_server_config(&self) -> Option<Server> {
+        if let Some(server) = &self.web.server {
+            Some(server.clone())
         } else {
             None
         }
@@ -237,13 +245,27 @@ impl SysConfig {
                 } else {
                     "sqlite.db".to_string()
                 }
-            }
+            },
+            frontend: {
+                server_println!("Serve frontend ([Y]es / [N]o, default - [Y]es)?: ");
+                if let Some(resp) = Self::handle_response() {
+                    if resp.to_uppercase().trim() == "N" {
+                        false
+                    } else {
+                        true
+                    }
+                } else {
+                    true
+                }
+            },
         });
         self
     }
 
     fn configure_node(mut self) -> Self {
-        self.web.node = Some(Node { kasa: Self::configure_kasa() });
+        self.web.node = Some(Node {
+            kasa: Self::configure_kasa(),
+        });
         self
     }
 
@@ -298,7 +320,6 @@ impl SysConfig {
             node_println!("Provide kasa device description: ");
             device.description = Self::handle_response();
             kasa_device_map.insert(device_name, device);
-
         }
 
         kasa_device_map

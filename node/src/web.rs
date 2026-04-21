@@ -8,12 +8,10 @@ use axum::Router;
 use axum::extract::Path;
 use axum::extract::Request;
 use axum::routing;
-use axum::serve::Serve;
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
-use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::ConsumptionMode;
 use tokio_memq::MessageSubscriber;
@@ -23,72 +21,56 @@ use tower::ServiceExt;
 use tower_http::services::ServeDir;
 use tower_http::services::ServeFile;
 
+use crate::config::KasaDeviceConfig;
 use crate::config::SysConfig;
 use crate::error::NodeError;
 use crate::kasa::Kasa;
 use crate::kasa::KasaChildInfo;
 
 pub(crate) struct Web {
-    server: Option<Serve<TcpListener, Router, Router>>,
+    router: Option<Router>,
+    listener: Option<TcpListener>,
     scheduler: Arc<RwLock<JobScheduler>>,
+    kasa_devices: Option<Kasa>,
 }
 
 impl Web {
-    pub(crate) async fn new(scheduler: Arc<RwLock<JobScheduler>>) -> Self {
+    pub(crate) async fn new(
+        scheduler: Arc<RwLock<JobScheduler>>,
+        kasa_devices: Option<Kasa>,
+    ) -> Self {
         Self {
-            server: None,
+            router: None,
+            listener: None,
             scheduler,
+            kasa_devices,
         }
     }
 
-    pub(crate) fn setup_router(config: &SysConfig) -> Router {
-        Router::new()
-    }
+    async fn setup_kasa_routes(
+        mut self,
+        device_configs: &HashMap<String, KasaDeviceConfig>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let kasa_subscribers: Arc<RwLock<HashMap<String, Arc<RwLock<Subscriber>>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
 
-    pub(crate) async fn setup_listener(config: &SysConfig) -> TcpListener {
-        tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap()
-    }
+        let mut router = self.router.take().unwrap();
 
-    pub(crate) async fn start(self) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(server) = self.server {
-            let scheduler = self.scheduler.write().await;
-            scheduler.start().await?;
-            server.await?;
-            Ok(())
-        } else {
-            Err(NodeError::new("No server is configured."))
+        for device_config in device_configs {
+            if let Some(kasa) = &mut self.kasa_devices {
+                kasa_subscribers.write().await.insert(
+                    device_config.0.clone(),
+                    kasa.allocate_subscriber(
+                        device_config.0.clone(),
+                        TopicOptions::default(),
+                        ConsumptionMode::Earliest,
+                    )
+                    .await?,
+                );
+            }
         }
-    }
-}
 
-pub(crate) async fn server(
-    config: &SysConfig,
-    devices: &mut Option<Kasa>,
-    scheduler: Arc<RwLock<JobScheduler>>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut app = Router::new();
-
-    let kasa_subscribers: Arc<RwLock<HashMap<String, Arc<RwLock<Subscriber>>>>> =
-        Arc::new(RwLock::new(HashMap::new()));
-
-    for device in config.get_kasa_devices().unwrap_or(HashMap::new()) {
-        let device = device.clone();
-        kasa_subscribers.write().await.insert(
-            device.0.clone(),
-            devices
-                .as_mut()
-                .unwrap()
-                .allocate_subscriber(
-                    device.0.clone(),
-                    TopicOptions::default(),
-                    ConsumptionMode::Earliest,
-                )
-                .await?,
-        );
-    }
-
-    if !kasa_subscribers.read().await.is_empty() {
-        app = app.route(
+        router = router.route(
             "/kasa/{topic}",
             routing::get(move |Path(topic): Path<String>| {
                 let kasa_subscribers = kasa_subscribers.clone();
@@ -117,36 +99,77 @@ pub(crate) async fn server(
                 }
             }),
         );
+
+        self.router = Some(router);
+
+        Ok(self)
     }
 
-    let index_service = ServeFile::new("dist/index.html");
-    let serve_dir = ServeDir::new("dist").not_found_service(index_service.clone());
-    app = app
-        .route(
-            "/",
-            routing::get(|request: Request| async {
-                let service = index_service;
-                let result = service.oneshot(request).await;
-                result
-            }),
-        )
-        .fallback_service(serve_dir);
+    fn setup_frontend_route(mut self) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut router = self.router.take().unwrap();
 
-    // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    tracing::info!("listening on {}", listener.local_addr().unwrap());
-    let server = axum::serve(listener, app);
-    scheduler
-        .read()
-        .await
-        .add(Job::new_async("1/5 * * * * *", move |_uuid, _l| {
-            Box::pin({
-                async move {
-                    tracing::debug!("5 second poll.");
-                }
-            })
-        })?)
-        .await?;
-    server.await?;
-    Ok(())
+        let index_service = ServeFile::new("dist/index.html");
+        let serve_dir = ServeDir::new("dist").not_found_service(index_service.clone());
+        router = router
+            .route(
+                "/",
+                routing::get(|request: Request| async {
+                    let service = index_service;
+                    let result = service.oneshot(request).await;
+                    result
+                }),
+            )
+            .fallback_service(serve_dir);
+
+        self.router = Some(router);
+        Ok(self)
+    }
+
+    pub(crate) async fn setup_router(
+        mut self,
+        config: &SysConfig,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        self.router = Some(Router::new());
+
+        if let Some(node) = config.get_node_config() {
+            if !node.kasa.is_empty() {
+                self = self.setup_kasa_routes(&node.kasa).await?;
+            }
+        }
+
+        if let Some(server) = config.get_server_config()
+            && server.frontend
+        {
+            self = self.setup_frontend_route()?;
+        }
+
+        Ok(self)
+    }
+
+    pub(crate) async fn setup_listener(
+        mut self,
+        config: &SysConfig,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let listener = tokio::net::TcpListener::bind(config.get_server_config().unwrap().node_ip)
+            .await
+            .unwrap();
+
+        self.listener = Some(listener);
+
+        Ok(self)
+    }
+
+    pub(crate) async fn start(mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(listener) = self.listener.take()
+            && let Some(router) = self.router.take()
+        {
+            let scheduler = self.scheduler.write().await;
+            scheduler.start().await?;
+            tracing::info!("listening on {}", listener.local_addr().unwrap());
+            axum::serve(listener, router).await?;
+            Ok(())
+        } else {
+            Err(NodeError::new("No server is configured."))
+        }
+    }
 }

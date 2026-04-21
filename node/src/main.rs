@@ -31,13 +31,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
+    let mut kasa_devices: Option<Kasa> = None;
 
-    if let Some(kasa_devices) = config.get_kasa_devices() {
-        let mut kasa = Kasa::new(&kasa_devices, mq.clone(), scheduler.clone()).await;
+    if let Some(node) = config.get_node_config() {
+        let mut kasa = Kasa::new(&node.kasa, mq.clone(), scheduler.clone()).await;
         kasa.add_polling().await?;
+        kasa_devices.replace(kasa);
     }
 
-    Web::new(scheduler).await.start().await?;
+    Web::new(scheduler, kasa_devices)
+        .await
+        .setup_router(&config)
+        .await?
+        .setup_listener(&config)
+        .await?
+        .start()
+        .await?;
 
     Ok(())
 }
