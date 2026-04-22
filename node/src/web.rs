@@ -8,6 +8,9 @@ use axum::Router;
 use axum::extract::Path;
 use axum::extract::Request;
 use axum::routing;
+use reqwest_middleware::ClientBuilder;
+use reqwest_middleware::ClientWithMiddleware;
+use reqwest_middleware::reqwest::Client;
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
@@ -31,6 +34,7 @@ pub(crate) struct Web {
     router: Option<Router>,
     listener: Option<TcpListener>,
     scheduler: Arc<RwLock<JobScheduler>>,
+    node_client: Arc<RwLock<Option<(ClientWithMiddleware, String)>>>,
     kasa_devices: Option<Kasa>,
     topic_routes: Arc<RwLock<Vec<String>>>,
 }
@@ -43,6 +47,7 @@ impl Web {
         Self {
             router: None,
             listener: None,
+            node_client: Arc::new(RwLock::const_new(None)),
             scheduler,
             kasa_devices,
             topic_routes: Arc::new(RwLock::const_new(Vec::new())),
@@ -148,6 +153,42 @@ impl Web {
         Ok(self)
     }
 
+    async fn setup_node_client(
+        self,
+        config: &SysConfig,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        {
+            let endpoint = if config.get_node_config().is_none()
+                && let Some(node_ip) = config.get_server_config().unwrap().node_ip
+            {
+                node_ip
+            } else {
+                config.get_ip()
+            };
+
+            let mut node_client = self.node_client.write().await;
+            let client = ClientBuilder::new(Client::new()).build();
+            node_client.replace((client, endpoint));
+        }
+
+        Ok(self)
+    }
+
+    async fn setup_server_polling(self) -> Result<Self, Box<dyn std::error::Error>> {
+        {
+            let node = self.node_client.read().await;
+            let (node_client, ip) = node.as_ref().unwrap();
+            let data = node_client
+                .get(format!("http://{}/topics", ip))
+                .send()
+                .await
+                .unwrap();
+            tracing::warn!("{:?}", data.text().await.unwrap());
+        }
+
+        Ok(self)
+    }
+
     pub(crate) async fn setup_router(
         mut self,
         config: &SysConfig,
@@ -158,16 +199,21 @@ impl Web {
             if !node.kasa.is_empty() {
                 self = self.setup_kasa_routes(&node.kasa).await?;
             }
+            if !self.topic_routes.read().await.is_empty() {
+                self = self.setup_routes_route()?;
+            }
         }
 
-        if let Some(server) = config.get_server_config()
-            && server.frontend
-        {
-            self = self.setup_frontend_route()?;
-        }
+        if let Some(server) = config.get_server_config() {
+            if server.frontend {
+                self = self.setup_frontend_route()?;
+            }
 
-        if !self.topic_routes.read().await.is_empty() {
-            self = self.setup_routes_route()?;
+            self = self
+                .setup_node_client(config)
+                .await?
+                .setup_server_polling()
+                .await?;
         }
 
         Ok(self)
