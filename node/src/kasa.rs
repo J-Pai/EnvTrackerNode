@@ -243,6 +243,11 @@ impl KasaDevice {
         let scheduler = self.scheduler.read().await;
         let transport = self.transport.clone();
         let children = self.children.clone();
+
+        let topic = {
+            publisher.clone().lock_owned().await.topic().to_string()
+        };
+
         scheduler
             .add(Job::new_async(
                 self.polling_schedule.clone(),
@@ -251,8 +256,14 @@ impl KasaDevice {
                         let transport = transport.clone();
                         let publisher = publisher.clone();
                         let children = children.clone();
+                        let topic = topic.clone();
                         async move {
-                            let transport = transport.lock().await;
+                            let transport = if let Ok(transport) = transport.try_lock() {
+                                transport
+                            } else {
+                                tracing::debug!("Skipping publishing event: {}", topic);
+                                return;
+                            };
                             let publisher = publisher.lock().await;
                             let children = children.read().await;
 
@@ -279,7 +290,7 @@ impl KasaDevice {
                             .unwrap();
 
                             publisher.publish(data).await.unwrap();
-                            tracing::debug!("Published to: {}", publisher.topic());
+                            tracing::debug!("Published to: {}", topic);
                         }
                     })
                 },

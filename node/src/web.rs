@@ -15,6 +15,7 @@ use serde_json::Value;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
+use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::ConsumptionMode;
 use tokio_memq::MessageSubscriber;
@@ -175,15 +176,52 @@ impl Web {
     }
 
     async fn setup_server_polling(self) -> Result<Self, Box<dyn std::error::Error>> {
+        let topic_routes = {
+            let topic_routes = self.topic_routes.read().await;
+
+            if !topic_routes.is_empty() {
+                topic_routes.clone()
+            } else {
+                let node = self.node_client.read().await;
+                let (node_client, ip) = node.as_ref().unwrap();
+                if let Ok(data) = node_client
+                    .get(format!("http://{}/topics", ip))
+                    .send()
+                    .await
+                {
+                    if let Ok(data) = data.json::<Value>().await {
+                        let mut topic_routes: Vec<String> = Vec::new();
+
+                        for route in data.as_array().unwrap() {
+                            topic_routes.push(route.to_string());
+                        }
+
+                        topic_routes
+                    } else {
+                        topic_routes.clone()
+                    }
+                } else {
+                    topic_routes.clone()
+                }
+            }
+        };
+
         {
-            let node = self.node_client.read().await;
-            let (node_client, ip) = node.as_ref().unwrap();
-            let data = node_client
-                .get(format!("http://{}/topics", ip))
-                .send()
-                .await
-                .unwrap();
-            tracing::warn!("{:?}", data.text().await.unwrap());
+            for route in topic_routes {
+                let scheduler = self.scheduler.read().await;
+                let node_client = self.node_client.clone();
+                scheduler
+                    .add(Job::new_async("0 */5 * * * *", move |_uuid, _l| {
+                        Box::pin({
+                            let route = route.clone();
+                            let node_client = node_client.clone();
+                            async move {
+                                tracing::debug!("Reqeusted {}", route);
+                            }
+                        })
+                    })?)
+                    .await?;
+            }
         }
 
         Ok(self)
