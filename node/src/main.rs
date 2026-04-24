@@ -9,10 +9,12 @@ use tokio_memq::MessageQueue;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
+use crate::db::Db;
 use crate::kasa::Kasa;
 use crate::web::Web;
 
 mod config;
+mod db;
 mod error;
 mod kasa;
 mod web;
@@ -47,6 +49,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         kasa.add_polling().await?;
         kasa_devices.replace(kasa);
     }
+
+    let _db = Db::new(&config).await?;
 
     Web::new(scheduler, kasa_devices)
         .await
