@@ -64,6 +64,8 @@ impl Web {
 
         let mut router = self.router.take().unwrap();
 
+        let mut children_ids: HashMap<String, Vec<String>> = HashMap::new();
+
         for device_config in device_configs {
             if let Some(kasa) = &mut self.kasa_devices {
                 kasa_subscribers.write().await.insert(
@@ -79,38 +81,59 @@ impl Web {
                     .write()
                     .await
                     .push(format!("/kasa/{}", device_config.0.clone()));
+
+                children_ids.insert(
+                    device_config.0.clone(),
+                    self.kasa_devices
+                        .as_ref()
+                        .unwrap()
+                        .get_children_ids(device_config.0.clone())
+                        .await?,
+                );
             }
         }
 
-        router = router.route(
-            "/kasa/{topic}",
-            routing::get(move |Path(topic): Path<String>| {
-                let kasa_subscribers = kasa_subscribers.clone();
+        router = router
+            .route(
+                "/kasa/{topic}",
+                routing::get(move |Path(topic): Path<String>| {
+                    let kasa_subscribers = kasa_subscribers.clone();
 
-                async move {
-                    let kasa_subscribers = kasa_subscribers.read().await;
-                    let subscriber = kasa_subscribers.get(&topic).unwrap().read().await;
-                    let msg = match timeout(Duration::from_millis(100), subscriber.recv_batch(100))
-                        .await
-                    {
-                        Ok(result) => result.unwrap(),
-                        Err(_) => {
-                            return "[]".to_string();
+                    async move {
+                        let kasa_subscribers = kasa_subscribers.read().await;
+                        let subscriber = if let Some(subscriber) = kasa_subscribers.get(&topic){
+                            subscriber.read().await
+                        } else {
+                            return "[]".to_string()
+                        };
+                        let msg =
+                            match timeout(Duration::from_millis(100), subscriber.recv_batch(100))
+                                .await
+                            {
+                                Ok(result) => result.unwrap(),
+                                Err(_) => {
+                                    return "[]".to_string();
+                                }
+                            };
+
+                        let mut output: String = String::new();
+                        for m in msg.iter() {
+                            let json = m.deserialize::<Value>().unwrap();
+                            let child_info: Vec<KasaChildInfo> =
+                                serde_json::from_value(json.clone()).unwrap();
+                            output.push_str(format!("{:#?}\n", child_info).as_str());
                         }
-                    };
 
-                    let mut output: String = String::new();
-                    for m in msg.iter() {
-                        let json = m.deserialize::<Value>().unwrap();
-                        let child_info: Vec<KasaChildInfo> =
-                            serde_json::from_value(json.clone()).unwrap();
-                        output.push_str(format!("{:#?}\n", child_info).as_str());
+                        output
                     }
-
-                    output
-                }
-            }),
-        );
+                }),
+            )
+            .route(
+                "/kasa/{topic}/children",
+                routing::get(move |Path(topic): Path<String>| async move {
+                    format!("{:#?}", children_ids.get(&topic).unwrap_or(&Vec::new())    )
+                }),
+            );
 
         self.router = Some(router);
 

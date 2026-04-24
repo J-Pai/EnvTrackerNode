@@ -244,9 +244,7 @@ impl KasaDevice {
         let transport = self.transport.clone();
         let children = self.children.clone();
 
-        let topic = {
-            publisher.clone().lock_owned().await.topic().to_string()
-        };
+        let topic = { publisher.clone().lock_owned().await.topic().to_string() };
 
         scheduler
             .add(Job::new_async(
@@ -363,8 +361,34 @@ impl Kasa {
     ) -> Result<Arc<RwLock<Subscriber>>, Box<dyn std::error::Error>> {
         self.devices
             .get_mut(&device)
-            .unwrap()
+            .ok_or(NodeError::new(
+                format!("Device {} not found", device).as_str(),
+            ))?
             .allocate_subscriber(options, mode)
             .await
+    }
+
+    pub(crate) async fn get_children_ids(
+        &self,
+        device: String,
+    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let children = self
+            .devices
+            .get(&device)
+            .ok_or(NodeError::new(
+                format!("Device {} not found", device).as_str(),
+            ))?
+            .children
+            .clone();
+
+        let children = children.read().await;
+
+        let mut children_ids = Vec::new();
+
+        for child_id in children.keys() {
+            children_ids.push(child_id.clone());
+        }
+
+        Ok(children_ids)
     }
 }
