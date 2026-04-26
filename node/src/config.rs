@@ -34,6 +34,7 @@ pub(crate) struct Settings {
 pub(crate) struct Server {
     pub(crate) db: String,
     pub(crate) node_ip: Option<String>,
+    pub(crate) node_polling_schedule: String,
     pub(crate) frontend: bool,
 }
 
@@ -259,6 +260,14 @@ impl SysConfig {
                 server_println!("Provide the ip to the node server. (default - None): ");
                 Self::handle_response()
             },
+            node_polling_schedule: {
+                server_println!("Provide the polling schedule the node server. (default - every 5 minutes): ");
+                if let Some(resp) = Self::handle_response() {
+                    resp
+                } else {
+                    "0 */5 * * * *".to_string()
+                }
+            },
             frontend: {
                 server_println!("Serve frontend ([Y]es / [N]o, default - [Y]es)?: ");
                 if let Some(resp) = Self::handle_response() {
@@ -317,7 +326,7 @@ impl SysConfig {
             };
 
             node_println!(
-                "Provide kasa device polling schedule (CRON-like, leave empty for poll every 2 second): "
+                "Provide kasa device polling schedule (CRON-like, leave empty for poll every second): "
             );
             device.polling_schedule = if let Some(resp) = Self::handle_response() {
                 let schedule = Schedule::from_str(resp.as_str()).unwrap();
@@ -327,7 +336,7 @@ impl SysConfig {
                 }
                 resp
             } else {
-                "1/1 * * * * *".to_string()
+                "*/1 * * * * *".to_string()
             };
 
             node_println!("Provide kasa device description: ");
