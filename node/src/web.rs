@@ -120,15 +120,14 @@ impl Web {
                                 }
                             };
 
-                        let mut output: String = String::new();
+                        let mut output: Vec<String> = Vec::new();
+
                         for m in msg.iter() {
                             let json = m.deserialize::<Value>().unwrap();
-                            let child_info: Vec<KasaChildInfo> =
-                                serde_json::from_value(json.clone()).unwrap();
-                            output.push_str(format!("{:#?}\n", child_info).as_str());
+                            output.push(serde_json::to_string(&json).unwrap());
                         }
 
-                        output
+                        format!("[{}]", output.join(","))
                     }
                 }),
             )
@@ -237,22 +236,42 @@ impl Web {
             for route in topic_routes {
                 let scheduler = self.scheduler.read().await;
                 let node_client = self.node_client.clone();
-                let conn = self.db.as_ref().unwrap().create_connection().await?;
+                let db = self.db.as_ref().unwrap().clone();
                 scheduler
-                    .add(Job::new_async("1/10 * * * * *", move |_uuid, _l| {
+                    .add(Job::new_async("0 * * * * *", move |_uuid, _l| {
                         Box::pin({
                             let route = route.clone();
+                            let db = db.clone();
                             let node_client = node_client.clone();
-                            let conn = conn.clone();
                             async move {
                                 let node = node_client.read().await;
+                                let db = db.clone().create_connection();
                                 let (client, ip) = node.as_ref().unwrap();
                                 if let Ok(data) =
                                     client.get(format!("http://{}{}", ip, route)).send().await
                                 {
                                     match &route {
                                         r if r.starts_with("/kasa") => {
-                                            tracing::debug!("Data {:?}", data.text().await);
+                                            let json =
+                                                data.text().await.unwrap_or("[]".to_string());
+
+                                            let kasa_data: Result<
+                                                Vec<Vec<KasaChildInfo>>,
+                                                serde_json::Error,
+                                            > = serde_json::from_str(&json);
+
+                                            match kasa_data {
+                                                Ok(k) => {
+                                                    db.await
+                                                        .unwrap()
+                                                        .push_kasa_data(&k)
+                                                        .await
+                                                        .unwrap();
+                                                }
+                                                Err(e) => {
+                                                    tracing::warn!("Error parsing data {:#?}", e);
+                                                }
+                                            }
                                         }
                                         _ => {}
                                     }

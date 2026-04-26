@@ -276,7 +276,6 @@ impl SysConfig {
     }
 
     fn configure_node(mut self) -> Self {
-
         self.web.node = Some(Node {
             kasa: Self::configure_kasa(),
         });
