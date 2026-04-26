@@ -242,80 +242,74 @@ impl Web {
             }
         };
 
-        {
-            for route in topic_routes {
-                let scheduler = self.scheduler.read().await;
-                let node_client = self.node_client.clone();
-                let db = self.db.as_ref().unwrap().clone();
-                scheduler
-                    .add(Job::new_async(
-                        self.node_polling_schedule.clone().unwrap(),
-                        move |_uuid, _l| {
-                            Box::pin({
-                                let route = route.clone();
-                                let mut db = db.clone();
-                                let node_client = node_client.clone();
-                                async move {
-                                    let node = if let Ok(node) = node_client.try_lock() {
-                                        node
-                                    } else {
-                                        tracing::debug!("Skipping polling event: {}", route);
-                                        return;
-                                    };
-                                    let (client, ip) = node.as_ref().unwrap();
-                                    db.create_connection().await.unwrap();
-                                    let mut count = 0;
-                                    loop {
-                                        count += 1;
-                                        if let Ok(data) = client
-                                            .get(format!("http://{}{}", ip, route))
-                                            .send()
-                                            .await
-                                        {
-                                            match &route {
-                                                r if r.starts_with("/kasa") => {
-                                                    let json = data
-                                                        .text()
-                                                        .await
-                                                        .unwrap_or("[]".to_string());
+        for route in topic_routes {
+            let scheduler = self.scheduler.read().await;
+            let node_client = self.node_client.clone();
+            let db = self.db.as_ref().unwrap().clone();
+            scheduler
+                .add(Job::new_async(
+                    self.node_polling_schedule.clone().unwrap(),
+                    move |_uuid, _l| {
+                        Box::pin({
+                            let route = route.clone();
+                            let mut db = db.clone();
+                            let node_client = node_client.clone();
+                            async move {
+                                let node = if let Ok(node) = node_client.try_lock() {
+                                    node
+                                } else {
+                                    tracing::debug!("Skipping polling event: {}", route);
+                                    return;
+                                };
+                                let (client, ip) = node.as_ref().unwrap();
+                                db.create_connection().await.unwrap();
+                                let mut count = 0;
+                                loop {
+                                    count += 1;
+                                    if let Ok(data) =
+                                        client.get(format!("http://{}{}", ip, route)).send().await
+                                    {
+                                        match &route {
+                                            r if r.starts_with("/kasa") => {
+                                                let json =
+                                                    data.text().await.unwrap_or("[]".to_string());
 
-                                                    let kasa_data: Result<
-                                                        Vec<Vec<KasaChildInfo>>,
-                                                        serde_json::Error,
-                                                    > = serde_json::from_str(&json);
+                                                let kasa_data: Result<
+                                                    Vec<Vec<KasaChildInfo>>,
+                                                    serde_json::Error,
+                                                > = serde_json::from_str(&json);
 
-                                                    match kasa_data {
-                                                        Ok(k) => {
-                                                            if k.is_empty() {
-                                                                break;
-                                                            }
-                                                            db.push_kasa_data(&k).await.unwrap();
+                                                match kasa_data {
+                                                    Ok(k) => {
+                                                        if k.is_empty() {
+                                                            break;
                                                         }
-                                                        Err(e) => {
-                                                            tracing::warn!(
-                                                                "Error parsing data {:#?}",
-                                                                e
-                                                            );
-                                                        }
+                                                        db.push_kasa_data(&k).await.unwrap();
+                                                    }
+                                                    Err(e) => {
+                                                        tracing::warn!(
+                                                            "Error parsing data {:#?}",
+                                                            e
+                                                        );
                                                     }
                                                 }
-                                                _ => {
-                                                    tracing::warn!("Unhandled {}", route);
-                                                    break;
-                                                }
                                             }
-                                        } else {
-                                            tracing::warn!("Issue with {}", route);
-                                            break;
+                                            _ => {
+                                                tracing::warn!("Unhandled {}", route);
+                                                break;
+                                            }
                                         }
+                                    } else {
+                                        tracing::warn!("Issue with {}", route);
+                                        break;
                                     }
-                                    tracing::debug!("Reqeusted {}x {}", count, route);
                                 }
-                            })
-                        },
-                    )?)
-                    .await?;
-            }
+                                tracing::debug!("Reqeusted {}x {}", count, route);
+                            }
+                        })
+                    },
+                )?)
+                .await?;
         }
 
         Ok(self)
