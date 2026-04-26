@@ -65,3 +65,14 @@ Proxying PiKVM traffic through another server via nginx.
 ```shell
 sudo setsebool -P httpd_can_network_connect 1
 ```
+
+- Systemd Service
+
+You may need this so nginx will keep trying to resolve the pikvm tailscale IP instead
+of shutting down immediately after a reboot.
+
+```shell
+[Service]
+Restart=always
+RestartSec=5s
+```
