@@ -35,6 +35,13 @@ impl Db {
             conn: None,
         };
 
+        // Truncate the wal file before things get heavy.
+        {
+            let db = db.db.read().await;
+            let conn = db.connect()?;
+            conn.pragma_update("wal_checkpoint", "TRUNCATE").await?;
+        }
+
         Ok(db)
     }
 
