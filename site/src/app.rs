@@ -1,4 +1,4 @@
-use egui::{Hyperlink, Widget};
+use egui::{Hyperlink, OpenUrl, Widget};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -42,7 +42,12 @@ impl eframe::App for EnvApp {
             // The top panel is often a good place for a menu bar:
 
             egui::MenuBar::new().ui(ui, |ui| {
-                egui::widgets::global_theme_preference_buttons(ui);
+                egui::widgets::global_theme_preference_switch(ui);
+                ui.separator();
+                if ui.button("🏠 Home").clicked() {
+                    ui.open_url(OpenUrl::same_tab("/"));
+                };
+                ui.separator();
             });
         });
 

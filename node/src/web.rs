@@ -150,7 +150,7 @@ impl Web {
         let mut router = self.router.take().unwrap();
 
         let index_service = ServeFile::new("dist/index.html");
-        let serve_dir = ServeDir::new("dist").not_found_service(index_service.clone());
+        let serve_dir = ServeDir::new("dist");
         router = router
             .route(
                 "/",
