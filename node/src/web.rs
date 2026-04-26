@@ -229,7 +229,7 @@ impl Web {
                         let mut topic_routes: Vec<String> = Vec::new();
 
                         for route in data.as_array().unwrap() {
-                            topic_routes.push(route.to_string());
+                            topic_routes.push(route.as_str().unwrap().to_string());
                         }
 
                         topic_routes
@@ -241,6 +241,8 @@ impl Web {
                 }
             }
         };
+
+        tracing::debug!("Topics: {:#?}", topic_routes);
 
         for route in topic_routes {
             let scheduler = self.scheduler.read().await;
@@ -295,12 +297,12 @@ impl Web {
                                                 }
                                             }
                                             _ => {
-                                                tracing::warn!("Unhandled {}", route);
+                                                tracing::warn!("Unhandled {}{}", ip, route);
                                                 break;
                                             }
                                         }
                                     } else {
-                                        tracing::warn!("Issue with {}", route);
+                                        tracing::warn!("Issue with {}{}", ip, route);
                                         break;
                                     }
                                 }
