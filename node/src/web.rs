@@ -13,6 +13,7 @@ use reqwest_middleware::ClientWithMiddleware;
 use reqwest_middleware::reqwest::Client;
 use serde_json::Value;
 use tokio::net::TcpListener;
+use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
 use tokio_cron_scheduler::Job;
@@ -37,7 +38,7 @@ pub(crate) struct Web {
     listener: Option<TcpListener>,
     scheduler: Arc<RwLock<JobScheduler>>,
     db: Option<Db>,
-    node_client: Arc<RwLock<Option<(ClientWithMiddleware, String)>>>,
+    node_client: Arc<Mutex<Option<(ClientWithMiddleware, String)>>>,
     node_polling_schedule: Option<String>,
     kasa_devices: Option<Kasa>,
     topic_routes: Arc<RwLock<Vec<String>>>,
@@ -53,7 +54,7 @@ impl Web {
             router: None,
             listener: None,
             db,
-            node_client: Arc::new(RwLock::const_new(None)),
+            node_client: Arc::new(Mutex::const_new(None)),
             node_polling_schedule: None,
             scheduler,
             kasa_devices,
@@ -195,7 +196,7 @@ impl Web {
                 config.get_ip()
             };
 
-            let mut node_client = self.node_client.write().await;
+            let mut node_client = self.node_client.lock().await;
             let client = ClientBuilder::new(Client::new()).build();
             node_client.replace((client, endpoint));
             self.node_polling_schedule.replace(
@@ -217,7 +218,7 @@ impl Web {
             if !topic_routes.is_empty() {
                 topic_routes.clone()
             } else {
-                let node = self.node_client.read().await;
+                let node = self.node_client.lock().await;
                 let (node_client, ip) = node.as_ref().unwrap();
                 if let Ok(data) = node_client
                     .get(format!("http://{}/topics", ip))
@@ -252,47 +253,63 @@ impl Web {
                         move |_uuid, _l| {
                             Box::pin({
                                 let route = route.clone();
-                                let db = db.clone();
+                                let mut db = db.clone();
                                 let node_client = node_client.clone();
                                 async move {
-                                    let node = node_client.read().await;
-                                    let db = db.clone().create_connection();
+                                    let node = if let Ok(node) = node_client.try_lock() {
+                                        node
+                                    } else {
+                                        tracing::debug!("Skipping polling event: {}", route);
+                                        return;
+                                    };
                                     let (client, ip) = node.as_ref().unwrap();
-                                    if let Ok(data) =
-                                        client.get(format!("http://{}{}", ip, route)).send().await
-                                    {
-                                        match &route {
-                                            r if r.starts_with("/kasa") => {
-                                                let json =
-                                                    data.text().await.unwrap_or("[]".to_string());
+                                    db.create_connection().await.unwrap();
+                                    let mut count = 0;
+                                    loop {
+                                        count += 1;
+                                        if let Ok(data) = client
+                                            .get(format!("http://{}{}", ip, route))
+                                            .send()
+                                            .await
+                                        {
+                                            match &route {
+                                                r if r.starts_with("/kasa") => {
+                                                    let json = data
+                                                        .text()
+                                                        .await
+                                                        .unwrap_or("[]".to_string());
 
-                                                let kasa_data: Result<
-                                                    Vec<Vec<KasaChildInfo>>,
-                                                    serde_json::Error,
-                                                > = serde_json::from_str(&json);
+                                                    let kasa_data: Result<
+                                                        Vec<Vec<KasaChildInfo>>,
+                                                        serde_json::Error,
+                                                    > = serde_json::from_str(&json);
 
-                                                match kasa_data {
-                                                    Ok(k) => {
-                                                        db.await
-                                                            .unwrap()
-                                                            .push_kasa_data(&k)
-                                                            .await
-                                                            .unwrap();
-                                                    }
-                                                    Err(e) => {
-                                                        tracing::warn!(
-                                                            "Error parsing data {:#?}",
-                                                            e
-                                                        );
+                                                    match kasa_data {
+                                                        Ok(k) => {
+                                                            if k.is_empty() {
+                                                                break;
+                                                            }
+                                                            db.push_kasa_data(&k).await.unwrap();
+                                                        }
+                                                        Err(e) => {
+                                                            tracing::warn!(
+                                                                "Error parsing data {:#?}",
+                                                                e
+                                                            );
+                                                        }
                                                     }
                                                 }
+                                                _ => {
+                                                    tracing::warn!("Unhandled {}", route);
+                                                    break;
+                                                }
                                             }
-                                            _ => {}
+                                        } else {
+                                            tracing::warn!("Issue with {}", route);
+                                            break;
                                         }
-                                        tracing::debug!("Reqeusted {}", route);
-                                    } else {
-                                        tracing::warn!("Issue with {}", route);
                                     }
+                                    tracing::debug!("Reqeusted {}x {}", count, route);
                                 }
                             })
                         },

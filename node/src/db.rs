@@ -45,12 +45,12 @@ impl Db {
         Ok(db)
     }
 
-    pub(crate) async fn create_connection(mut self) -> Result<Self, Box<dyn std::error::Error>> {
-        {
+    pub(crate) async fn create_connection(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if self.conn.is_none() {
             let db = self.db.read().await;
             self.conn.replace(Mutex::new(db.connect()?));
         }
-        Ok(self)
+        Ok(())
     }
 
     pub(crate) async fn create_kasa_table(self) -> Result<Self, Box<dyn std::error::Error>> {
