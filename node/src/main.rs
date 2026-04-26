@@ -50,9 +50,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         kasa_devices.replace(kasa);
     }
 
-    let _db = Db::new(&config).await?;
+    let db = if let Some(server) = config.get_server_config() {
+        Some(Db::new(&server).await?.create_kasa_table().await?)
+    } else {
+        None
+    };
 
-    Web::new(scheduler, kasa_devices)
+    Web::new(scheduler, kasa_devices, db)
         .await
         .setup_router(&config)
         .await?

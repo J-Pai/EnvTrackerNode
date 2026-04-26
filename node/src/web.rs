@@ -27,6 +27,7 @@ use tower_http::services::ServeFile;
 
 use crate::config::KasaDeviceConfig;
 use crate::config::SysConfig;
+use crate::db::Db;
 use crate::error::NodeError;
 use crate::kasa::Kasa;
 use crate::kasa::KasaChildInfo;
@@ -35,6 +36,7 @@ pub(crate) struct Web {
     router: Option<Router>,
     listener: Option<TcpListener>,
     scheduler: Arc<RwLock<JobScheduler>>,
+    db: Option<Db>,
     node_client: Arc<RwLock<Option<(ClientWithMiddleware, String)>>>,
     kasa_devices: Option<Kasa>,
     topic_routes: Arc<RwLock<Vec<String>>>,
@@ -44,10 +46,12 @@ impl Web {
     pub(crate) async fn new(
         scheduler: Arc<RwLock<JobScheduler>>,
         kasa_devices: Option<Kasa>,
+        db: Option<Db>,
     ) -> Self {
         Self {
             router: None,
             listener: None,
+            db,
             node_client: Arc::new(RwLock::const_new(None)),
             scheduler,
             kasa_devices,
@@ -101,10 +105,10 @@ impl Web {
 
                     async move {
                         let kasa_subscribers = kasa_subscribers.read().await;
-                        let subscriber = if let Some(subscriber) = kasa_subscribers.get(&topic){
+                        let subscriber = if let Some(subscriber) = kasa_subscribers.get(&topic) {
                             subscriber.read().await
                         } else {
-                            return "[]".to_string()
+                            return "[]".to_string();
                         };
                         let msg =
                             match timeout(Duration::from_millis(100), subscriber.recv_batch(100))
@@ -131,7 +135,7 @@ impl Web {
             .route(
                 "/kasa/{topic}/children",
                 routing::get(move |Path(topic): Path<String>| async move {
-                    format!("{:#?}", children_ids.get(&topic).unwrap_or(&Vec::new())    )
+                    format!("{:#?}", children_ids.get(&topic).unwrap_or(&Vec::new()))
                 }),
             );
 
@@ -233,13 +237,29 @@ impl Web {
             for route in topic_routes {
                 let scheduler = self.scheduler.read().await;
                 let node_client = self.node_client.clone();
+                let conn = self.db.as_ref().unwrap().create_connection().await?;
                 scheduler
-                    .add(Job::new_async("0 */5 * * * *", move |_uuid, _l| {
+                    .add(Job::new_async("1/10 * * * * *", move |_uuid, _l| {
                         Box::pin({
                             let route = route.clone();
                             let node_client = node_client.clone();
+                            let conn = conn.clone();
                             async move {
-                                tracing::debug!("Reqeusted {}", route);
+                                let node = node_client.read().await;
+                                let (client, ip) = node.as_ref().unwrap();
+                                if let Ok(data) =
+                                    client.get(format!("http://{}{}", ip, route)).send().await
+                                {
+                                    match &route {
+                                        r if r.starts_with("/kasa") => {
+                                            tracing::debug!("Data {:?}", data.text().await);
+                                        }
+                                        _ => {}
+                                    }
+                                    tracing::debug!("Reqeusted {}", route);
+                                } else {
+                                    tracing::warn!("Issue with {}", route);
+                                }
                             }
                         })
                     })?)
