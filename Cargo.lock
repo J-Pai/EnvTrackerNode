@@ -3451,6 +3451,7 @@ dependencies = [
  "tokio",
  "tokio-cron-scheduler",
  "tokio-memq",
+ "tokio-util",
  "toml",
  "toml_writer",
  "tower",

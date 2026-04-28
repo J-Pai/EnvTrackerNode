@@ -43,8 +43,11 @@ impl eframe::App for EnvApp {
 
             egui::MenuBar::new().ui(ui, |ui| {
                 egui::widgets::global_theme_preference_switch(ui);
-                ui.separator();
                 if ui.button("🏠 Home").clicked() {
+                    ui.open_url(OpenUrl::same_tab("/"));
+                };
+                ui.separator();
+                if ui.button("🏠 Graphs").clicked() {
                     ui.open_url(OpenUrl::same_tab("/"));
                 };
                 ui.separator();

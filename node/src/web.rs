@@ -141,7 +141,7 @@ impl Web {
                 }),
             );
 
-        self.router = Some(router);
+        self.router.replace(router);
 
         Ok(self)
     }
@@ -162,7 +162,7 @@ impl Web {
             )
             .fallback_service(serve_dir);
 
-        self.router = Some(router);
+        self.router.replace(router);
         Ok(self)
     }
 
@@ -179,7 +179,8 @@ impl Web {
             }),
         );
 
-        self.router = Some(router);
+        self.router.replace(router);
+
         Ok(self)
     }
 
