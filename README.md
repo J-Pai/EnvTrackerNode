@@ -18,7 +18,7 @@ cargo install cross --git https://github.com/cross-rs/cross
 
 ```shell
 ./launch.sh
-cross build --target armv7-unknown-linux-musleabihf
+cross build --target aarch64-unknown-linux-musl
 ```
 
 ## Wiki Pages
