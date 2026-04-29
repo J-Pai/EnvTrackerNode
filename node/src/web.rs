@@ -5,13 +5,18 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
+use axum::body::Body;
 use axum::extract::Path;
 use axum::extract::Request;
+use axum::http::header;
+use axum::response::IntoResponse;
+use axum::response::Response;
 use axum::routing;
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_middleware::reqwest::Client;
 use serde_json::Value;
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio::sync::RwLock;
@@ -22,9 +27,7 @@ use tokio_memq::ConsumptionMode;
 use tokio_memq::MessageSubscriber;
 use tokio_memq::Subscriber;
 use tokio_memq::TopicOptions;
-use tower::ServiceExt;
 use tower_http::services::ServeDir;
-use tower_http::services::ServeFile;
 
 use crate::config::KasaDeviceConfig;
 use crate::config::SysConfig;
@@ -146,20 +149,42 @@ impl Web {
         Ok(self)
     }
 
-    fn setup_frontend_route(mut self) -> Result<Self, Box<dyn std::error::Error>> {
+    async fn setup_frontend_route(mut self) -> Result<Self, Box<dyn std::error::Error>> {
         let mut router = self.router.take().unwrap();
 
-        let index_service = ServeFile::new("dist/index.html");
+        let mut index_file = String::new();
+        tokio::fs::File::open("dist/index.html")
+            .await?
+            .read_to_string(&mut index_file)
+            .await?;
         let serve_dir = ServeDir::new("dist");
+
+        let update_index_file = async move |request: Request| -> Response {
+            let base = match request.headers().get("x-real-base") {
+                Some(base) => match base.to_str() {
+                    Ok(base) => base,
+                    Err(_) => "/",
+                },
+                None => "/",
+            };
+
+            let index_file = index_file.clone().replace("/<REPLACE>", base);
+
+            let body = Body::new(index_file);
+
+            let headers = [
+                (header::CONTENT_TYPE, "text/html, charset=utf-8"),
+                (
+                    header::CONTENT_DISPOSITION,
+                    "inline; filename=\"index.html\"",
+                ),
+            ];
+
+            (headers, body).into_response()
+        };
+
         router = router
-            .route(
-                "/",
-                routing::get(|request: Request| async {
-                    let service = index_service;
-                    let result = service.oneshot(request).await;
-                    result
-                }),
-            )
+            .route("/", routing::get(update_index_file))
             .fallback_service(serve_dir);
 
         self.router.replace(router);
@@ -335,7 +360,7 @@ impl Web {
 
         if let Some(server) = config.get_server_config() {
             if server.frontend {
-                self = self.setup_frontend_route()?;
+                self = self.setup_frontend_route().await?;
             }
 
             self = self

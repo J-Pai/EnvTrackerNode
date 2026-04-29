@@ -261,7 +261,9 @@ impl SysConfig {
                 Self::handle_response()
             },
             node_polling_schedule: {
-                server_println!("Provide the polling schedule the node server. (default - every minute): ");
+                server_println!(
+                    "Provide the polling schedule the node server. (default - every minute): "
+                );
                 if let Some(resp) = Self::handle_response() {
                     resp
                 } else {
