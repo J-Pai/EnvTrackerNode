@@ -14,6 +14,9 @@ while [ $# -gt 0 ]; do
 		watch)
 			TRUNK_ACTION="watch"
 			;;
+		serve)
+			TRUNK_ACTION="serve"
+			;;
 		--)
 			# Everything after -- goes to cargo.
 			shift
@@ -35,7 +38,5 @@ if [[ "$rc" != 0 || "${TRUNK_ACTION}" == "watch" ]]; then
 fi
 
 echo "=== Cargo RUN ==="
-
-echo $@
 
 cargo run $RELEASE_FLAG -- $@

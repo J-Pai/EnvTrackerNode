@@ -1,24 +1,28 @@
 use egui::{Hyperlink, OpenUrl, Widget};
 
+#[derive(Default, serde::Deserialize, serde::Serialize)]
+pub struct State {
+    control_panel: bool,
+}
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct EnvApp {}
+pub struct EnvApp {
+    state: State,
+}
 
 impl Default for EnvApp {
     fn default() -> Self {
-        Self {}
+        Self {
+            state: Default::default(),
+        }
     }
 }
 
 impl EnvApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // This is also where you can customize the look and feel of egui using
-        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
-        // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
             eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
         } else {
@@ -33,11 +37,18 @@ impl eframe::App for EnvApp {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        // Give the area behind the floating windows a different color, because it looks better:
+        let color = egui::lerp(
+            egui::Rgba::from(visuals.panel_fill)..=egui::Rgba::from(visuals.extreme_bg_color),
+            0.5,
+        );
+        let color = egui::Color32::from(color);
+        color.to_normalized_gamma_f32()
+    }
+
     /// Called each time the UI needs repainting, which may be many times per second.
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
             // The top panel is often a good place for a menu bar:
 
@@ -47,18 +58,28 @@ impl eframe::App for EnvApp {
                     ui.open_url(OpenUrl::same_tab("/"));
                 };
                 ui.separator();
-                if ui.button("🏠 Graphs").clicked() {
-                    ui.open_url(OpenUrl::same_tab("/"));
-                };
+                ui.toggle_value(&mut self.state.control_panel, "🖥 Control Panel");
                 ui.separator();
             });
         });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                powered_by_egui_and_eframe(ui);
-                egui::warn_if_debug_build(ui);
-            });
+        egui::CentralPanel::no_frame().show_inside(ui, |ui| {
+            egui::Panel::left("control_panel")
+                .resizable(false)
+                .show_animated_inside(ui, self.state.control_panel, |ui| {
+                    ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                        ui.add_space(4.0);
+                        ui.vertical_centered(|ui| {
+                            ui.heading("💻 Control Panel");
+                        });
+                        ui.separator();
+                    });
+                    ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                        ui.add_space(4.0);
+                        powered_by_egui_and_eframe(ui);
+                        egui::warn_if_debug_build(ui);
+                    });
+                });
         });
     }
 }

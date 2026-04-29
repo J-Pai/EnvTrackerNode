@@ -1,6 +1,6 @@
 {
-  "name": "egui Template PWA",
-  "short_name": "egui-template-pwa",
+  "name": "envtrackernode site PWA",
+  "short_name": "envtrackernode-site-pwa",
   "icons": [
     {
       "src": "./assets/favicon-192x192.png",

@@ -163,9 +163,9 @@ impl Web {
             let base = match request.headers().get("x-real-base") {
                 Some(base) => match base.to_str() {
                     Ok(base) => base,
-                    Err(_) => "/",
+                    Err(_) => "",
                 },
-                None => "/",
+                None => "",
             };
 
             let index_file = index_file.clone().replace("/<REPLACE>", base);
