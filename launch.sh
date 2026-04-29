@@ -6,12 +6,26 @@ cd $SCRIPT_DIR
 RELEASE_FLAG=""
 TRUNK_ACTION="build"
 
-if [[ "$1" == "release" ]]; then
-	RELEASE_FLAG="--release"
-elif [[ "$1" == "watch" ]]; then
-	TRUNK_ACTION="watch"
-fi
+while [ $# -gt 0 ]; do
+	case $1 in
+		release)
+			RELEASE_FLAG="--release"
+			;;
+		watch)
+			TRUNK_ACTION="watch"
+			;;
+		--)
+			# Everything after -- goes to cargo.
+			shift
+			break
+			;;
+		*)
+			;;
+	esac
+	shift
+done
 
+echo "=== TRUNK ==="
 trunk $TRUNK_ACTION $RELEASE_FLAG
 
 rc=$?
@@ -20,4 +34,8 @@ if [[ "$rc" != 0 || "${TRUNK_ACTION}" == "watch" ]]; then
 	exit $rc
 fi
 
-cargo run $RELEASE_FLAG $@
+echo "=== Cargo RUN ==="
+
+echo $@
+
+cargo run $RELEASE_FLAG -- $@
