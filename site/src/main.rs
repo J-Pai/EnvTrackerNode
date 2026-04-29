@@ -20,7 +20,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "eframe template",
+        "envtrackernode site",
         native_options,
         Box::new(|cc| Ok(Box::new(site::EnvApp::new(cc)))),
     )
