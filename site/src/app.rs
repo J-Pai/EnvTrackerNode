@@ -3,6 +3,7 @@ use egui::{Hyperlink, OpenUrl, Widget};
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 pub struct State {
     control_panel: bool,
+    graph: bool,
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -66,6 +67,8 @@ impl eframe::App for EnvApp {
         egui::CentralPanel::no_frame().show_inside(ui, |ui| {
             egui::Panel::left("control_panel")
                 .resizable(false)
+                .max_size(200.0)
+                .min_size(200.0)
                 .show_animated_inside(ui, self.state.control_panel, |ui| {
                     ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
                         ui.add_space(4.0);
@@ -73,11 +76,17 @@ impl eframe::App for EnvApp {
                             ui.heading("💻 Control Panel");
                         });
                         ui.separator();
+                        ui.vertical_centered_justified(|ui| {
+                            for i in 0..6 {
+                                ui.add_space(4.0);
+                                ui.toggle_value(&mut self.state.graph, format!("Graph {}", i));
+                            }
+                        });
+                        ui.separator();
                     });
                     ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                         ui.add_space(4.0);
                         powered_by_egui_and_eframe(ui);
-                        egui::warn_if_debug_build(ui);
                     });
                 });
         });
@@ -87,10 +96,6 @@ impl eframe::App for EnvApp {
 fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
-        Hyperlink::from_label_and_url("EnvTrackerNode", "https://github.com/J-Pai/EnvTrackerNode")
-            .open_in_new_tab(true)
-            .ui(ui);
-        ui.label(" - ");
         ui.label("Powered by ");
         Hyperlink::from_label_and_url("egui", "https://github.com/emilk/egui")
             .open_in_new_tab(true)
@@ -103,5 +108,13 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
         .open_in_new_tab(true)
         .ui(ui);
         ui.label(".");
+    });
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        Hyperlink::from_label_and_url("EnvTrackerNode", "https://github.com/J-Pai/EnvTrackerNode")
+            .open_in_new_tab(true)
+            .ui(ui);
+        ui.label("  ");
+        egui::warn_if_debug_build(ui);
     });
 }

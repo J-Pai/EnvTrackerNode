@@ -33,7 +33,7 @@ trunk $TRUNK_ACTION $RELEASE_FLAG
 
 rc=$?
 
-if [[ "$rc" != 0 || "${TRUNK_ACTION}" == "watch" ]]; then
+if [[ "$rc" != 0 || "${TRUNK_ACTION}" != "build" ]]; then
 	exit $rc
 fi
 
