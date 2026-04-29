@@ -168,7 +168,10 @@ impl Web {
                 None => "",
             };
 
-            let index_file = index_file.clone().replace("/<REPLACE>", base);
+            let index_file = index_file
+                .clone()
+                .replace("href=\"/", format!("href=\"{}/", base).as_str())
+                .replace("'/", format!("'{}/", base).as_str());
 
             let body = Body::new(index_file);
 

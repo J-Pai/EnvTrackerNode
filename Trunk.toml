@@ -1,5 +1,3 @@
 [build]
 target = "site/index.html"
 filehash = false
-# This is replaced by the server based on X-Real-Base.
-public_url = "/<REPLACE>"
