@@ -32,6 +32,67 @@ impl EnvApp {
     }
 }
 
+struct Pane {
+    nr: usize,
+}
+
+struct TreeBehavior {}
+
+impl egui_tiles::Behavior<Pane> for TreeBehavior {
+    fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
+        format!("Pane {}", pane.nr).into()
+    }
+
+    fn pane_ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        _tile_id: egui_tiles::TileId,
+        pane: &mut Pane,
+    ) -> egui_tiles::UiResponse {
+        let color = egui::epaint::Hsva::new(0.103 * pane.nr as f32, 0.5, 0.5, 1.0);
+
+        ui.painter().rect_filled(ui.max_rect(), 0.0, color);
+
+        ui.label(format!("The contents of pane {}.", pane.nr));
+
+        // You can make your pane draggable like so:
+        if ui
+            .add(egui::Button::new("Drag me!").sense(egui::Sense::drag()))
+            .drag_started()
+        {
+            egui_tiles::UiResponse::DragStarted
+        } else {
+            egui_tiles::UiResponse::None
+        }
+    }
+}
+
+fn create_tree() -> egui_tiles::Tree<Pane> {
+    let mut next_view_nr = 0;
+    let mut gen_pane = || {
+        let pane = Pane { nr: next_view_nr };
+        next_view_nr += 1;
+        pane
+    };
+
+    let mut tiles = egui_tiles::Tiles::default();
+
+    let mut tabs = vec![];
+    tabs.push({
+        let children = (0..7).map(|_| tiles.insert_pane(gen_pane())).collect();
+        tiles.insert_horizontal_tile(children)
+    });
+    tabs.push({
+        let cells = (0..11).map(|_| tiles.insert_pane(gen_pane())).collect();
+        tiles.insert_grid_tile(cells)
+    });
+    tabs.push(tiles.insert_pane(gen_pane()));
+
+    let root = tiles.insert_tab_tile(tabs);
+
+    egui_tiles::Tree::new("my_tree", root, tiles)
+}
+
 impl eframe::App for EnvApp {
     /// Called by the framework to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
@@ -50,6 +111,8 @@ impl eframe::App for EnvApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let mut tree = create_tree();
+
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
             // The top panel is often a good place for a menu bar:
 
@@ -67,8 +130,8 @@ impl eframe::App for EnvApp {
         egui::CentralPanel::no_frame().show_inside(ui, |ui| {
             egui::Panel::left("control_panel")
                 .resizable(false)
-                .max_size(200.0)
-                .min_size(200.0)
+                .max_size(250.0)
+                .min_size(250.0)
                 .show_animated_inside(ui, self.state.control_panel, |ui| {
                     ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
                         ui.add_space(4.0);
@@ -83,12 +146,17 @@ impl eframe::App for EnvApp {
                             }
                         });
                         ui.separator();
+                        ui.label("Mean CPU usage: 00.00 ms / frame");
+                        ui.separator();
                     });
                     ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                         ui.add_space(4.0);
                         powered_by_egui_and_eframe(ui);
                     });
                 });
+
+            let mut behavior = TreeBehavior {};
+            tree.ui(&mut behavior, ui);
         });
     }
 }
