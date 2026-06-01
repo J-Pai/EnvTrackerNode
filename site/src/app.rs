@@ -1,9 +1,12 @@
-use egui::{Hyperlink, OpenUrl, Widget};
+use egui::Hyperlink;
+use egui::OpenUrl;
+use egui::Widget;
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 pub struct State {
     control_panel: bool,
     graph: bool,
+    tile_tree: Option<egui_tiles::Tree<Pane>>,
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -32,10 +35,12 @@ impl EnvApp {
     }
 }
 
+#[derive(Default, serde::Deserialize, serde::Serialize)]
 struct Pane {
     nr: usize,
 }
 
+#[derive(Default, serde::Deserialize, serde::Serialize)]
 struct TreeBehavior {}
 
 impl egui_tiles::Behavior<Pane> for TreeBehavior {
@@ -67,30 +72,36 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
     }
 }
 
-fn create_tree() -> egui_tiles::Tree<Pane> {
-    let mut next_view_nr = 0;
-    let mut gen_pane = || {
-        let pane = Pane { nr: next_view_nr };
-        next_view_nr += 1;
-        pane
-    };
+impl EnvApp {
+    fn create_tree(&mut self) {
+        if self.state.tile_tree.is_some() {
+            return;
+        }
 
-    let mut tiles = egui_tiles::Tiles::default();
+        let mut next_view_nr = 0;
+        let mut gen_pane = || {
+            let pane = Pane { nr: next_view_nr };
+            next_view_nr += 1;
+            pane
+        };
 
-    let mut tabs = vec![];
-    tabs.push({
-        let children = (0..7).map(|_| tiles.insert_pane(gen_pane())).collect();
-        tiles.insert_horizontal_tile(children)
-    });
-    tabs.push({
-        let cells = (0..11).map(|_| tiles.insert_pane(gen_pane())).collect();
-        tiles.insert_grid_tile(cells)
-    });
-    tabs.push(tiles.insert_pane(gen_pane()));
+        let mut tiles = egui_tiles::Tiles::default();
 
-    let root = tiles.insert_tab_tile(tabs);
+        let mut tabs = vec![];
+        tabs.push({
+            let children = (0..3).map(|_| tiles.insert_pane(gen_pane())).collect();
+            tiles.insert_horizontal_tile(children)
+        });
+        // tabs.push({
+        //     let cells = (0..11).map(|_| tiles.insert_pane(gen_pane())).collect();
+        //     tiles.insert_grid_tile(cells)
+        // });
+        // tabs.push(tiles.insert_pane(gen_pane()));
 
-    egui_tiles::Tree::new("my_tree", root, tiles)
+        let root = tiles.insert_tab_tile(tabs);
+
+        self.state.tile_tree = Some(egui_tiles::Tree::new("root_tree", root, tiles));
+    }
 }
 
 impl eframe::App for EnvApp {
@@ -108,14 +119,12 @@ impl eframe::App for EnvApp {
         let color = egui::Color32::from(color);
         color.to_normalized_gamma_f32()
     }
-
     /// Called each time the UI needs repainting, which may be many times per second.
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        let mut tree = create_tree();
+        self.create_tree();
 
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
             // The top panel is often a good place for a menu bar:
-
             egui::MenuBar::new().ui(ui, |ui| {
                 egui::widgets::global_theme_preference_switch(ui);
                 if ui.button("🏠 Home").clicked() {
@@ -156,7 +165,9 @@ impl eframe::App for EnvApp {
                 });
 
             let mut behavior = TreeBehavior {};
-            tree.ui(&mut behavior, ui);
+            if let Some(tree) = &mut self.state.tile_tree {
+                tree.ui(&mut behavior, ui);
+            }
         });
     }
 }
