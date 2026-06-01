@@ -2,6 +2,7 @@ use egui::Hyperlink;
 use egui::OpenUrl;
 use egui::Widget;
 use egui::util::History;
+use egui_tiles::SimplificationOptions;
 
 /// Persistent state tracking.
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -30,7 +31,7 @@ impl EnvApp {
             }
         } else {
             Self {
-                state: State::default(),
+                state: Default::default(),
                 frame_time,
             }
         }
@@ -39,7 +40,7 @@ impl EnvApp {
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 struct Pane {
-    nr: usize,
+    nr: i32,
 }
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
@@ -50,12 +51,27 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         format!("Pane {}", pane.nr).into()
     }
 
+    fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
+        SimplificationOptions {
+            prune_empty_tabs: true,
+            prune_single_child_tabs: true,
+            prune_empty_containers: true,
+            prune_single_child_containers: true,
+            all_panes_must_have_tabs: true,
+            join_nested_linear_containers: true,
+        }
+    }
+
     fn pane_ui(
         &mut self,
         ui: &mut egui::Ui,
         _tile_id: egui_tiles::TileId,
         pane: &mut Pane,
     ) -> egui_tiles::UiResponse {
+        if pane.nr == -1 {
+            return egui_tiles::UiResponse::None;
+        }
+
         let color = egui::lerp(
             egui::Rgba::from(ui.visuals().panel_fill)
                 ..=egui::Rgba::from(ui.visuals().code_bg_color),
@@ -66,14 +82,11 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
 
         ui.label(format!("The contents of pane {}.", pane.nr));
 
-        if ui
-            .add(egui::Button::new("Drag me!").sense(egui::Sense::drag()))
-            .drag_started()
-        {
-            egui_tiles::UiResponse::DragStarted
-        } else {
-            egui_tiles::UiResponse::None
-        }
+        Default::default()
+    }
+
+    fn ideal_tile_aspect_ratio(&self) -> f32 {
+        4.0 / 1.5
     }
 }
 
@@ -92,10 +105,16 @@ impl EnvApp {
 
         let mut tiles = egui_tiles::Tiles::default();
 
-        let children = (0..3).map(|_| tiles.insert_pane(gen_pane())).collect();
-        let root = tiles.insert_horizontal_tile(children);
+        let children = (0..6).map(|_| tiles.insert_pane(gen_pane())).collect();
+        let root = tiles.insert_grid_tile(children);
+        let tree = egui_tiles::Tree::new("root_tree", root, tiles);
 
-        self.state.tile_tree = Some(egui_tiles::Tree::new("root_tree", root, tiles));
+        self.state.tile_tree = Some(tree);
+    }
+
+    fn reset_tree(&mut self) {
+        self.state.tile_tree = None;
+        self.create_tree();
     }
 }
 
@@ -145,8 +164,7 @@ impl eframe::App for EnvApp {
                         });
                         ui.separator();
                         if ui.button("Reset").clicked() {
-                            self.state.tile_tree = None;
-                            self.create_tree();
+                            self.reset_tree();
                         };
                         ui.separator();
                         ui.label("Mean CPU usage: 00.00 ms / frame");
