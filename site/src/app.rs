@@ -1,36 +1,38 @@
 use egui::Hyperlink;
 use egui::OpenUrl;
 use egui::Widget;
+use egui::util::History;
 
+/// Persistent state tracking.
+/// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 pub struct State {
     control_panel: bool,
-    graph: bool,
     tile_tree: Option<egui_tiles::Tree<Pane>>,
 }
 
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[derive(serde::Deserialize, serde::Serialize)]
-#[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct EnvApp {
     state: State,
-}
-
-impl Default for EnvApp {
-    fn default() -> Self {
-        Self {
-            state: Default::default(),
-        }
-    }
+    frame_time: History<f32>,
 }
 
 impl EnvApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let max_age: f32 = 1.0;
+        let max_len = (max_age * 300.0).round() as usize;
+        let frame_time = History::new(0..max_len, max_age);
+
         if let Some(storage) = cc.storage {
-            eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
+            Self {
+                state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
+                frame_time,
+            }
         } else {
-            Default::default()
+            Self {
+                state: State::default(),
+                frame_time,
+            }
         }
     }
 }
@@ -54,13 +56,16 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         _tile_id: egui_tiles::TileId,
         pane: &mut Pane,
     ) -> egui_tiles::UiResponse {
-        let color = egui::epaint::Hsva::new(0.103 * pane.nr as f32, 0.5, 0.5, 1.0);
+        let color = egui::lerp(
+            egui::Rgba::from(ui.visuals().panel_fill)
+                ..=egui::Rgba::from(ui.visuals().code_bg_color),
+            0.5,
+        );
 
         ui.painter().rect_filled(ui.max_rect(), 0.0, color);
 
         ui.label(format!("The contents of pane {}.", pane.nr));
 
-        // You can make your pane draggable like so:
         if ui
             .add(egui::Button::new("Drag me!").sense(egui::Sense::drag()))
             .drag_started()
@@ -87,18 +92,8 @@ impl EnvApp {
 
         let mut tiles = egui_tiles::Tiles::default();
 
-        let mut tabs = vec![];
-        tabs.push({
-            let children = (0..3).map(|_| tiles.insert_pane(gen_pane())).collect();
-            tiles.insert_horizontal_tile(children)
-        });
-        // tabs.push({
-        //     let cells = (0..11).map(|_| tiles.insert_pane(gen_pane())).collect();
-        //     tiles.insert_grid_tile(cells)
-        // });
-        // tabs.push(tiles.insert_pane(gen_pane()));
-
-        let root = tiles.insert_tab_tile(tabs);
+        let children = (0..3).map(|_| tiles.insert_pane(gen_pane())).collect();
+        let root = tiles.insert_horizontal_tile(children);
 
         self.state.tile_tree = Some(egui_tiles::Tree::new("root_tree", root, tiles));
     }
@@ -107,7 +102,7 @@ impl EnvApp {
 impl eframe::App for EnvApp {
     /// Called by the framework to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
+        eframe::set_value(storage, eframe::APP_KEY, &self.state);
     }
 
     fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
@@ -119,6 +114,7 @@ impl eframe::App for EnvApp {
         let color = egui::Color32::from(color);
         color.to_normalized_gamma_f32()
     }
+
     /// Called each time the UI needs repainting, which may be many times per second.
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.create_tree();
@@ -148,12 +144,10 @@ impl eframe::App for EnvApp {
                             ui.heading("💻 Control Panel");
                         });
                         ui.separator();
-                        ui.vertical_centered_justified(|ui| {
-                            for i in 0..6 {
-                                ui.add_space(4.0);
-                                ui.toggle_value(&mut self.state.graph, format!("Graph {}", i));
-                            }
-                        });
+                        if ui.button("Reset").clicked() {
+                            self.state.tile_tree = None;
+                            self.create_tree();
+                        };
                         ui.separator();
                         ui.label("Mean CPU usage: 00.00 ms / frame");
                         ui.separator();
