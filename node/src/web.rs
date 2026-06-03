@@ -365,12 +365,13 @@ impl Web {
             if server.frontend {
                 self = self.setup_frontend_route().await?;
             }
-
-            self = self
-                .setup_node_client(config)
-                .await?
-                .setup_server_polling()
-                .await?;
+            if server.node_ip.is_some() {
+                self = self
+                    .setup_node_client(config)
+                    .await?
+                    .setup_server_polling()
+                    .await?;
+            }
         }
 
         Ok(self)
