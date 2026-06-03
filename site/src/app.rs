@@ -10,11 +10,10 @@ use egui_plot::PlotPoint;
 use egui_plot::PlotPoints;
 use egui_tiles::SimplificationOptions;
 
+#[allow(unused)]
 macro_rules! console_log {
     ($expr:expr) => {
-        web_sys::console::log_1(
-            &web_sys::wasm_bindgen::JsValue::from_str($expr.as_str())
-        );
+        web_sys::console::log_1(&web_sys::wasm_bindgen::JsValue::from_str($expr.as_str()));
     };
 }
 
@@ -78,14 +77,19 @@ impl Default for BorrowPointsExample {
 }
 
 impl BorrowPointsExample {
-    pub fn show_plot(&self, ui: &mut egui::Ui) -> Response {
-        Plot::new("My Plot")
+    pub fn show_plot(&self, ui: &mut egui::Ui, nr: i32, reset: bool) -> Response {
+        let mut plot = Plot::new(format!("plot{}", nr))
             .legend(Legend::default())
-            .width(ui.available_width() - 10.0)
-            .show(ui, |plot_ui| {
-                plot_ui.line(Line::new("curve", PlotPoints::Borrowed(&self.points)).name("curve"));
-            })
-            .response
+            .width(ui.available_width() - 10.0);
+
+        if reset {
+            plot = plot.reset();
+        }
+
+        plot.show(ui, |plot_ui| {
+            plot_ui.line(Line::new("curve", PlotPoints::Borrowed(&self.points)).name("curve"));
+        })
+        .response
     }
 }
 
@@ -96,7 +100,15 @@ struct Pane {
 }
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
-struct TreeBehavior {}
+struct TreeBehavior {
+    reset: bool,
+}
+
+impl TreeBehavior {
+    fn reset_plot(&mut self) {
+        self.reset = true;
+    }
+}
 
 impl egui_tiles::Behavior<Pane> for TreeBehavior {
     fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
@@ -118,11 +130,11 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         &mut self,
         ui: &mut egui::Ui,
         _tile_id: egui_tiles::TileId,
-        _pane: &mut Pane,
+        pane: &mut Pane,
     ) -> egui_tiles::UiResponse {
         egui::CentralPanel::no_frame().show_inside(ui, |ui| {
             ui.add_space(10.0);
-            BorrowPointsExample::default().show_plot(ui);
+            BorrowPointsExample::default().show_plot(ui, pane.nr, self.reset);
         });
 
         Default::default()
@@ -218,6 +230,7 @@ impl eframe::App for EnvApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let mut behavior = TreeBehavior::default();
         self.create_tree();
 
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
@@ -247,6 +260,7 @@ impl eframe::App for EnvApp {
                         ui.separator();
                         if ui.button("Reset Tiles").clicked() {
                             self.reset_tree();
+                            behavior.reset_plot();
                         };
                         ui.separator();
                         self.frame_history.ui(ui);
@@ -259,7 +273,6 @@ impl eframe::App for EnvApp {
                     });
                 });
 
-            let mut behavior = TreeBehavior {};
             if let Some(tree) = &mut self.state.tile_tree {
                 tree.ui(&mut behavior, ui);
             }
