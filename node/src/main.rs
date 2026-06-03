@@ -1,4 +1,6 @@
-//! Entrypoint for services.
+//! EnvTrackerNode
+//!
+//! Sets up and launches services for interacting with IoT devices.
 
 use std::sync::Arc;
 
@@ -9,15 +11,13 @@ use tokio_memq::MessageQueue;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use crate::db::Db;
-use crate::kasa::Kasa;
-use crate::web::Web;
+use crate::services::db::Db;
+use crate::services::kasa::Kasa;
+use crate::services::web::Web;
 
 mod config;
-mod db;
 mod error;
-mod kasa;
-mod web;
+mod services;
 
 #[derive(Parser, Debug)]
 struct Args {

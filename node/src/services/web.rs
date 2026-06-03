@@ -31,10 +31,10 @@ use tower_http::services::ServeDir;
 
 use crate::config::KasaDeviceConfig;
 use crate::config::SysConfig;
-use crate::db::Db;
+use crate::services::db::Db;
 use crate::error::NodeError;
-use crate::kasa::Kasa;
-use crate::kasa::KasaChildInfo;
+use crate::services::kasa::Kasa;
+use crate::services::kasa::KasaChildInfo;
 
 pub(crate) struct Web {
     router: Router,

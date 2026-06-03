@@ -10,7 +10,7 @@ use turso::Database;
 
 use crate::config::Server;
 use crate::error::NodeError;
-use crate::kasa::KasaChildInfo;
+use crate::services::kasa::KasaChildInfo;
 
 pub(crate) struct Db {
     db: Arc<RwLock<Database>>,
