@@ -1,8 +1,22 @@
 use egui::Hyperlink;
 use egui::OpenUrl;
+use egui::Response;
 use egui::Widget;
 use egui::util::History;
+use egui_plot::Legend;
+use egui_plot::Line;
+use egui_plot::Plot;
+use egui_plot::PlotPoint;
+use egui_plot::PlotPoints;
 use egui_tiles::SimplificationOptions;
+
+macro_rules! console_log {
+    ($expr:expr) => {
+        web_sys::console::log_1(
+            &web_sys::wasm_bindgen::JsValue::from_str($expr.as_str())
+        );
+    };
+}
 
 pub struct FrameHistory {
     frame_times: History<f32>,
@@ -51,6 +65,30 @@ impl FrameHistory {
     }
 }
 
+pub struct BorrowPointsExample {
+    points: Vec<PlotPoint>,
+}
+
+impl Default for BorrowPointsExample {
+    fn default() -> Self {
+        let points: Vec<[f64; 2]> = vec![[0.0, 1.0], [2.0, 3.0], [3.0, 2.0]];
+        let points = points.iter().map(|p| PlotPoint::new(p[0], p[1])).collect();
+        Self { points }
+    }
+}
+
+impl BorrowPointsExample {
+    pub fn show_plot(&self, ui: &mut egui::Ui) -> Response {
+        Plot::new("My Plot")
+            .legend(Legend::default())
+            .width(ui.available_width() - 10.0)
+            .show(ui, |plot_ui| {
+                plot_ui.line(Line::new("curve", PlotPoints::Borrowed(&self.points)).name("curve"));
+            })
+            .response
+    }
+}
+
 /// Tile/Pane rendering.
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 struct Pane {
@@ -80,21 +118,12 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         &mut self,
         ui: &mut egui::Ui,
         _tile_id: egui_tiles::TileId,
-        pane: &mut Pane,
+        _pane: &mut Pane,
     ) -> egui_tiles::UiResponse {
-        if pane.nr == -1 {
-            return egui_tiles::UiResponse::None;
-        }
-
-        let color = egui::lerp(
-            egui::Rgba::from(ui.visuals().panel_fill)
-                ..=egui::Rgba::from(ui.visuals().code_bg_color),
-            0.5,
-        );
-
-        ui.painter().rect_filled(ui.max_rect(), 0.0, color);
-
-        ui.label(format!("The contents of pane {}.", pane.nr));
+        egui::CentralPanel::no_frame().show_inside(ui, |ui| {
+            ui.add_space(10.0);
+            BorrowPointsExample::default().show_plot(ui);
+        });
 
         Default::default()
     }
