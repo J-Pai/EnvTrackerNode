@@ -2,6 +2,8 @@
 //!
 //! Sets up and launches services for interacting with IoT devices.
 
+use std::env;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Parser;
@@ -16,19 +18,20 @@ use crate::services::kasa::Kasa;
 use crate::services::web::Web;
 
 mod config;
+mod config2;
 mod error;
 mod services;
 
+/// Commandline arguments for Server.
 #[derive(Parser, Debug)]
 struct Args {
+    /// Path to configuration file.
     #[arg(short, long)]
-    config: Option<String>,
+    config: Option<PathBuf>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
-
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -38,7 +41,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let config = config::SysConfig::new(args.config);
+    let args = Args::parse();
+
+    let _config2 = config2::ServerConfig::new(match args.config {
+        Some(path) => path,
+        None => {
+            let home_dir = env::home_dir().expect("HOME dir not specified.");
+            let config_dir = home_dir.join(".config/envtrackernode");
+            config_dir.join("config2.toml")
+        },
+    });
+
+    let home_dir = env::home_dir().expect("HOME dir not specified.");
+    let config_file = home_dir.join(".config/envtrackernode/config.toml");
+    let config = config::SysConfig::new(Some(config_file.to_str().unwrap().to_string()));
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
