@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
-    let mut kasa_devices: Option<Kasa> = None;
+    let mut kasa: Option<Kasa> = None;
 
     if let Some(node) = config2.get_node_config() {
         for n in node.get_nodes() {
@@ -67,7 +67,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut kasa = Kasa::new(mq.clone(), scheduler.clone()).await;
             kasa.add_device(&id, &cfg).await?;
             kasa.add_polling(&id, &sch).await?;
-            kasa_devices.replace(kasa);
         }
     }
 
@@ -77,14 +76,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    Web::new(scheduler, kasa_devices, db)
-        .await
-        .setup_router(&config)
-        .await?
-        .setup_listener(&config)
-        .await?
-        .start()
-        .await?;
+    let mut web = Web::new(scheduler, db);
+
+    if let Some(mut kasa) = kasa {
+        web = web.setup_kasa_route(&mut kasa).await?;
+    }
+
+    if let Some(config) = config2.get_frontend_config() {
+        web = web.setup_frontend_route(&config).await?;
+    }
+
+    web.start().await?;
+    // .setup_router(&config)
+    // .await?
+    // .setup_listener(&config)
+    // .await?
+    // .start()
+    // .await?;
 
     Ok(())
 }

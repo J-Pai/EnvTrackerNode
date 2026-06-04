@@ -349,6 +349,10 @@ impl Kasa {
         Ok(())
     }
 
+    pub(crate) fn get_devices(&self) -> Vec<String> {
+        self.devices.keys().map(|k| k.clone()).collect()
+    }
+
     pub(crate) async fn add_polling(
         &mut self,
         device: &String,

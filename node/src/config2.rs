@@ -12,68 +12,6 @@ pub(crate) struct ServerConfig {
     pub(crate) node: Option<Node>,
 }
 
-/// IP address + port.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Ip(String);
-
-/// Polling schedule using a cron-like string.
-///
-///   * * * * * * <command to execute>
-/// # | | | | | |
-/// # | | | | | day of the week (0–6) (Sunday to Saturday;
-/// # | | | | month (1–12)             7 is also Sunday on some systems)
-/// # | | | day of the month (1–31)
-/// # | | hour (0–23)
-/// # | minute (0–59)
-/// # seconds (0-59)
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct PollingSchedule(String);
-
-/// Node datasource configuration.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct NodeDatasource(String, Ip, PollingSchedule);
-
-/// API and Database server configuration.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct ApiServerConfig {
-    /// List of nodes to poll and its polling schedule.
-    nodes: Vec<NodeDatasource>,
-    /// Path to database file (SQLite).
-    db: String,
-}
-
-// Frontend configuration.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct FrontendServerConfig {
-    /// API server for data.
-    api_server_ip: Ip,
-    /// Offset base URL.
-    base: String,
-}
-
-// Kasa device configuration.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct KasaDeviceConfig {
-    ip: Ip,
-    username: String,
-    password: String,
-}
-
-/// Supported node types.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) enum NodeClass {
-    /// Kasa Device.
-    /// Specific to the HS300 model for now.
-    KasaDevice(String, KasaDeviceConfig, PollingSchedule),
-}
-
-/// Node configuration.
-#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Node {
-    // List of IoT devices to interact with and their polling schedules.
-    nodes: Vec<NodeClass>,
-}
-
 impl ServerConfig {
     pub(crate) fn new(path: PathBuf) -> Self {
         if let Ok(config_text) = fs::read_to_string(&path)
@@ -98,7 +36,7 @@ impl ServerConfig {
             }),
             frontend_server: Some(FrontendServerConfig {
                 api_server_ip: Ip("0.0.0.0:3000".to_string()),
-                base: "/".to_string(),
+                base: None,
             }),
             node: Some(Node {
                 nodes: vec![NodeClass::KasaDevice(
@@ -123,12 +61,73 @@ impl ServerConfig {
     pub(crate) fn get_node_config(&self) -> Option<Node> {
         self.node.clone()
     }
+
+    pub(crate) fn get_frontend_config(&self) -> Option<FrontendServerConfig> {
+        self.frontend_server.clone()
+    }
+
+    pub(crate) fn get_api_config(&self) -> Option<ApiServerConfig> {
+        self.api_server.clone()
+    }
 }
+
+/// IP address + port.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Ip(String);
+
+/// Polling schedule using a cron-like string.
+///
+///   * * * * * * <command to execute>
+/// # | | | | | |
+/// # | | | | | day of the week (0–6) (Sunday to Saturday;
+/// # | | | | month (1–12)             7 is also Sunday on some systems)
+/// # | | | day of the month (1–31)
+/// # | | hour (0–23)
+/// # | minute (0–59)
+/// # seconds (0-59)
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct PollingSchedule(String);
 
 impl ToString for PollingSchedule {
     fn to_string(&self) -> String {
         self.0.clone()
     }
+}
+
+/// Node datasource configuration.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct NodeDatasource(String, Ip, PollingSchedule);
+
+/// API and Database server configuration.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ApiServerConfig {
+    /// List of nodes to poll and its polling schedule.
+    nodes: Vec<NodeDatasource>,
+    /// Path to database file (SQLite).
+    db: String,
+}
+
+// Frontend configuration.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct FrontendServerConfig {
+    /// API server for data.
+    api_server_ip: Ip,
+    /// Offset base URL.
+    base: Option<String>,
+}
+
+impl FrontendServerConfig {
+    pub(crate) fn get_base(&self) -> Option<String> {
+        self.base.clone()
+    }
+}
+
+// Kasa device configuration.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct KasaDeviceConfig {
+    ip: Ip,
+    username: String,
+    password: String,
 }
 
 impl KasaDeviceConfig {
@@ -143,6 +142,21 @@ impl KasaDeviceConfig {
     pub(crate) fn get_password(&self) -> String {
         self.password.clone()
     }
+}
+
+/// Supported node types.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) enum NodeClass {
+    /// Kasa Device.
+    /// Specific to the HS300 model for now.
+    KasaDevice(String, KasaDeviceConfig, PollingSchedule),
+}
+
+/// Node configuration.
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Node {
+    // List of IoT devices to interact with and their polling schedules.
+    nodes: Vec<NodeClass>,
 }
 
 impl Node {
