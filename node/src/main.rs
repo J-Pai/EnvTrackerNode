@@ -13,6 +13,7 @@ use tokio_memq::MessageQueue;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
+use crate::config2::NodeClass;
 use crate::services::db::Db;
 use crate::services::kasa::Kasa;
 use crate::services::web::Web;
@@ -43,13 +44,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    let _config2 = config2::ServerConfig::new(match args.config {
+    let config2 = config2::ServerConfig::new(match args.config {
         Some(path) => path,
         None => {
             let home_dir = env::home_dir().expect("HOME dir not specified.");
             let config_dir = home_dir.join(".config/envtrackernode");
             config_dir.join("config2.toml")
-        },
+        }
     });
 
     let home_dir = env::home_dir().expect("HOME dir not specified.");
@@ -60,10 +61,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
     let mut kasa_devices: Option<Kasa> = None;
 
-    if let Some(node) = config.get_node_config() {
-        let mut kasa = Kasa::new(&node.kasa, mq.clone(), scheduler.clone()).await;
-        kasa.add_polling().await?;
-        kasa_devices.replace(kasa);
+    if let Some(node) = config2.get_node_config() {
+        for n in node.get_nodes() {
+            let NodeClass::KasaDevice(id, cfg, sch) = n;
+            let mut kasa = Kasa::new(mq.clone(), scheduler.clone()).await;
+            kasa.add_device(&id, &cfg).await?;
+            kasa.add_polling(&id, &sch).await?;
+            kasa_devices.replace(kasa);
+        }
     }
 
     let db = if let Some(server) = config.get_server_config() {

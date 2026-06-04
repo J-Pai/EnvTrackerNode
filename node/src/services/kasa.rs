@@ -26,7 +26,8 @@ use tokio_memq::Publisher;
 use tokio_memq::Subscriber;
 use tokio_memq::TopicOptions;
 
-use crate::config::KasaDeviceConfig;
+use crate::config2::KasaDeviceConfig;
+use crate::config2::PollingSchedule;
 use crate::error::NodeError;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -91,7 +92,6 @@ struct KasaDevice {
     topic: String,
     alias: String,
     transport: Arc<Mutex<Option<Box<dyn Transport>>>>,
-    polling_schedule: String,
     mq: Arc<RwLock<MessageQueue>>,
     scheduler: Arc<RwLock<JobScheduler>>,
     /// Child Kasa devices keys is the id hash.
@@ -100,16 +100,14 @@ struct KasaDevice {
 
 impl KasaDevice {
     async fn new(
-        topic: String,
-        polling_schedule: String,
+        topic: &String,
         mq: Arc<RwLock<MessageQueue>>,
         scheduler: Arc<RwLock<JobScheduler>>,
     ) -> Self {
         let device: Self = Self {
-            topic,
+            topic: topic.clone(),
             alias: String::new(),
             transport: Arc::new(Mutex::const_new(None)),
-            polling_schedule,
             mq,
             scheduler,
             children: Arc::new(RwLock::const_new(HashMap::new())),
@@ -136,8 +134,8 @@ impl KasaDevice {
         self,
         config: &KasaDeviceConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let transport_config = DeviceConfig::new(config.ip.as_str()).with_credentials(
-            Credentials::new(config.username.as_str(), config.password.as_str()),
+        let transport_config = DeviceConfig::new(config.get_ip()).with_credentials(
+            Credentials::new(config.get_username(), config.get_password()),
         );
 
         {
@@ -238,7 +236,10 @@ impl KasaDevice {
         Ok(Arc::new(Mutex::new(mq.publisher(self.topic.clone()))))
     }
 
-    async fn add_polling(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    async fn add_polling(
+        &mut self,
+        polling_schedule: &PollingSchedule,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let publisher = self.allocate_publisher().await?.clone();
         let scheduler = self.scheduler.read().await;
         let transport = self.transport.clone();
@@ -248,7 +249,7 @@ impl KasaDevice {
 
         scheduler
             .add(Job::new_async(
-                self.polling_schedule.clone(),
+                polling_schedule.clone(),
                 move |_uuid, _l| {
                     Box::pin({
                         let transport = transport.clone();
@@ -312,44 +313,52 @@ impl KasaDevice {
 
 pub(crate) struct Kasa {
     devices: HashMap<String, KasaDevice>,
+    mq: Arc<RwLock<MessageQueue>>,
+    scheduler: Arc<RwLock<JobScheduler>>,
 }
 
 impl Kasa {
     pub(crate) async fn new(
-        config: &HashMap<String, KasaDeviceConfig>,
         mq: Arc<RwLock<MessageQueue>>,
         scheduler: Arc<RwLock<JobScheduler>>,
     ) -> Self {
-        let mut kasa = Self {
+        Self {
             devices: HashMap::new(),
-        };
-        for (name, device_config) in config {
-            let device = KasaDevice::new(
-                name.to_owned(),
-                device_config.polling_schedule.clone(),
-                mq.clone(),
-                scheduler.clone(),
-            )
+            mq,
+            scheduler,
+        }
+    }
+
+    pub(crate) async fn add_device(
+        &mut self,
+        name: &String,
+        config: &KasaDeviceConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let device = KasaDevice::new(name, self.mq.clone(), self.scheduler.clone())
             .await
             .setup_topic()
             .await
             .expect(format!("Topic creation for [{}] failed", name).as_str())
-            .setup_transport(device_config)
+            .setup_transport(config)
             .await
             .expect(format!("Transport creation for [{}] failed", name).as_str())
             .setup_system_info()
             .await
             .expect(format!("System Info extraction for [{}] failed", name).as_str());
-            kasa.devices.insert(name.clone(), device);
-        }
-
-        kasa
+        self.devices.insert(name.clone(), device);
+        Ok(())
     }
 
-    pub(crate) async fn add_polling(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        for (_, device) in &mut self.devices {
-            device.add_polling().await?;
-        }
+    pub(crate) async fn add_polling(
+        &mut self,
+        device: &String,
+        polling_schedule: &PollingSchedule,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.devices
+            .get_mut(device)
+            .ok_or(NodeError::new(stringify!("Device {} for found", id)))?
+            .add_polling(polling_schedule)
+            .await?;
         Ok(())
     }
 
