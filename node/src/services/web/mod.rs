@@ -3,37 +3,28 @@
 use std::sync::Arc;
 
 use axum::Router;
-use axum::body::Body;
-use axum::extract::Request;
-use axum::http::header;
-use axum::response::IntoResponse;
-use axum::response::Response;
-use axum::routing;
-use tokio::io::AsyncReadExt;
-use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::JobScheduler;
-use tower_http::services::ServeDir;
 
 use crate::config::SysConfig;
-use crate::error::NodeError;
+use crate::config2::ApiServerConfig;
 use crate::services::db::Db;
+use crate::services::poller::Poller;
 
+mod api;
 mod frontend;
 mod kasa_node;
 
 pub(crate) struct Web {
     router: Router,
-    scheduler: Arc<RwLock<JobScheduler>>,
     db: Option<Db>,
 }
 
 impl Web {
-    pub(crate) fn new(scheduler: Arc<RwLock<JobScheduler>>, db: Option<Db>) -> Self {
+    pub(crate) fn new(db: Option<Db>) -> Self {
         Self {
             router: Router::new(),
             db,
-            scheduler,
         }
     }
 
@@ -157,18 +148,16 @@ impl Web {
         Ok(self)
     }
 
-    pub(crate) async fn setup_listener(
+    pub(crate) async fn setup_api_route(
         mut self,
-        config: &SysConfig,
+        config: &ApiServerConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(self)
     }
 
-    pub(crate) async fn start(mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) async fn start(self, poller: Poller) -> Result<(), Box<dyn std::error::Error>> {
+        poller.start().await?;
         let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-
-        let scheduler = self.scheduler.write().await;
-        scheduler.start().await?;
         tracing::info!("listening on {}", listener.local_addr().unwrap());
         axum::serve(listener, self.router).await?;
         Ok(())

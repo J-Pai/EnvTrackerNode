@@ -16,6 +16,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 use crate::config2::NodeClass;
 use crate::services::db::Db;
 use crate::services::kasa::Kasa;
+use crate::services::poller::Poller;
 use crate::services::web::Web;
 
 mod config;
@@ -59,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
-    let mut kasa: Option<Kasa> = None;
+    let kasa: Option<Kasa> = None;
 
     if let Some(node) = config2.get_node_config() {
         for n in node.get_nodes() {
@@ -70,13 +71,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let db = if let Some(server) = config.get_server_config() {
-        Some(Db::new(&server).await?.create_kasa_table().await?)
+    let db = if let Some(config) = config2.get_api_config() {
+        Some(Db::new(&config).await?.create_kasa_table().await?)
     } else {
         None
     };
 
-    let mut web = Web::new(scheduler, db);
+    let mut web = Web::new(db.clone());
+    let poller = Poller::new(scheduler, db);
 
     if let Some(mut kasa) = kasa {
         web = web.setup_kasa_route(&mut kasa).await?;
@@ -86,7 +88,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         web = web.setup_frontend_route(&config).await?;
     }
 
-    web.start().await?;
+    if let Some(config) = config2.get_api_config() {
+        web = web.setup_api_route(&config).await?;
+    }
+
+    web.start(poller).await?;
     // .setup_router(&config)
     // .await?
     // .setup_listener(&config)

@@ -9,6 +9,7 @@ use turso::Connection;
 use turso::Database;
 
 use crate::config::Server;
+use crate::config2::ApiServerConfig;
 use crate::error::NodeError;
 use crate::services::kasa::KasaChildInfo;
 
@@ -27,8 +28,8 @@ impl Clone for Db {
 }
 
 impl Db {
-    pub(crate) async fn new(config: &Server) -> Result<Self, Box<dyn std::error::Error>> {
-        let db = Builder::new_local(config.db.as_str()).build().await?;
+    pub(crate) async fn new(config: &ApiServerConfig) -> Result<Self, Box<dyn std::error::Error>> {
+        let db = Builder::new_local(config.get_db().as_str()).build().await?;
 
         let db = Self {
             db: Arc::new(RwLock::new(db)),

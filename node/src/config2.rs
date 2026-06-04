@@ -107,6 +107,12 @@ pub(crate) struct ApiServerConfig {
     db: String,
 }
 
+impl ApiServerConfig {
+    pub(crate) fn get_db(&self) -> String {
+        self.db.clone()
+    }
+}
+
 // Frontend configuration.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct FrontendServerConfig {
