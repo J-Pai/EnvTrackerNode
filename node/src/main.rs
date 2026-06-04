@@ -13,14 +13,13 @@ use tokio_memq::MessageQueue;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use crate::config2::NodeClass;
+use crate::config::NodeClass;
 use crate::services::db::Db;
 use crate::services::kasa::Kasa;
 use crate::services::poller::Poller;
 use crate::services::web::Web;
 
 mod config;
-mod config2;
 mod error;
 mod services;
 
@@ -45,24 +44,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    let config2 = config2::ServerConfig::new(match args.config {
+    let config = config::ServerConfig::new(match args.config {
         Some(path) => path,
         None => {
             let home_dir = env::home_dir().expect("HOME dir not specified.");
             let config_dir = home_dir.join(".config/envtrackernode");
-            config_dir.join("config2.toml")
+            config_dir.join("config.toml")
         }
     });
-
-    let home_dir = env::home_dir().expect("HOME dir not specified.");
-    let config_file = home_dir.join(".config/envtrackernode/config.toml");
-    let config = config::SysConfig::new(Some(config_file.to_str().unwrap().to_string()));
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
     let kasa: Option<Kasa> = None;
 
-    if let Some(node) = config2.get_node_config() {
+    if let Some(node) = config.get_node_config() {
         for n in node.get_nodes() {
             let NodeClass::KasaDevice(id, cfg, sch) = n;
             let mut kasa = Kasa::new(mq.clone(), scheduler.clone()).await;
@@ -71,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let db = if let Some(config) = config2.get_api_config() {
+    let db = if let Some(config) = config.get_api_config() {
         Some(Db::new(&config).await?.create_kasa_table().await?)
     } else {
         None
@@ -84,11 +79,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         web = web.setup_kasa_route(&mut kasa).await?;
     }
 
-    if let Some(config) = config2.get_frontend_config() {
+    if let Some(config) = config.get_frontend_config() {
         web = web.setup_frontend_route(&config).await?;
     }
 
-    if let Some(config) = config2.get_api_config() {
+    if let Some(config) = config.get_api_config() {
         web = web.setup_api_route(&config).await?;
     }
 

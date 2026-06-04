@@ -8,8 +8,7 @@ use turso::Builder;
 use turso::Connection;
 use turso::Database;
 
-use crate::config::Server;
-use crate::config2::ApiServerConfig;
+use crate::config::ApiServerConfig;
 use crate::error::NodeError;
 use crate::services::kasa::KasaChildInfo;
 

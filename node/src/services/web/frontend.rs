@@ -10,7 +10,7 @@ use axum::{
 use tokio::io::AsyncReadExt;
 use tower_http::services::ServeDir;
 
-use crate::config2::FrontendServerConfig;
+use crate::config::FrontendServerConfig;
 
 use super::Web;
 

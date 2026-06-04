@@ -6,8 +6,7 @@ use axum::Router;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::JobScheduler;
 
-use crate::config::SysConfig;
-use crate::config2::ApiServerConfig;
+use crate::config::ApiServerConfig;
 use crate::services::db::Db;
 use crate::services::poller::Poller;
 
@@ -30,15 +29,14 @@ impl Web {
 
     async fn setup_node_client(
         mut self,
-        config: &SysConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let endpoint = if config.get_node_config().is_none()
-            && let Some(node_ip) = config.get_server_config().unwrap().node_ip
-        {
-            node_ip
-        } else {
-            config.get_ip()
-        };
+        // let endpoint = if config.get_node_config().is_none()
+        //     && let Some(node_ip) = config.get_server_config().unwrap().node_ip
+        // {
+        //     node_ip
+        // } else {
+        //     config.get_ip()
+        // };
 
         // {
         //     let mut node_client = self.node_client.lock().await;
@@ -130,7 +128,6 @@ impl Web {
 
     pub(crate) async fn setup_router(
         mut self,
-        config: &SysConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // if let Some(server) = config.get_server_config() {
         //     if server.frontend {

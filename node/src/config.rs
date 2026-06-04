@@ -1,351 +1,172 @@
-/// Parses and handles the system configuration from a config.toml file.
-use std::collections::HashMap;
-use std::env;
+//! Parses the config.toml file for system configuration.
+//! - Also provides generator tool.
+
 use std::fs;
-use std::io;
 use std::path::PathBuf;
-use std::process::exit;
-use std::str::FromStr;
 
-use chrono::Local;
-use config::Config;
-use cron::Schedule;
-use rand::RngExt;
-use serde::Deserialize;
-use serde::Serialize;
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub(crate) struct KasaDeviceConfig {
-    pub(crate) ip: String,
-    pub(crate) username: String,
-    pub(crate) password: String,
-    pub(crate) polling_schedule: String,
-    pub(crate) description: Option<String>,
+/// Base configuration structure.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ServerConfig {
+    pub(crate) api_server: Option<ApiServerConfig>,
+    pub(crate) frontend_server: Option<FrontendServerConfig>,
+    pub(crate) node: Option<Node>,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub(crate) struct Settings {
-    pub(crate) jwt_secret: Option<String>,
-    pub(crate) authorized_api_keys: Option<HashMap<String, String>>,
-    pub(crate) ip: String,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub(crate) struct Server {
-    pub(crate) db: String,
-    pub(crate) node_ip: Option<String>,
-    pub(crate) node_polling_schedule: String,
-    pub(crate) frontend: bool,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub(crate) struct Node {
-    pub(crate) kasa: HashMap<String, KasaDeviceConfig>,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub(crate) struct Web {
-    server: Option<Server>,
-    node: Option<Node>,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub(crate) struct SysConfig {
-    pub(crate) settings: Settings,
-    pub(crate) web: Web,
-}
-
-macro_rules! tagged_fmt {
-    ($e: expr) => {
-        &format!("[SysConfig] {}", $e).to_string()
-    };
-}
-
-macro_rules! general_println {
-    ($e: expr) => {
-        println!("[general] {}", $e)
-    };
-}
-
-macro_rules! server_println {
-    ($e: expr) => {
-        println!("[server] {}", $e)
-    };
-}
-
-macro_rules! node_println {
-    ($e: expr) => {
-        println!("[node] {}", $e)
-    };
-}
-
-impl SysConfig {
-    pub(crate) fn new(config: Option<String>) -> Self {
-        let home_dir = env::home_dir().expect(tagged_fmt!("HOME dir not specified."));
-        let config_dir = home_dir.join(".config/envtrackernode");
-        let config_file = if let Some(config) = config {
-            PathBuf::from(config)
-        } else {
-            config_dir.join("config.toml")
-        };
-        let settings = match Config::builder()
-            .add_source(config::File::with_name(
-                config_file
-                    .to_str()
-                    .expect(tagged_fmt!("Malformed path for config.toml.")),
-            ))
-            .build()
+impl ServerConfig {
+    pub(crate) fn new(path: PathBuf) -> Self {
+        if let Ok(config_text) = fs::read_to_string(&path)
+            && let Ok(config) = toml::from_str(&config_text)
         {
-            Ok(built_config) => built_config.try_deserialize::<SysConfig>().unwrap(),
-            Err(e) => {
-                general_println!(format!("Error obtaining config file: {:?}", e));
-                general_println!("Create configuration file? ([Y]es / [n]o)");
-                let mut response = String::new();
-                io::stdin()
-                    .read_line(&mut response)
-                    .expect(tagged_fmt!("Unknown response provided."));
-                if response.to_uppercase().trim() == "Y" {
-                    println!("Creating {:?}", config_file);
-                    fs::create_dir_all(config_file.parent().expect(tagged_fmt!(""))).unwrap();
-                    let config = Self::config_generator();
-                    let text = toml::to_string(&config).unwrap();
-                    fs::write(&config_file, text).unwrap();
-                    println!("Created {:?}. Relaunch the server.", config_file);
-                    exit(0);
-                } else if response.to_uppercase().trim() != "N" {
-                    println!("Please specify either [Y]es or [N]o.");
-                }
-                exit(0);
-            }
+            return ServerConfig::from(config);
+        }
+
+        println!(
+            "[ServerConfig] Error obtaining config file: {}",
+            path.to_string_lossy()
+        );
+
+        let config = Self {
+            api_server: Some(ApiServerConfig {
+                nodes: vec![NodeDatasource(
+                    "kasa-power-strip".to_string(),
+                    Ip("0.0.0.0:3000".to_string()),
+                    PollingSchedule("0 * * * * *".to_string()),
+                )],
+                db: "sqlite.db".to_string(),
+            }),
+            frontend_server: Some(FrontendServerConfig {
+                api_server_ip: Ip("0.0.0.0:3000".to_string()),
+                base: None,
+            }),
+            node: Some(Node {
+                nodes: vec![NodeClass::KasaDevice(
+                    "kasa-power-strip".to_string(),
+                    KasaDeviceConfig {
+                        ip: Ip("0.0.0.0".to_string()),
+                        username: "user".to_string(),
+                        password: "password".to_string(),
+                    },
+                    PollingSchedule("*/1 * * * * *".to_string()),
+                )],
+            }),
         };
-        settings
+
+        let config_text =
+            toml::to_string_pretty(&config).expect("Could not convert config to toml.");
+        fs::write(&path, config_text).expect("Failed to write config file.");
+
+        config
     }
 
     pub(crate) fn get_node_config(&self) -> Option<Node> {
-        if let Some(node) = &self.web.node {
-            Some(node.clone())
-        } else {
-            None
-        }
+        self.node.clone()
     }
 
-    pub(crate) fn get_server_config(&self) -> Option<Server> {
-        if let Some(server) = &self.web.server {
-            Some(server.clone())
-        } else {
-            None
-        }
+    pub(crate) fn get_frontend_config(&self) -> Option<FrontendServerConfig> {
+        self.frontend_server.clone()
     }
 
+    pub(crate) fn get_api_config(&self) -> Option<ApiServerConfig> {
+        self.api_server.clone()
+    }
+}
+
+/// IP address + port.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Ip(String);
+
+/// Polling schedule using a cron-like string.
+///
+///   * * * * * * <command to execute>
+/// # | | | | | |
+/// # | | | | | day of the week (0–6) (Sunday to Saturday;
+/// # | | | | month (1–12)             7 is also Sunday on some systems)
+/// # | | | day of the month (1–31)
+/// # | | hour (0–23)
+/// # | minute (0–59)
+/// # seconds (0-59)
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct PollingSchedule(String);
+
+impl ToString for PollingSchedule {
+    fn to_string(&self) -> String {
+        self.0.clone()
+    }
+}
+
+/// Node datasource configuration.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct NodeDatasource(String, Ip, PollingSchedule);
+
+/// API and Database server configuration.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ApiServerConfig {
+    /// List of nodes to poll and its polling schedule.
+    nodes: Vec<NodeDatasource>,
+    /// Path to database file (SQLite).
+    db: String,
+}
+
+impl ApiServerConfig {
+    pub(crate) fn get_db(&self) -> String {
+        self.db.clone()
+    }
+}
+
+// Frontend configuration.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct FrontendServerConfig {
+    /// API server for data.
+    api_server_ip: Ip,
+    /// Offset base URL.
+    base: Option<String>,
+}
+
+impl FrontendServerConfig {
+    pub(crate) fn get_base(&self) -> Option<String> {
+        self.base.clone()
+    }
+}
+
+// Kasa device configuration.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct KasaDeviceConfig {
+    ip: Ip,
+    username: String,
+    password: String,
+}
+
+impl KasaDeviceConfig {
     pub(crate) fn get_ip(&self) -> String {
-        self.settings.ip.clone()
+        self.ip.0.clone()
     }
 
-    fn config_generator() -> Self {
-        let config = SysConfig::default();
-        config.configure_servers().configure_settings()
+    pub(crate) fn get_username(&self) -> String {
+        self.username.clone()
     }
 
-    pub fn configure_servers(mut self) -> Self {
-        general_println!("List out deseired services, separated by commas.");
-        general_println!("Supported services:");
-        general_println!("- server");
-        general_println!("  - Serves the frontend application.");
-        general_println!("  - Queries the node (or nodes) for data.");
-        general_println!("  - Provides an endpoint for the frontend application to request data.");
-        general_println!("  - Saves/Manages data in database.");
-        general_println!("- node");
-        general_println!("  - Polls a device for data.");
-        general_println!("  - Maintains a queue of data.");
-        general_println!("  - Provides an endpoint for server to request data.");
-        let mut response = String::new();
-        io::stdin().read_line(&mut response).unwrap();
-        response = response.trim().to_string();
-
-        if response.is_empty() {
-            println!("No services provided.");
-            exit(0);
-        }
-
-        for service in response.split(",") {
-            match service.trim() {
-                "server" => {
-                    if self.web.server.is_some() {
-                        continue;
-                    }
-                    server_println!("Configuring");
-                    self = self.configure_server();
-                    server_println!("Done");
-                }
-                "node" => {
-                    if self.web.node.is_some() {
-                        continue;
-                    }
-                    node_println!("Configuring");
-                    self = self.configure_node();
-                    node_println!("Done");
-                }
-                s => println!("Unknown service: [{}]", s),
-            }
-        }
-
-        self
+    pub(crate) fn get_password(&self) -> String {
+        self.password.clone()
     }
+}
 
-    fn handle_response() -> Option<String> {
-        let mut response = String::new();
-        io::stdin().read_line(&mut response).unwrap();
-        response = response.trim().to_string();
-        if response.is_empty() {
-            return None;
-        }
-        return Some(response);
-    }
+/// Supported node types.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) enum NodeClass {
+    /// Kasa Device.
+    /// Specific to the HS300 model for now.
+    KasaDevice(String, KasaDeviceConfig, PollingSchedule),
+}
 
-    fn configure_settings(mut self) -> Self {
-        general_println!("Provide server ip address (default - 0.0.0.0:3000): ");
-        self.settings.ip = if let Some(resp) = Self::handle_response() {
-            resp
-        } else {
-            "0.0.0.0:3000".to_string()
-        };
+/// Node configuration.
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Node {
+    // List of IoT devices to interact with and their polling schedules.
+    nodes: Vec<NodeClass>,
+}
 
-        general_println!("Provide jwt_secret (leave empty to generate a random value): ");
-        let mut response = String::new();
-        io::stdin().read_line(&mut response).unwrap();
-        response = response.trim().to_string();
-        if response.is_empty() {
-            let random_jwt: [u8; 64] = rand::rng().random();
-            let hex = hex::encode(&random_jwt);
-            general_println!(format!("Generated jwt_secret: {}", hex));
-            self.settings.jwt_secret = Some(hex);
-        } else {
-            self.settings.jwt_secret = Some(response.clone());
-        }
-        general_println!(
-            "Generate authorized API key (provide the name of the authorized application, leave empty when done):"
-        );
-        loop {
-            io::stdin().read_line(&mut response).unwrap();
-            response = response.trim().to_string();
-            if response.is_empty() {
-                break;
-            }
-            let random_api_key: [u8; 32] = rand::rng().random();
-            let hex = hex::encode(&random_api_key);
-            println!("Generated api_key for [{}]: {}", response.trim(), hex);
-            self.settings.authorized_api_keys = match self.settings.authorized_api_keys {
-                None => Some(HashMap::from([(response.to_string(), hex)])),
-                Some(mut api_keys) => {
-                    api_keys.insert(response.to_string(), hex);
-                    Some(api_keys)
-                }
-            };
-            response.clear();
-        }
-        self
-    }
-
-    fn configure_server(mut self) -> Self {
-        self.web.server = Some(Server {
-            db: {
-                server_println!("Provide the path to the db file. (default - sqlite.db): ");
-                if let Some(resp) = Self::handle_response() {
-                    resp
-                } else {
-                    "sqlite.db".to_string()
-                }
-            },
-            node_ip: {
-                server_println!("Provide the ip to the node server. (default - None): ");
-                Self::handle_response()
-            },
-            node_polling_schedule: {
-                server_println!(
-                    "Provide the polling schedule the node server. (default - every minute): "
-                );
-                if let Some(resp) = Self::handle_response() {
-                    resp
-                } else {
-                    "0 * * * * *".to_string()
-                }
-            },
-            frontend: {
-                server_println!("Serve frontend ([Y]es / [N]o, default - [Y]es)?: ");
-                if let Some(resp) = Self::handle_response() {
-                    if resp.to_uppercase().trim() == "N" {
-                        false
-                    } else {
-                        true
-                    }
-                } else {
-                    true
-                }
-            },
-        });
-        self
-    }
-
-    fn configure_node(mut self) -> Self {
-        self.web.node = Some(Node {
-            kasa: Self::configure_kasa(),
-        });
-        self
-    }
-
-    fn configure_kasa() -> HashMap<String, KasaDeviceConfig> {
-        let mut kasa_device_map: HashMap<String, KasaDeviceConfig> = HashMap::new();
-
-        loop {
-            let mut device = KasaDeviceConfig::default();
-
-            node_println!("Provide kasa device name (leave empty to skip): ");
-            let device_name = if let Some(resp) = Self::handle_response() {
-                resp
-            } else {
-                break;
-            };
-
-            node_println!("Provide kasa device ip address: ");
-            device.ip = if let Some(resp) = Self::handle_response() {
-                resp
-            } else {
-                break;
-            };
-
-            node_println!("Provide kasa device username: ");
-            device.username = if let Some(resp) = Self::handle_response() {
-                resp
-            } else {
-                break;
-            };
-
-            node_println!("Provide kasa device password: ");
-            device.password = if let Some(resp) = Self::handle_response() {
-                resp
-            } else {
-                break;
-            };
-
-            node_println!(
-                "Provide kasa device polling schedule (CRON-like, leave empty for poll every second): "
-            );
-            device.polling_schedule = if let Some(resp) = Self::handle_response() {
-                let schedule = Schedule::from_str(resp.as_str()).unwrap();
-                println!("Upcoming fire times:");
-                for datetime in schedule.upcoming(Local).take(10) {
-                    println!("-> {}", datetime)
-                }
-                resp
-            } else {
-                "*/1 * * * * *".to_string()
-            };
-
-            node_println!("Provide kasa device description: ");
-            device.description = Self::handle_response();
-            kasa_device_map.insert(device_name, device);
-        }
-
-        kasa_device_map
+impl Node {
+    pub(crate) fn get_nodes(&self) -> Vec<NodeClass> {
+        self.nodes.clone()
     }
 }

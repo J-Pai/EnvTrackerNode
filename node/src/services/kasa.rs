@@ -26,8 +26,8 @@ use tokio_memq::Publisher;
 use tokio_memq::Subscriber;
 use tokio_memq::TopicOptions;
 
-use crate::config2::KasaDeviceConfig;
-use crate::config2::PollingSchedule;
+use crate::config::KasaDeviceConfig;
+use crate::config::PollingSchedule;
 use crate::error::NodeError;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
