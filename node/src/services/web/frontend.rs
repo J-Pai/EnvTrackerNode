@@ -1,14 +1,16 @@
 //! Logic for serving the frontend.
 
-use axum::{
-    body::Body,
-    extract::Request,
-    http::header,
-    response::{IntoResponse, Response},
-    routing,
-};
+use axum::body::Body;
+use axum::extract::Path;
+use axum::extract::Request;
+use axum::http::header;
+use axum::response::IntoResponse;
+use axum::response::Response;
+use axum::routing;
+use notify::Watcher;
 use tokio::io::AsyncReadExt;
 use tower_http::services::ServeDir;
+use tower_livereload::LiveReloadLayer;
 
 use crate::config::FrontendServerConfig;
 
@@ -51,6 +53,22 @@ impl Web {
         self.router = router
             .route("/", routing::get(update_index_file))
             .fallback_service(serve_dir);
+
+        #[cfg(debug_assertions)]
+        {
+            let router = self.router;
+            let livereload = LiveReloadLayer::new();
+            let reloader = livereload.reloader();
+            self.router = router.layer(livereload);
+            let mut watcher = notify::recommended_watcher(move |event: Result<_, _>| {
+                if event.is_ok_and(|evt: notify::Event| !evt.kind.is_access()) {
+                    tracing::debug!("Detected site update.");
+                    reloader.reload();
+                }
+            })?;
+            watcher.watch(std::path::Path::new("dist"), notify::RecursiveMode::Recursive)?;
+            self.watcher.replace(watcher);
+        }
 
         Ok(self)
     }

@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use axum::Router;
+use notify::RecommendedWatcher;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::JobScheduler;
 
@@ -17,6 +18,7 @@ mod kasa_node;
 pub(crate) struct Web {
     router: Router,
     db: Option<Db>,
+    watcher: Option<RecommendedWatcher>,
 }
 
 impl Web {
@@ -24,6 +26,7 @@ impl Web {
         Self {
             router: Router::new(),
             db,
+            watcher: None,
         }
     }
 
