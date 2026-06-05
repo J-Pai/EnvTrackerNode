@@ -3,6 +3,8 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd $SCRIPT_DIR
 
+pkill -INT trunk
+
 RELEASE_FLAG=""
 TRUNK_ACTION="build"
 
