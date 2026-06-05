@@ -4,6 +4,10 @@
 use std::fs;
 use std::path::PathBuf;
 
+use crate::config::creator::Creator;
+
+mod creator;
+
 /// Base configuration structure.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ServerConfig {
@@ -25,37 +29,7 @@ impl ServerConfig {
             path.to_string_lossy()
         );
 
-        let config = Self {
-            api_server: Some(ApiServerConfig {
-                nodes: vec![NodeDatasource(
-                    "kasa-power-strip".to_string(),
-                    Ip("0.0.0.0:3000".to_string()),
-                    PollingSchedule("0 * * * * *".to_string()),
-                )],
-                db: "sqlite.db".to_string(),
-            }),
-            frontend_server: Some(FrontendServerConfig {
-                api_server_ip: Ip("0.0.0.0:3000".to_string()),
-                base: None,
-            }),
-            node: Some(Node {
-                nodes: vec![NodeClass::KasaDevice(
-                    "kasa-power-strip".to_string(),
-                    KasaDeviceConfig {
-                        ip: Ip("0.0.0.0".to_string()),
-                        username: "user".to_string(),
-                        password: "password".to_string(),
-                    },
-                    PollingSchedule("*/1 * * * * *".to_string()),
-                )],
-            }),
-        };
-
-        let config_text =
-            toml::to_string_pretty(&config).expect("Could not convert config to toml.");
-        fs::write(&path, config_text).expect("Failed to write config file.");
-
-        config
+        Creator::new().unwrap().create(path)
     }
 
     pub(crate) fn get_node_config(&self) -> Option<Node> {
