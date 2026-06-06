@@ -3,6 +3,7 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::process::exit;
 
 use crate::config::creator::Creator;
 
@@ -33,7 +34,9 @@ impl ServerConfig {
             .unwrap()
             .create()
             .unwrap()
-            .write(path)
+            .write(path);
+
+        exit(0);
     }
 
     pub(crate) fn get_node_config(&self) -> Option<Node> {
