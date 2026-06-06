@@ -9,7 +9,7 @@ use crate::config::creator::Creator;
 mod creator;
 
 /// Base configuration structure.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ServerConfig {
     pub(crate) api_server: Option<ApiServerConfig>,
     pub(crate) frontend_server: Option<FrontendServerConfig>,
@@ -29,7 +29,11 @@ impl ServerConfig {
             path.to_string_lossy()
         );
 
-        Creator::new().unwrap().create(path)
+        Creator::new(ServerConfig::default())
+            .unwrap()
+            .create()
+            .unwrap()
+            .write(path)
     }
 
     pub(crate) fn get_node_config(&self) -> Option<Node> {
