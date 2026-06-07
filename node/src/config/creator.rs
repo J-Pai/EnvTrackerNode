@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use appcui::prelude::*;
+use notify::poll;
 
 use crate::config::ApiServerConfig;
 use crate::config::FrontendServerConfig;
@@ -144,7 +145,26 @@ impl ButtonEvents for CreatorWindow {
             && handle == api_server.add_node_button
         {
             let mut api_server = self.api_server.take().unwrap();
-            api_server.add_node(self, NodeDatasource::default());
+
+            let data = NodeDatasource(
+                self.control(api_server.node_editor_panel.name)
+                    .unwrap()
+                    .text()
+                    .to_string(),
+                Ip(self
+                    .control(api_server.node_editor_panel.ip)
+                    .unwrap()
+                    .text()
+                    .to_string()),
+                PollingSchedule(
+                    self.control(api_server.node_editor_panel.polling_schedule)
+                        .unwrap()
+                        .text()
+                        .to_string(),
+                ),
+            );
+
+            api_server.add_node(self, data);
             self.api_server.replace(api_server);
             return EventProcessStatus::Processed;
         }
@@ -154,6 +174,34 @@ impl ButtonEvents for CreatorWindow {
         {
             let mut api_server = self.api_server.take().unwrap();
             api_server.remove_nodes(self);
+            self.api_server.replace(api_server);
+            return EventProcessStatus::Processed;
+        }
+
+        if let Some(api_server) = &self.api_server
+            && handle == api_server.update_node_button
+        {
+            let mut api_server = self.api_server.take().unwrap();
+
+            let data = NodeDatasource(
+                self.control(api_server.node_editor_panel.name)
+                    .unwrap()
+                    .text()
+                    .to_string(),
+                Ip(self
+                    .control(api_server.node_editor_panel.ip)
+                    .unwrap()
+                    .text()
+                    .to_string()),
+                PollingSchedule(
+                    self.control(api_server.node_editor_panel.polling_schedule)
+                        .unwrap()
+                        .text()
+                        .to_string(),
+                ),
+            );
+
+            api_server.update_nodes(self, data);
             self.api_server.replace(api_server);
             return EventProcessStatus::Processed;
         }
@@ -181,18 +229,95 @@ impl ButtonEvents for CreatorWindow {
 }
 
 struct NodeConfigUi {
-    checkbox: Handle<CheckBox>,
+    checkbox: Option<Handle<CheckBox>>,
+    add: Option<Handle<Button>>,
+    update: Option<Handle<Button>>,
     panel: Handle<Panel>,
     name: Handle<TextField>,
     ip: Handle<TextField>,
     polling_schedule: Handle<TextField>,
+    height: u16,
+}
+
+impl NodeConfigUi {
+    const NODE_HEIGHT: u16 = 10;
+
+    fn new(
+        data: NodeDatasource,
+        panel: &mut Panel,
+        editor: bool,
+        id: String,
+        start_y: u16,
+        y_multiplier: u16,
+    ) -> Self {
+        let smaller = if editor { 0 } else { 2 };
+        let height = Self::NODE_HEIGHT - smaller;
+
+        let mut node_editor_panel = Panel::new(
+            &format!("Node Config {}", id),
+            LayoutBuilder::new()
+                .x(0)
+                .y((Self::NODE_HEIGHT - smaller) * y_multiplier + start_y)
+                .width(1.0)
+                .height(height)
+                .build(),
+        );
+
+        let checkbox = if editor {
+            let name_label = label!("'Node Name:', x:0, y:0, w:32");
+            node_editor_panel.add(name_label);
+            None
+        } else {
+            let checkbox = checkbox!("'Node Name:', x:0, y:0, w:32");
+            Some(node_editor_panel.add(checkbox))
+        };
+        let mut name = textfield!("caption='node_name', x:32, y:0, w: 32");
+        name.set_text(&data.0);
+        name.set_enabled(editor);
+        let name = node_editor_panel.add(name);
+        node_editor_panel.add(label!("'IP:', x:0, y:2, w: 32"));
+        let mut ip = textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32");
+        ip.set_text(&data.1.0);
+        ip.set_enabled(editor);
+        let ip = node_editor_panel.add(ip);
+        node_editor_panel.add(label!("'Polling Schedule:', x:0, y:4, w: 32"));
+        let mut polling_schedule = textfield!("caption='0 * * * * *', x:32, y:4, w: 32");
+        polling_schedule.set_text(&data.2.0);
+        polling_schedule.set_enabled(editor);
+        let polling_schedule = node_editor_panel.add(polling_schedule);
+        let (add, update) = if editor {
+            let add = button!("'Add', x:0, y: 6, w:16");
+            let update = button!("'Update', x:32, y: 6, w: 16");
+            (
+                Some(node_editor_panel.add(add)),
+                Some(node_editor_panel.add(update)),
+            )
+        } else {
+            (None, None)
+        };
+
+        let node_editor_panel = panel.add(node_editor_panel);
+
+        Self {
+            checkbox: checkbox,
+            add,
+            update,
+            panel: node_editor_panel,
+            name,
+            ip,
+            polling_schedule,
+            height,
+        }
+    }
 }
 
 struct ApiServerUi {
     enable: Handle<CheckBox>,
     save_button: Handle<Button>,
     db_field: Handle<TextField>,
+    node_editor_panel: NodeConfigUi,
     node_panel: Handle<Panel>,
+    update_node_button: Handle<Button>,
     add_node_button: Handle<Button>,
     remove_nodes_button: Handle<Button>,
     node_index: usize,
@@ -200,7 +325,6 @@ struct ApiServerUi {
 }
 
 impl ApiServerUi {
-    const NODE_HEIGHT: u16 = 7;
     const NODE_START_Y: u16 = 2;
 
     fn new(tabs: &mut Tab, index: u32) -> Self {
@@ -213,18 +337,31 @@ impl ApiServerUi {
         let label = label!("'Database Path:', x:1, y:2, w: 14");
         form_panel.add(label);
         let db = form_panel.add(textfield!("caption='sqlite.db', x:32, y:2, w:32"));
+
+        let mut node_editor_panel = NodeConfigUi::new(
+            NodeDatasource::default(),
+            &mut form_panel,
+            true,
+            String::from("NEW"),
+            4,
+            0,
+        );
+
         tabs.add(index, form_panel);
 
         let mut node_panel = Panel::new("", layout!("x:50%, y:0, w: 50%, h: 100%"));
-        let add_node = node_panel.add(button!("'Add Node', x:1, y:0, w:16"));
-        let remove_nodes = node_panel.add(button!("'Remove Nodes', x:32, y:0, w:16"));
+        let remove_nodes = node_panel.add(button!("'Remove Nodes', x:1, y:0, w:16"));
         let node_panel = tabs.add(index, node_panel);
+        let add_node = node_editor_panel.add.take().unwrap();
+        let update_node = node_editor_panel.update.take().unwrap();
 
         Self {
             enable,
             save_button: save,
             db_field: db,
+            node_editor_panel: node_editor_panel,
             node_panel: node_panel,
+            update_node_button: update_node,
             add_node_button: add_node,
             remove_nodes_button: remove_nodes,
             node_index: 0,
@@ -235,37 +372,16 @@ impl ApiServerUi {
     fn add_node(&mut self, window: &mut CreatorWindow, data: NodeDatasource) {
         let index = self.node_configs.len() as u16;
         let node_panel = window.control_mut(self.node_panel).unwrap();
-        let mut panel = Panel::new(
-            format!("Node Config {}", self.node_index).as_str(),
-            LayoutBuilder::new()
-                .x(0)
-                .y(Self::NODE_HEIGHT * index + Self::NODE_START_Y)
-                .width(1.0)
-                .height(Self::NODE_HEIGHT)
-                .build(),
-        );
-        let checkbox = checkbox!("'Node Name:', x:0, y:0, w:32");
-        let checkbox = panel.add(checkbox);
-        let mut name = textfield!("caption='node_name', x:32, y:0, w: 32");
-        name.set_text(&data.0);
-        let name = panel.add(name);
-        panel.add(label!("'IP:', x:0, y:2, w: 32"));
-        let mut ip = textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32");
-        ip.set_text(&data.1.0);
-        let ip = panel.add(ip);
-        panel.add(label!("'Polling Schedule:', x:0, y:4, w: 32"));
-        let mut polling_schedule = textfield!("caption='0 * * * * *', x:32, y:4, w: 32");
-        polling_schedule.set_text(&data.2.0);
-        let polling_schedule = panel.add(polling_schedule);
         self.node_configs.insert(
             self.node_index,
-            NodeConfigUi {
-                checkbox,
-                panel: node_panel.add(panel),
-                name,
-                ip,
-                polling_schedule,
-            },
+            NodeConfigUi::new(
+                data,
+                node_panel,
+                false,
+                format!("{}", self.node_index),
+                2,
+                index,
+            ),
         );
         self.node_index = self.node_index + 1;
         window.request_update();
@@ -276,7 +392,7 @@ impl ApiServerUi {
 
         for location in self.node_configs.keys() {
             if let Some(config) = self.node_configs.get(location) {
-                let remove = window.control(config.checkbox).unwrap();
+                let remove = window.control(config.checkbox.unwrap()).unwrap();
                 if remove.is_checked() {
                     let config = window.control_mut(config.panel).unwrap();
                     config.set_visible(false);
@@ -293,10 +409,28 @@ impl ApiServerUi {
         node_configs.sort_by(|x, y| x.0.cmp(&y.0));
 
         for (index, (_, config)) in node_configs.iter().enumerate() {
-            let repositioned = Self::NODE_HEIGHT * index as u16 + Self::NODE_START_Y;
+            let repositioned = config.height * index as u16 + Self::NODE_START_Y;
             {
                 let config = window.control_mut(config.panel).unwrap();
                 config.set_position(0, repositioned as i32);
+            }
+        }
+
+        window.request_update();
+    }
+
+    fn update_nodes(&mut self, window: &mut CreatorWindow, data: NodeDatasource) {
+        for location in self.node_configs.keys() {
+            if let Some(config) = self.node_configs.get(location) {
+                let update = window.control(config.checkbox.unwrap()).unwrap();
+                if update.is_checked() {
+                    let name = window.control_mut(config.name).unwrap();
+                    name.set_text(&data.0);
+                    let ip = window.control_mut(config.ip).unwrap();
+                    ip.set_text(&data.1.0);
+                    let polling_schedule = window.control_mut(config.polling_schedule).unwrap();
+                    polling_schedule.set_text(&data.2.0);
+                }
             }
         }
 
