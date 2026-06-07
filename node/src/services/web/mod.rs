@@ -30,9 +30,7 @@ impl Web {
         }
     }
 
-    async fn setup_node_client(
-        mut self,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    async fn setup_node_client(mut self) -> Result<Self, Box<dyn std::error::Error>> {
         // let endpoint = if config.get_node_config().is_none()
         //     && let Some(node_ip) = config.get_server_config().unwrap().node_ip
         // {
@@ -129,9 +127,7 @@ impl Web {
         Ok(self)
     }
 
-    pub(crate) async fn setup_router(
-        mut self,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) async fn setup_router(mut self) -> Result<Self, Box<dyn std::error::Error>> {
         // if let Some(server) = config.get_server_config() {
         //     if server.frontend {
         //         self = self.setup_frontend_route().await?;

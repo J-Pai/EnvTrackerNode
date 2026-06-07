@@ -66,7 +66,10 @@ impl Web {
                     reloader.reload();
                 }
             })?;
-            watcher.watch(std::path::Path::new("dist"), notify::RecursiveMode::Recursive)?;
+            watcher.watch(
+                std::path::Path::new("dist"),
+                notify::RecursiveMode::Recursive,
+            )?;
             self.watcher.replace(watcher);
         }
 
