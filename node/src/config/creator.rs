@@ -1,14 +1,13 @@
 //! TUI for creating new server configs.
 
+use core::panic;
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::default;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use appcui::prelude::*;
-use notify::poll;
 
 use crate::config::ApiServerConfig;
 use crate::config::FrontendServerConfig;
@@ -80,8 +79,7 @@ impl CreatorWindow {
             frontend_server: Some(FrontendServerUi::new(&mut tabs, 1)),
             node_server: Some(NodeUi::new(&mut tabs, 2)),
         };
-
-        let base = window.add(tabs);
+        window.add(tabs);
         let config = window.config.as_ref().take();
 
         let mut api_server = window.api_server.take().unwrap();
@@ -483,6 +481,7 @@ struct NodeDeviceConfigUi {
     username: Handle<TextField>,
     password: Handle<TextField>,
     polling_schedule: Handle<TextField>,
+    node_class: NodeClass,
 }
 
 struct NodeUi {
@@ -554,7 +553,7 @@ impl NodeUi {
                 &NodeClass::Unknown
             }
         } else {
-            &NodeClass::Unknown
+            &data
         };
 
         if let NodeClass::KasaDevice(id, config, schedule) = data {
@@ -603,6 +602,11 @@ impl NodeUi {
                     username,
                     password,
                     polling_schedule,
+                    node_class: NodeClass::KasaDevice(
+                        String::new(),
+                        Default::default(),
+                        Default::default(),
+                    ),
                 },
             );
             self.node_index = self.node_index + 1;
@@ -646,7 +650,56 @@ impl NodeUi {
     fn generate_config(&self, window: &mut CreatorWindow) -> Option<Node> {
         if let Some(enabled) = window.control(self.enable)
             && enabled.is_checked()
-        {}
+        {
+            let mut nodes: Vec<NodeClass> = vec![];
+
+            for (_, (_, config)) in self.node_configs.iter().enumerate() {
+                if let NodeClass::KasaDevice(_, _, _) = config.node_class {
+                    if let Some(_) = window.control(config.panel) {
+                        let name = if let Some(name) = window.control(config.name) {
+                            name.text().to_string()
+                        } else {
+                            return None;
+                        };
+                        let ip = if let Some(ip) = window.control(config.ip) {
+                            Ip(ip.text().to_string())
+                        } else {
+                            return None;
+                        };
+                        let username = if let Some(username) = window.control(config.username) {
+                            username.text().to_string()
+                        } else {
+                            return None;
+                        };
+                        let password = if let Some(password) = window.control(config.password) {
+                            password.text().to_string()
+                        } else {
+                            return None;
+                        };
+                        let polling_schedule = if let Some(polling_schedule) =
+                            window.control(config.polling_schedule)
+                        {
+                            PollingSchedule(polling_schedule.text().to_string())
+                        } else {
+                            return None;
+                        };
+                        nodes.push(NodeClass::KasaDevice(
+                            name,
+                            KasaDeviceConfig {
+                                ip,
+                                username,
+                                password,
+                            },
+                            polling_schedule,
+                        ));
+                    } else {
+                        return None;
+                    };
+                }
+            }
+
+            return Some(Node { nodes });
+        }
 
         None
     }
@@ -657,6 +710,10 @@ impl NodeUi {
         } else {
             return;
         };
+
+        for node in config.nodes {
+            self.add_node(window, node);
+        }
 
         if let Some(enable) = window.control_mut(self.enable) {
             enable.set_checked(true);
