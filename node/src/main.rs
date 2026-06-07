@@ -29,6 +29,9 @@ struct Args {
     /// Path to configuration file.
     #[arg(short, long)]
     config: Option<PathBuf>,
+    /// Edit server configuration.
+    #[arg(short, long)]
+    edit_config: bool,
 }
 
 #[tokio::main]
@@ -44,14 +47,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    let config = config::ServerConfig::new(match args.config {
-        Some(path) => path,
-        None => {
-            let home_dir = env::home_dir().expect("HOME dir not specified.");
-            let config_dir = home_dir.join(".config/envtrackernode");
-            config_dir.join("config.toml")
-        }
-    });
+    let config = config::ServerConfig::new(
+        match args.config {
+            Some(path) => path,
+            None => {
+                let home_dir = env::home_dir().expect("HOME dir not specified.");
+                let config_dir = home_dir.join(".config/envtrackernode");
+                config_dir.join("config.toml")
+            }
+        },
+        args.edit_config,
+    );
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));

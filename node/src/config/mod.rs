@@ -18,23 +18,25 @@ pub(crate) struct ServerConfig {
 }
 
 impl ServerConfig {
-    pub(crate) fn new(path: PathBuf) -> Self {
-        if let Ok(config_text) = fs::read_to_string(&path)
+    pub(crate) fn new(path: PathBuf, edit_config: bool) -> Self {
+        let config = if let Ok(config_text) = fs::read_to_string(&path)
             && let Ok(config) = toml::from_str(&config_text)
         {
-            return ServerConfig::from(config);
-        }
+            if !edit_config {
+                return ServerConfig::from(config);
+            }
 
-        println!(
-            "[ServerConfig] Error obtaining config file: {}",
-            path.to_string_lossy()
-        );
+            config
+        } else {
+            println!(
+                "[ServerConfig] Error obtaining config file: {}",
+                path.to_string_lossy()
+            );
 
-        Creator::new(ServerConfig::default())
-            .unwrap()
-            .create()
-            .unwrap()
-            .write(path);
+            ServerConfig::default()
+        };
+
+        Creator::new(config).unwrap().create().unwrap().write(path);
 
         exit(0);
     }
