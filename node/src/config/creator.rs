@@ -2,6 +2,7 @@
 
 use std::cell::Cell;
 use std::collections::HashMap;
+use std::default;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -80,8 +81,22 @@ impl CreatorWindow {
             node_server: Some(NodeUi::new(&mut tabs, 2)),
         };
 
-        window.add(tabs);
+        let base = window.add(tabs);
+        let config = window.config.as_ref().take();
 
+        let mut api_server = window.api_server.take().unwrap();
+        api_server.restore_config(&mut window, config.get_api_config());
+        window.api_server.replace(api_server);
+
+        let mut frontend_server = window.frontend_server.take().unwrap();
+        frontend_server.restore_config(&mut window, config.get_frontend_config());
+        window.frontend_server.replace(frontend_server);
+
+        let mut node_server = window.node_server.take().unwrap();
+        node_server.restore_config(&mut window, config.get_node_config());
+        window.node_server.replace(node_server);
+
+        window.config.as_ref().replace(config);
         window
     }
 }
@@ -92,8 +107,7 @@ impl ButtonEvents for CreatorWindow {
             && handle == api_server.save_button
         {
             let api_server = self.api_server.take().unwrap();
-            let server_config = self.config.clone();
-            let mut server_config = server_config.take();
+            let mut server_config = self.config.take();
 
             server_config.api_server = api_server.generate_config(self);
 
@@ -105,12 +119,26 @@ impl ButtonEvents for CreatorWindow {
         if let Some(frontend_server) = &self.frontend_server
             && handle == frontend_server.save_button
         {
+            let frontend_server = self.frontend_server.take().unwrap();
+            let mut server_config = self.config.take();
+
+            server_config.frontend_server = frontend_server.generate_config(self);
+
+            self.config.replace(server_config);
+            self.frontend_server.replace(frontend_server);
             return EventProcessStatus::Processed;
         }
 
         if let Some(node_server) = &self.node_server
             && handle == node_server.save_button
         {
+            let node_server = self.node_server.take().unwrap();
+            let mut server_config = self.config.take();
+
+            server_config.node = node_server.generate_config(self);
+
+            self.config.replace(server_config);
+            self.node_server.replace(node_server);
             return EventProcessStatus::Processed;
         }
 
@@ -118,15 +146,7 @@ impl ButtonEvents for CreatorWindow {
             && handle == api_server.add_node_button
         {
             let mut api_server = self.api_server.take().unwrap();
-            api_server.add_node(self);
-            self.api_server.replace(api_server);
-            return EventProcessStatus::Processed;
-        }
-
-        if let Some(api_server) = &self.api_server
-            && handle == api_server.save_button
-        {
-            let api_server = self.api_server.take().unwrap();
+            api_server.add_node(self, NodeDatasource::default());
             self.api_server.replace(api_server);
             return EventProcessStatus::Processed;
         }
@@ -137,6 +157,24 @@ impl ButtonEvents for CreatorWindow {
             let mut api_server = self.api_server.take().unwrap();
             api_server.remove_nodes(self);
             self.api_server.replace(api_server);
+            return EventProcessStatus::Processed;
+        }
+
+        if let Some(node_server) = &self.node_server
+            && handle == node_server.add_node_button
+        {
+            let mut node_server = self.node_server.take().unwrap();
+            node_server.add_node(self, NodeClass::default());
+            self.node_server.replace(node_server);
+            return EventProcessStatus::Processed;
+        }
+
+        if let Some(node_server) = &self.node_server
+            && handle == node_server.remove_nodes_button
+        {
+            let mut node_server = self.node_server.take().unwrap();
+            node_server.remove_nodes(self);
+            self.node_server.replace(node_server);
             return EventProcessStatus::Processed;
         }
 
@@ -152,9 +190,6 @@ struct NodeConfigUi {
     polling_schedule: Handle<TextField>,
 }
 
-const NODE_HEIGHT: u16 = 7;
-const NODE_START_Y: u16 = 2;
-
 struct ApiServerUi {
     enable: Handle<CheckBox>,
     save_button: Handle<Button>,
@@ -167,6 +202,9 @@ struct ApiServerUi {
 }
 
 impl ApiServerUi {
+    const NODE_HEIGHT: u16 = 7;
+    const NODE_START_Y: u16 = 2;
+
     fn new(tabs: &mut Tab, index: u32) -> Self {
         let mut form_panel = Panel::new("", layout!("x:0, y:0, w: 50%, h: 100%"));
 
@@ -196,25 +234,31 @@ impl ApiServerUi {
         }
     }
 
-    fn add_node(&mut self, window: &mut CreatorWindow) {
+    fn add_node(&mut self, window: &mut CreatorWindow, data: NodeDatasource) {
         let index = self.node_configs.len() as u16;
         let node_panel = window.control_mut(self.node_panel).unwrap();
         let mut panel = Panel::new(
             format!("Node Config {}", self.node_index).as_str(),
             LayoutBuilder::new()
                 .x(0)
-                .y(NODE_HEIGHT * index + NODE_START_Y)
+                .y(Self::NODE_HEIGHT * index + Self::NODE_START_Y)
                 .width(1.0)
-                .height(NODE_HEIGHT)
+                .height(Self::NODE_HEIGHT)
                 .build(),
         );
         let checkbox = checkbox!("'Node Name:', x:0, y:0, w:32");
         let checkbox = panel.add(checkbox);
-        let name = panel.add(textfield!("caption='node_name', x:32, y:0, w: 32"));
+        let mut name = textfield!("caption='node_name', x:32, y:0, w: 32");
+        name.set_text(&data.0);
+        let name = panel.add(name);
         panel.add(label!("'IP:', x:0, y:2, w: 32"));
-        let ip = panel.add(textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32"));
+        let mut ip = textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32");
+        ip.set_text(&data.1.0);
+        let ip = panel.add(ip);
         panel.add(label!("'Polling Schedule:', x:0, y:4, w: 32"));
-        let polling_schedule = panel.add(textfield!("caption='0 * * * * *', x:32, y:4, w: 32"));
+        let mut polling_schedule = textfield!("caption='0 * * * * *', x:32, y:4, w: 32");
+        polling_schedule.set_text(&data.2.0);
+        let polling_schedule = panel.add(polling_schedule);
         self.node_configs.insert(
             self.node_index,
             NodeConfigUi {
@@ -251,7 +295,7 @@ impl ApiServerUi {
         node_configs.sort_by(|x, y| x.0.cmp(&y.0));
 
         for (index, (_, config)) in node_configs.iter().enumerate() {
-            let repositioned = NODE_HEIGHT * index as u16 + NODE_START_Y;
+            let repositioned = Self::NODE_HEIGHT * index as u16 + Self::NODE_START_Y;
             {
                 let config = window.control_mut(config.panel).unwrap();
                 config.set_position(0, repositioned as i32);
@@ -302,11 +346,33 @@ impl ApiServerUi {
 
         None
     }
+
+    fn restore_config(&mut self, window: &mut CreatorWindow, config: Option<ApiServerConfig>) {
+        let config = if let Some(config) = config {
+            config
+        } else {
+            return;
+        };
+
+        if let Some(db) = window.control_mut(self.db_field) {
+            db.set_text(&config.get_db());
+        }
+
+        for node in config.nodes {
+            self.add_node(window, node);
+        }
+
+        if let Some(enable) = window.control_mut(self.enable) {
+            enable.set_checked(true);
+        }
+    }
 }
 
 struct FrontendServerUi {
     enable: Handle<CheckBox>,
     save_button: Handle<Button>,
+    ip_field: Handle<TextField>,
+    base_field: Handle<TextField>,
 }
 
 impl FrontendServerUi {
@@ -317,21 +383,123 @@ impl FrontendServerUi {
         let enable = form_panel.add(enable);
         let save = button!("'Save', x:32, y:0, w:32");
         let save = form_panel.add(save);
+
+        form_panel.add(label!("'API Server IP:', x:0, y:2, w: 32"));
+        let ip = textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32");
+        let ip = form_panel.add(ip);
+        form_panel.add(label!("'Base:', x:0, y:4, w: 32"));
+        let base = textfield!("caption='', x:32, y:4, w: 32");
+        let base = form_panel.add(base);
+
         tabs.add(index, form_panel);
 
         Self {
             enable,
             save_button: save,
+            ip_field: ip,
+            base_field: base,
         }
     }
+
+    fn generate_config(&self, window: &mut CreatorWindow) -> Option<FrontendServerConfig> {
+        if let Some(enabled) = window.control(self.enable)
+            && enabled.is_checked()
+        {
+            let api_server_ip = if let Some(ip) = window.control(self.ip_field) {
+                Ip(ip.text().to_string())
+            } else {
+                return None;
+            };
+
+            let base = if let Some(base) = window.control(self.base_field) {
+                let base = base.text().trim();
+
+                if base.is_empty() {
+                    None
+                } else {
+                    Some(base.to_string())
+                }
+            } else {
+                return None;
+            };
+
+            return Some(FrontendServerConfig {
+                api_server_ip,
+                base,
+            });
+        }
+
+        None
+    }
+
+    fn restore_config(&mut self, window: &mut CreatorWindow, config: Option<FrontendServerConfig>) {
+        let config = if let Some(config) = config {
+            config
+        } else {
+            return;
+        };
+
+        if let Some(ip) = window.control_mut(self.ip_field) {
+            ip.set_text(&config.get_api_server_ip().0);
+        }
+
+        if let Some(base) = window.control_mut(self.base_field)
+            && let Some(base_str) = config.get_base()
+        {
+            base.set_text(&base_str);
+        }
+
+        if let Some(enable) = window.control_mut(self.enable) {
+            enable.set_checked(true);
+        }
+    }
+}
+
+impl DropDownListType for NodeClass {
+    fn name(&self) -> &str {
+        match self {
+            NodeClass::KasaDevice(_, _, _) => "Kasa Device",
+            NodeClass::Unknown => "Unknown",
+        }
+    }
+
+    fn description(&self) -> &str {
+        match self {
+            NodeClass::KasaDevice(_, _, _) => "Communicate with a Kasa Device",
+            NodeClass::Unknown => "What is this?",
+        }
+    }
+
+    fn symbol(&self) -> &str {
+        ""
+    }
+}
+
+struct NodeDeviceConfigUi {
+    checkbox: Handle<CheckBox>,
+    panel: Handle<Panel>,
+    name: Handle<TextField>,
+    ip: Handle<TextField>,
+    username: Handle<TextField>,
+    password: Handle<TextField>,
+    polling_schedule: Handle<TextField>,
 }
 
 struct NodeUi {
     enable: Handle<CheckBox>,
     save_button: Handle<Button>,
+    node_panel: Handle<Panel>,
+    node_class: Handle<DropDownList<NodeClass>>,
+    add_node_button: Handle<Button>,
+    remove_nodes_button: Handle<Button>,
+    node_index: usize,
+    node_configs: HashMap<usize, NodeDeviceConfigUi>,
 }
 
 impl NodeUi {
+    const NODE_HEIGHT: u16 = 12;
+    const NODE_START_Y: u16 = 2;
+
     fn new(tabs: &mut Tab, index: u32) -> Self {
         let mut form_panel = Panel::new("", layout!("x:0, y:0, w: 50%, h: 100%"));
 
@@ -339,11 +507,159 @@ impl NodeUi {
         let enable = form_panel.add(enable);
         let save = button!("'Save', x:32, y:0, w:32");
         let save = form_panel.add(save);
+        let mut db = DropDownList::<NodeClass>::new(
+            layout!("x:1, y:2, w:64"),
+            dropdownlist::Flags::ShowDescription,
+        );
+        db.add(NodeClass::KasaDevice(
+            String::new(),
+            KasaDeviceConfig::default(),
+            PollingSchedule::default(),
+        ));
+        db.add(NodeClass::Unknown);
+        let node_class = form_panel.add(db);
         tabs.add(index, form_panel);
+
+        let mut node_panel = Panel::new("", layout!("x:50%, y:0, w: 50%, h: 100%"));
+        let add_node = node_panel.add(button!("'Add Node', x:1, y:0, w:16"));
+        let remove_nodes = node_panel.add(button!("'Remove Nodes', x:32, y:0, w:16"));
+        let node_panel = tabs.add(index, node_panel);
 
         Self {
             enable,
             save_button: save,
+            node_panel,
+            node_class,
+            add_node_button: add_node,
+            remove_nodes_button: remove_nodes,
+            node_index: 0,
+            node_configs: HashMap::new(),
+        }
+    }
+
+    fn add_node(&mut self, window: &mut CreatorWindow, data: NodeClass) {
+        let data = if let NodeClass::Unknown = data
+            && let Some(node_class) = window.control(self.node_class)
+        {
+            if let Some(node_class) = node_class.selected_item() {
+                match node_class {
+                    NodeClass::KasaDevice(_, _, _) => &NodeClass::KasaDevice(
+                        String::from("node_name"),
+                        Default::default(),
+                        Default::default(),
+                    ),
+                    NodeClass::Unknown => &NodeClass::Unknown,
+                }
+            } else {
+                &NodeClass::Unknown
+            }
+        } else {
+            &NodeClass::Unknown
+        };
+
+        if let NodeClass::KasaDevice(id, config, schedule) = data {
+            let index = self.node_configs.len() as u16;
+            let node_panel = window.control_mut(self.node_panel).unwrap();
+            let mut panel = Panel::new(
+                format!("Node Config {} - {}", self.node_index, data.name()).as_str(),
+                LayoutBuilder::new()
+                    .x(0)
+                    .y(Self::NODE_HEIGHT * index + Self::NODE_START_Y)
+                    .width(1.0)
+                    .height(Self::NODE_HEIGHT)
+                    .build(),
+            );
+            let checkbox = checkbox!("'Node Name:', x:0, y:0, w:32");
+            let checkbox = panel.add(checkbox);
+            let mut name = textfield!("caption='node_name', x:32, y:0, w: 32");
+            name.set_text(&id);
+            let name = panel.add(name);
+            panel.add(label!("'IP:', x:0, y:2, w: 32"));
+            let mut ip = textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32");
+            ip.set_text(&config.get_ip());
+            let ip = panel.add(ip);
+
+            panel.add(label!("'Username:', x:0, y:4, w: 32"));
+            let mut username = textfield!("caption='username', x:32, y:4, w: 32");
+            username.set_text(&config.get_username());
+            let username = panel.add(username);
+
+            panel.add(label!("'Password:', x:0, y:6, w: 32"));
+            let mut password = textfield!("caption='password', x:32, y:6, w: 32");
+            password.set_text(&config.get_password());
+            let password = panel.add(password);
+
+            panel.add(label!("'Polling Schedule:', x:0, y:8, w: 32"));
+            let mut polling_schedule = textfield!("caption='0 * * * * *', x:32, y:8, w: 32");
+            polling_schedule.set_text(&schedule.0);
+            let polling_schedule = panel.add(polling_schedule);
+            self.node_configs.insert(
+                self.node_index,
+                NodeDeviceConfigUi {
+                    checkbox,
+                    panel: node_panel.add(panel),
+                    name,
+                    ip,
+                    username,
+                    password,
+                    polling_schedule,
+                },
+            );
+            self.node_index = self.node_index + 1;
+            window.request_update();
+        }
+    }
+
+    fn remove_nodes(&mut self, window: &mut CreatorWindow) {
+        let mut removal_index: Vec<usize> = vec![];
+
+        for location in self.node_configs.keys() {
+            if let Some(config) = self.node_configs.get(location) {
+                let remove = window.control(config.checkbox).unwrap();
+                if remove.is_checked() {
+                    let config = window.control_mut(config.panel).unwrap();
+                    config.set_visible(false);
+                    removal_index.push(*location);
+                }
+            }
+        }
+
+        for index in removal_index {
+            self.node_configs.remove(&index);
+        }
+
+        let mut node_configs: Vec<(&usize, &NodeDeviceConfigUi)> =
+            self.node_configs.iter().collect();
+        node_configs.sort_by(|x, y| x.0.cmp(&y.0));
+
+        for (index, (_, config)) in node_configs.iter().enumerate() {
+            let repositioned = Self::NODE_HEIGHT * index as u16 + Self::NODE_START_Y;
+            {
+                let config = window.control_mut(config.panel).unwrap();
+                config.set_position(0, repositioned as i32);
+            }
+        }
+
+        window.request_update();
+    }
+
+    fn generate_config(&self, window: &mut CreatorWindow) -> Option<Node> {
+        if let Some(enabled) = window.control(self.enable)
+            && enabled.is_checked()
+        {}
+
+        None
+    }
+
+    fn restore_config(&mut self, window: &mut CreatorWindow, config: Option<Node>) {
+        let config = if let Some(config) = config {
+            config
+        } else {
+            return;
+        };
+
+        if let Some(enable) = window.control_mut(self.enable) {
+            enable.set_checked(true);
         }
     }
 }

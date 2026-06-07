@@ -58,6 +58,12 @@ impl ServerConfig {
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Ip(String);
 
+impl Default for Ip {
+    fn default() -> Self {
+        Self(String::from("0.0.0.0:3000"))
+    }
+}
+
 /// Polling schedule using a cron-like string.
 ///
 ///   * * * * * * <command to execute>
@@ -71,6 +77,12 @@ pub(crate) struct Ip(String);
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct PollingSchedule(String);
 
+impl Default for PollingSchedule {
+    fn default() -> Self {
+        Self(String::from("0 * * * * *"))
+    }
+}
+
 impl ToString for PollingSchedule {
     fn to_string(&self) -> String {
         self.0.clone()
@@ -80,6 +92,16 @@ impl ToString for PollingSchedule {
 /// Node datasource configuration.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct NodeDatasource(String, Ip, PollingSchedule);
+
+impl Default for NodeDatasource {
+    fn default() -> Self {
+        Self(
+            String::from("node_name"),
+            Ip::default(),
+            PollingSchedule::default(),
+        )
+    }
+}
 
 /// API and Database server configuration.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -106,6 +128,10 @@ pub(crate) struct FrontendServerConfig {
 }
 
 impl FrontendServerConfig {
+    pub(crate) fn get_api_server_ip(&self) -> Ip {
+        self.api_server_ip.clone()
+    }
+
     pub(crate) fn get_base(&self) -> Option<String> {
         self.base.clone()
     }
@@ -133,12 +159,25 @@ impl KasaDeviceConfig {
     }
 }
 
+impl Default for KasaDeviceConfig {
+    fn default() -> Self {
+        Self {
+            ip: Ip(String::from("0.0.0.0:3001")),
+            username: String::from("username@email.com"),
+            password: String::from("somepassword"),
+        }
+    }
+}
+
 /// Supported node types.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) enum NodeClass {
     /// Kasa Device.
     /// Specific to the HS300 model for now.
     KasaDevice(String, KasaDeviceConfig, PollingSchedule),
+    /// Unknown device type.
+    #[default]
+    Unknown,
 }
 
 /// Node configuration.

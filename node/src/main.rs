@@ -65,7 +65,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(node) = config.get_node_config() {
         for n in node.get_nodes() {
-            let NodeClass::KasaDevice(id, cfg, sch) = n;
+            let NodeClass::KasaDevice(id, cfg, sch) = n else {
+                continue;
+            };
             let mut kasa = Kasa::new(mq.clone(), scheduler.clone()).await;
             kasa.add_device(&id, &cfg).await?;
             kasa.add_polling(&id, &sch).await?;
