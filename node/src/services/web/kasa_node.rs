@@ -26,7 +26,7 @@ impl Web {
         let kasa_subscribers: Arc<RwLock<HashMap<String, Arc<RwLock<Subscriber>>>>> =
             Arc::new(RwLock::new(HashMap::new()));
 
-        let router = self.router;
+        let mut router = self.router;
 
         let mut children_ids: HashMap<String, Vec<String>> = HashMap::new();
 
@@ -46,40 +46,52 @@ impl Web {
                 device_id.clone(),
                 devices.get_children_ids(device_id.clone()).await?,
             );
+
+            let endpoint = if let Some(endpoint) = devices.get_api(&device_id)? {
+                endpoint
+            } else {
+                String::from("/")
+            };
+
+            let topic = devices.get_topic(&device_id)?.clone();
+
+            let subscribers = kasa_subscribers.clone();
+            router = router.route(
+                &endpoint,
+                routing::get(move || {
+                    let kasa_subscribers = subscribers.clone();
+
+                    async move {
+                        let kasa_subscribers = kasa_subscribers.read().await;
+                        let subscriber = if let Some(subscriber) = kasa_subscribers.get(&topic) {
+                            subscriber.read().await
+                        } else {
+                            return "[]".to_string();
+                        };
+                        let msg =
+                            match timeout(Duration::from_millis(100), subscriber.recv_batch(100))
+                                .await
+                            {
+                                Ok(result) => result.unwrap(),
+                                Err(_) => {
+                                    return "[]".to_string();
+                                }
+                            };
+
+                        let mut output: Vec<String> = Vec::new();
+
+                        for m in msg.iter() {
+                            let json = m.deserialize::<Value>().unwrap();
+                            output.push(serde_json::to_string(&json).unwrap());
+                        }
+
+                        format!("[{}]", output.join(","))
+                    }
+                }),
+            );
         }
 
-        self.router = router.route(
-            "/kasa/{topic}",
-            routing::get(move |Path(topic): Path<String>| {
-                let kasa_subscribers = kasa_subscribers.clone();
-
-                async move {
-                    let kasa_subscribers = kasa_subscribers.read().await;
-                    let subscriber = if let Some(subscriber) = kasa_subscribers.get(&topic) {
-                        subscriber.read().await
-                    } else {
-                        return "[]".to_string();
-                    };
-                    let msg = match timeout(Duration::from_millis(100), subscriber.recv_batch(100))
-                        .await
-                    {
-                        Ok(result) => result.unwrap(),
-                        Err(_) => {
-                            return "[]".to_string();
-                        }
-                    };
-
-                    let mut output: Vec<String> = Vec::new();
-
-                    for m in msg.iter() {
-                        let json = m.deserialize::<Value>().unwrap();
-                        output.push(serde_json::to_string(&json).unwrap());
-                    }
-
-                    format!("[{}]", output.join(","))
-                }
-            }),
-        );
+        self.router = router;
 
         Ok(self)
     }

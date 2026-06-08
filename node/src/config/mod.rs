@@ -98,7 +98,7 @@ impl ToString for PollingConfig {
 }
 
 impl PollingConfig {
-    fn get_api(&self) -> Option<String> {
+    pub(crate) fn get_api(&self) -> Option<String> {
         self.api.clone()
     }
 }

@@ -96,6 +96,7 @@ struct KasaDevice {
     scheduler: Arc<RwLock<JobScheduler>>,
     /// Child Kasa devices keys is the id hash.
     children: Arc<RwLock<HashMap<String, KasaDeviceChild>>>,
+    api: Option<String>,
 }
 
 impl KasaDevice {
@@ -111,6 +112,7 @@ impl KasaDevice {
             mq,
             scheduler,
             children: Arc::new(RwLock::const_new(HashMap::new())),
+            api: None,
         };
         device
     }
@@ -244,6 +246,7 @@ impl KasaDevice {
         let scheduler = self.scheduler.read().await;
         let transport = self.transport.clone();
         let children = self.children.clone();
+        self.api = polling_schedule.get_api();
 
         let topic = { publisher.clone().lock_owned().await.topic().to_string() };
 
@@ -364,6 +367,27 @@ impl Kasa {
             .add_polling(polling_schedule)
             .await?;
         Ok(())
+    }
+
+    pub(crate) fn get_api(
+        &self,
+        device: &String,
+    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
+        Ok(self
+            .devices
+            .get(device)
+            .ok_or(NodeError::new(stringify!("Device {} for found", id)))?
+            .api
+            .clone())
+    }
+
+    pub(crate) fn get_topic(&self, device: &String) -> Result<String, Box<dyn std::error::Error>> {
+        Ok(self
+            .devices
+            .get(device)
+            .ok_or(NodeError::new(stringify!("Device {} for found", id)))?
+            .topic
+            .clone())
     }
 
     pub(crate) async fn allocate_subscriber(
