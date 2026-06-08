@@ -53,18 +53,24 @@ impl Db {
         Ok(())
     }
 
-    pub(crate) async fn create_kasa_table(self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) async fn create_kasa_table(
+        self,
+        topic: &String,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         {
             let db = self.db.read().await;
             let conn = db.connect()?;
             conn.execute(
-                r#"CREATE TABLE IF NOT EXISTS kasa (utc_ns INTEGER NOT NULL,
+                format!(
+                    r#"CREATE TABLE IF NOT EXISTS {} (utc_ns INTEGER NOT NULL,
                                                     alias TEXT NOT NULL,
                                                     id TEXT NOT NULL,
                                                     current_ma INTEGER NOT NULL,
                                                     power_mw INTEGER NOT NULL,
                                                     voltage_mv INTEGER NOT NULL,
                                                     total_wh INTEGER NOT NULL)"#,
+                    format!("kasa_device_{}", topic),
+                ),
                 (),
             )
             .await?;
@@ -74,6 +80,7 @@ impl Db {
 
     pub(crate) async fn push_kasa_data(
         &mut self,
+        topic: &String,
         kasa_data: &Vec<Vec<KasaChildInfo>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut data: Vec<String> = vec![];
@@ -98,7 +105,8 @@ impl Db {
         }
 
         let statement = format!(
-            "INSERT INTO kasa (utc_ns, alias, id, current_ma, power_mw, voltage_mv, total_wh) VALUES {};",
+            "INSERT INTO {} (utc_ns, alias, id, current_ma, power_mw, voltage_mv, total_wh) VALUES {};",
+            format!("kasa_device_{}", topic),
             data.join(",").as_str()
         );
 

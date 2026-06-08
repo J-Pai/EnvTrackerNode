@@ -63,6 +63,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
     let mut kasa: Option<Kasa> = None;
 
+    let mut db = if let Some(config) = config.get_api_config() {
+        Some(Db::new(&config).await?)
+    } else {
+        None
+    };
+
     if let Some(node) = config.get_node_config() {
         for n in node.get_nodes() {
             let NodeClass::KasaDevice(id, cfg, sch) = n else {
@@ -71,14 +77,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let kasa = kasa.get_or_insert(Kasa::new(mq.clone(), scheduler.clone()).await);
             kasa.add_device(&id, &cfg).await?;
             kasa.add_polling(&id, &sch).await?;
+
+            if db.is_some() {
+                let topic = kasa.get_topic(&id)?.clone();
+                let db_topic = db.take().unwrap().create_kasa_table(&topic).await?;
+                db.replace(db_topic);
+            }
         }
     }
-
-    let db = if let Some(config) = config.get_api_config() {
-        Some(Db::new(&config).await?.create_kasa_table().await?)
-    } else {
-        None
-    };
 
     let mut web = Web::new(db.clone());
     let poller = Poller::new(scheduler, db);
