@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use appcui::prelude::*;
 
-use crate::config::ServerConfig;
+use crate::config::{NodeClass, ServerConfig};
 use crate::error::NodeError;
 use api::ApiServerUi;
 use frontend::FrontendServerUi;
@@ -16,6 +16,26 @@ use node::NodeUi;
 mod api;
 mod frontend;
 mod node;
+
+impl DropDownListType for NodeClass {
+    fn name(&self) -> &str {
+        match self {
+            NodeClass::KasaDevice(_, _, _) => "Kasa Device",
+            NodeClass::Unknown => "Unknown",
+        }
+    }
+
+    fn description(&self) -> &str {
+        match self {
+            NodeClass::KasaDevice(_, _, _) => "Communicate with a Kasa Device",
+            NodeClass::Unknown => "What is this?",
+        }
+    }
+
+    fn symbol(&self) -> &str {
+        ""
+    }
+}
 
 pub(super) struct Creator {
     app: Option<App>,

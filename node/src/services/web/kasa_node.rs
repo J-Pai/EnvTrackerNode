@@ -81,12 +81,6 @@ impl Web {
                         format!("[{}]", output.join(","))
                     }
                 }),
-            )
-            .route(
-                "/kasa/{topic}/children",
-                routing::get(move |Path(topic): Path<String>| async move {
-                    format!("{:#?}", children_ids.get(&topic).unwrap_or(&Vec::new()))
-                }),
             );
 
         Ok(self)

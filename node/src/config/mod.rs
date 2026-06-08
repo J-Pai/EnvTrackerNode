@@ -64,41 +64,55 @@ impl Default for Ip {
     }
 }
 
-/// Polling schedule using a cron-like string.
-///
-///   * * * * * * <command to execute>
-/// # | | | | | |
-/// # | | | | | day of the week (0–6) (Sunday to Saturday;
-/// # | | | | month (1–12)             7 is also Sunday on some systems)
-/// # | | | day of the month (1–31)
-/// # | | hour (0–23)
-/// # | minute (0–59)
-/// # seconds (0-59)
+/// Polling configuration. How often and where to ping.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct PollingSchedule(String);
+pub(crate) struct PollingConfig {
+    /// Polling schedule using a cron-like string.
+    ///
+    ///   * * * * * * <command to execute>
+    /// # | | | | | |
+    /// # | | | | | day of the week (0–6) (Sunday to Saturday;
+    /// # | | | | month (1–12)             7 is also Sunday on some systems)
+    /// # | | | day of the month (1–31)
+    /// # | | hour (0–23)
+    /// # | minute (0–59)
+    /// # seconds (0-59)
+    schedule: String,
+    /// API endpoint to use for polling operation.
+    api: Option<String>,
+}
 
-impl Default for PollingSchedule {
+impl Default for PollingConfig {
     fn default() -> Self {
-        Self(String::from("0 * * * * *"))
+        Self {
+            schedule: String::from("0 * * * * *"),
+            api: None,
+        }
     }
 }
 
-impl ToString for PollingSchedule {
+impl ToString for PollingConfig {
     fn to_string(&self) -> String {
-        self.0.clone()
+        self.schedule.clone()
+    }
+}
+
+impl PollingConfig {
+    fn get_api(&self) -> Option<String> {
+        self.api.clone()
     }
 }
 
 /// Node datasource configuration.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct NodeDatasource(String, Ip, PollingSchedule);
+pub(crate) struct NodeDatasource(String, Ip, PollingConfig);
 
 impl Default for NodeDatasource {
     fn default() -> Self {
         Self(
             String::from("node_name"),
             Ip::default(),
-            PollingSchedule::default(),
+            PollingConfig::default(),
         )
     }
 }
@@ -174,7 +188,7 @@ impl Default for KasaDeviceConfig {
 pub(crate) enum NodeClass {
     /// Kasa Device.
     /// Specific to the HS300 model for now.
-    KasaDevice(String, KasaDeviceConfig, PollingSchedule),
+    KasaDevice(String, KasaDeviceConfig, PollingConfig),
     /// Unknown device type.
     #[default]
     Unknown,

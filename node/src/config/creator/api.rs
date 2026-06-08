@@ -6,8 +6,10 @@ use appcui::prelude::*;
 
 use crate::config::ApiServerConfig;
 use crate::config::Ip;
+use crate::config::KasaDeviceConfig;
+use crate::config::NodeClass;
 use crate::config::NodeDatasource;
-use crate::config::PollingSchedule;
+use crate::config::PollingConfig;
 use crate::config::ServerConfig;
 use crate::config::creator::CreatorWindow;
 
@@ -15,15 +17,17 @@ pub(super) struct NodeConfigUi {
     checkbox: Option<Handle<CheckBox>>,
     add: Option<Handle<Button>>,
     update: Option<Handle<Button>>,
+    dropdown: Option<Handle<DropDownList<NodeClass>>>,
     panel: Handle<Panel>,
     name: Handle<TextField>,
     ip: Handle<TextField>,
     polling_schedule: Handle<TextField>,
+    polling_endpoint: Handle<TextField>,
     height: u16,
 }
 
 impl NodeConfigUi {
-    const NODE_HEIGHT: u16 = 10;
+    const NODE_HEIGHT: u16 = 14;
 
     pub(super) fn new(
         data: NodeDatasource,
@@ -33,11 +37,13 @@ impl NodeConfigUi {
         start_y: u16,
         y_multiplier: u16,
     ) -> Self {
-        let smaller = if editor { 0 } else { 2 };
+        let smaller = if editor { 0 } else { 4 };
         let height = Self::NODE_HEIGHT - smaller;
 
+        let info = "(Kasa Device)";
+
         let mut node_editor_panel = Panel::new(
-            &format!("Node Config{}", id),
+            &format!("Node Config{} - {}", id, info),
             LayoutBuilder::new()
                 .x(0)
                 .y((Self::NODE_HEIGHT - smaller) * y_multiplier + start_y)
@@ -63,14 +69,44 @@ impl NodeConfigUi {
         ip.set_text(&data.1.0);
         ip.set_enabled(editor);
         let ip = node_editor_panel.add(ip);
+
         node_editor_panel.add(label!("'Polling Schedule:', x:0, y:4, w: 32"));
         let mut polling_schedule = textfield!("caption='0 * * * * *', x:32, y:4, w: 32");
-        polling_schedule.set_text(&data.2.0);
+        polling_schedule.set_text(&data.2.schedule);
         polling_schedule.set_enabled(editor);
         let polling_schedule = node_editor_panel.add(polling_schedule);
+
+        node_editor_panel.add(label!("'Polling Endpoint:', x:0, y:6, w: 32"));
+        let mut polling_endpoint = textfield!("caption='', x:32, y:6, w: 32");
+        let api = if let Some(api) = data.2.get_api().clone() {
+            api.clone()
+        } else {
+            String::new()
+        };
+        polling_endpoint.set_text(&api);
+        polling_endpoint.set_enabled(editor);
+        let polling_endpoint = node_editor_panel.add(polling_endpoint);
+
+        let dropdown = if editor {
+            let mut db = DropDownList::<NodeClass>::new(
+                layout!("x:0, y:8, w:64"),
+                dropdownlist::Flags::ShowDescription,
+            );
+            db.add(NodeClass::KasaDevice(
+                String::new(),
+                KasaDeviceConfig::default(),
+                PollingConfig::default(),
+            ));
+            db.add(NodeClass::Unknown);
+            db.set_index(0);
+            Some(node_editor_panel.add(db))
+        } else {
+            None
+        };
+
         let (add, update) = if editor {
-            let add = button!("'Add', x:0, y: 6, w:16");
-            let update = button!("'Update', x:32, y: 6, w: 16");
+            let add = button!("'Add', x:0, y: 10, w:16");
+            let update = button!("'Update', x:32, y: 10, w: 16");
             (
                 Some(node_editor_panel.add(add)),
                 Some(node_editor_panel.add(update)),
@@ -85,10 +121,12 @@ impl NodeConfigUi {
             checkbox: checkbox,
             add,
             update,
+            dropdown,
             panel: node_editor_panel,
             name,
             ip,
             polling_schedule,
+            polling_endpoint,
             height,
         }
     }
@@ -212,7 +250,14 @@ impl ApiServerUi {
                     let ip = window.control_mut(config.ip).unwrap();
                     ip.set_text(&data.1.0);
                     let polling_schedule = window.control_mut(config.polling_schedule).unwrap();
-                    polling_schedule.set_text(&data.2.0);
+                    polling_schedule.set_text(&data.2.schedule);
+                    let polling_endpoint = window.control_mut(config.polling_endpoint).unwrap();
+                    let api = if let Some(api) = data.2.get_api().clone() {
+                        api.clone()
+                    } else {
+                        String::new()
+                    };
+                    polling_endpoint.set_text(&api);
                 }
             }
         }
@@ -244,12 +289,24 @@ impl ApiServerUi {
                     } else {
                         return None;
                     };
-                    let polling_schedule =
-                        if let Some(polling_schedule) = window.control(config.polling_schedule) {
-                            PollingSchedule(polling_schedule.text().to_string())
+                    let polling_schedule = if let Some(polling_schedule) =
+                        window.control(config.polling_schedule)
+                        && let Some(polling_endpoint) = window.control(config.polling_endpoint)
+                    {
+                        let polling_endpoint = polling_endpoint.text().trim();
+                        let endpoint = if polling_endpoint.is_empty() {
+                            None
                         } else {
-                            return None;
+                            Some(polling_endpoint.to_string())
                         };
+
+                        PollingConfig {
+                            schedule: polling_schedule.text().to_string(),
+                            api: endpoint,
+                        }
+                    } else {
+                        return None;
+                    };
                     nodes.push(NodeDatasource(name, ip, polling_schedule));
                 } else {
                     return None;
@@ -298,6 +355,17 @@ impl ApiServerUi {
         }
 
         if handle == self.add_node_button {
+            let polling_endpoint = window
+                .control(self.node_editor_panel.polling_endpoint)
+                .unwrap();
+
+            let polling_endpoint = polling_endpoint.text().trim();
+            let endpoint = if polling_endpoint.is_empty() {
+                None
+            } else {
+                Some(polling_endpoint.to_string())
+            };
+
             let data = NodeDatasource(
                 window
                     .control(self.node_editor_panel.name)
@@ -309,13 +377,14 @@ impl ApiServerUi {
                     .unwrap()
                     .text()
                     .to_string()),
-                PollingSchedule(
-                    window
+                PollingConfig {
+                    schedule: window
                         .control(self.node_editor_panel.polling_schedule)
                         .unwrap()
                         .text()
                         .to_string(),
-                ),
+                    api: endpoint,
+                },
             );
 
             self.add_node(window, data);
@@ -328,6 +397,17 @@ impl ApiServerUi {
         }
 
         if handle == self.update_node_button {
+            let polling_endpoint = window
+                .control(self.node_editor_panel.polling_endpoint)
+                .unwrap();
+
+            let polling_endpoint = polling_endpoint.text().trim();
+            let endpoint = if polling_endpoint.is_empty() {
+                None
+            } else {
+                Some(polling_endpoint.to_string())
+            };
+
             let data = NodeDatasource(
                 window
                     .control(self.node_editor_panel.name)
@@ -339,13 +419,14 @@ impl ApiServerUi {
                     .unwrap()
                     .text()
                     .to_string()),
-                PollingSchedule(
-                    window
+                PollingConfig {
+                    schedule: window
                         .control(self.node_editor_panel.polling_schedule)
                         .unwrap()
                         .text()
                         .to_string(),
-                ),
+                    api: endpoint,
+                },
             );
 
             self.update_nodes(window, data);

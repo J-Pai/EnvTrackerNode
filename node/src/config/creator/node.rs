@@ -8,29 +8,9 @@ use crate::config::Ip;
 use crate::config::KasaDeviceConfig;
 use crate::config::Node;
 use crate::config::NodeClass;
-use crate::config::PollingSchedule;
+use crate::config::PollingConfig;
 use crate::config::ServerConfig;
 use crate::config::creator::CreatorWindow;
-
-impl DropDownListType for NodeClass {
-    fn name(&self) -> &str {
-        match self {
-            NodeClass::KasaDevice(_, _, _) => "Kasa Device",
-            NodeClass::Unknown => "Unknown",
-        }
-    }
-
-    fn description(&self) -> &str {
-        match self {
-            NodeClass::KasaDevice(_, _, _) => "Communicate with a Kasa Device",
-            NodeClass::Unknown => "What is this?",
-        }
-    }
-
-    fn symbol(&self) -> &str {
-        ""
-    }
-}
 
 struct NodeDeviceConfigUi {
     checkbox: Option<Handle<CheckBox>>,
@@ -70,7 +50,7 @@ impl NodeDeviceConfigUi {
         let info = if id.is_empty() {
             "(Kasa Device)"
         } else {
-            &format!("{} (Kasa Device", id)
+            &format!("{} (Kasa Device)", id)
         };
 
         let mut node_panel = Panel::new(
@@ -115,7 +95,7 @@ impl NodeDeviceConfigUi {
 
         node_panel.add(label!("'Polling Schedule:', x:0, y:8, w: 32"));
         let mut polling_schedule = textfield!("caption='0 * * * * *', x:32, y:8, w: 32");
-        polling_schedule.set_text(&schedule.0);
+        polling_schedule.set_text(&schedule.schedule);
         polling_schedule.set_enabled(editor);
         let polling_schedule = node_panel.add(polling_schedule);
 
@@ -127,7 +107,7 @@ impl NodeDeviceConfigUi {
             db.add(NodeClass::KasaDevice(
                 String::new(),
                 KasaDeviceConfig::default(),
-                PollingSchedule::default(),
+                PollingConfig::default(),
             ));
             db.add(NodeClass::Unknown);
             db.set_index(0);
@@ -306,7 +286,7 @@ impl NodeUi {
                         let password = window.control_mut(config.password).unwrap();
                         password.set_text(&device_config.get_password());
                         let polling_schedule = window.control_mut(config.polling_schedule).unwrap();
-                        polling_schedule.set_text(&schedule.0);
+                        polling_schedule.set_text(&schedule.schedule);
                     }
                 }
             }
@@ -346,7 +326,10 @@ impl NodeUi {
                         let polling_schedule = if let Some(polling_schedule) =
                             window.control(config.polling_schedule)
                         {
-                            PollingSchedule(polling_schedule.text().to_string())
+                            PollingConfig {
+                                schedule: polling_schedule.text().to_string(),
+                                api: None,
+                            }
                         } else {
                             return None;
                         };
@@ -427,13 +410,14 @@ impl NodeUi {
                                 .text()
                                 .to_string(),
                         },
-                        PollingSchedule(
-                            window
+                        PollingConfig {
+                            schedule: window
                                 .control(self.node_editor_panel.polling_schedule)
                                 .unwrap()
                                 .text()
                                 .to_string(),
-                        ),
+                            api: None,
+                        },
                     ),
                     NodeClass::Unknown => NodeClass::default(),
                 }
@@ -474,13 +458,14 @@ impl NodeUi {
                                 .text()
                                 .to_string(),
                         },
-                        PollingSchedule(
-                            window
+                        PollingConfig {
+                            schedule: window
                                 .control(self.node_editor_panel.polling_schedule)
                                 .unwrap()
                                 .text()
                                 .to_string(),
-                        ),
+                            api: None,
+                        },
                     ),
                     NodeClass::Unknown => NodeClass::default(),
                 }

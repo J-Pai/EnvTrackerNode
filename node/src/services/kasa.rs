@@ -27,7 +27,7 @@ use tokio_memq::Subscriber;
 use tokio_memq::TopicOptions;
 
 use crate::config::KasaDeviceConfig;
-use crate::config::PollingSchedule;
+use crate::config::PollingConfig;
 use crate::error::NodeError;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -238,7 +238,7 @@ impl KasaDevice {
 
     async fn add_polling(
         &mut self,
-        polling_schedule: &PollingSchedule,
+        polling_schedule: &PollingConfig,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let publisher = self.allocate_publisher().await?.clone();
         let scheduler = self.scheduler.read().await;
@@ -356,7 +356,7 @@ impl Kasa {
     pub(crate) async fn add_polling(
         &mut self,
         device: &String,
-        polling_schedule: &PollingSchedule,
+        polling_schedule: &PollingConfig,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.devices
             .get_mut(device)
