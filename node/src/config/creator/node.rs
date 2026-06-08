@@ -189,11 +189,7 @@ impl NodeUi {
         let save = form_panel.add(save);
 
         let mut node_editor_panel = NodeDeviceConfigUi::new(
-            NodeClass::KasaDevice(
-                String::new(),
-                Default::default(),
-                Default::default(),
-            ),
+            NodeClass::KasaDevice(String::new(), Default::default(), Default::default()),
             &mut form_panel,
             true,
             String::new(),

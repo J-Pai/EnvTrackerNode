@@ -70,7 +70,8 @@ pub struct BorrowPointsExample {
 
 impl Default for BorrowPointsExample {
     fn default() -> Self {
-        let points: Vec<[f64; 2]> = vec![[0.0, 1.0], [2.0, 3.0], [3.0, 2.0], [4.0, 5.0], [5.0, 9.0]];
+        let points: Vec<[f64; 2]> =
+            vec![[0.0, 1.0], [2.0, 3.0], [3.0, 2.0], [4.0, 5.0], [5.0, 9.0]];
         let points = points.iter().map(|p| PlotPoint::new(p[0], p[1])).collect();
         Self { points }
     }

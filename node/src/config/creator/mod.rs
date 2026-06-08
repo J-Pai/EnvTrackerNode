@@ -79,17 +79,20 @@ impl CreatorWindow {
         window.add(tabs);
         let config = window.config.as_ref().take();
 
-        let mut api_server = window.api_server.take().unwrap();
-        api_server.restore_config(&mut window, config.get_api_config());
-        window.api_server.replace(api_server);
+        if let Some(mut api_server) = window.api_server.take() {
+            api_server.restore_config(&mut window, config.get_api_config());
+            window.api_server.replace(api_server);
+        }
 
-        let mut frontend_server = window.frontend_server.take().unwrap();
-        frontend_server.restore_config(&mut window, config.get_frontend_config());
-        window.frontend_server.replace(frontend_server);
+        if let Some(mut frontend_server) = window.frontend_server.take() {
+            frontend_server.restore_config(&mut window, config.get_frontend_config());
+            window.frontend_server.replace(frontend_server);
+        }
 
-        let mut node_server = window.node_server.take().unwrap();
-        node_server.restore_config(&mut window, config.get_node_config());
-        window.node_server.replace(node_server);
+        if let Some(mut node_server) = window.node_server.take() {
+            node_server.restore_config(&mut window, config.get_node_config());
+            window.node_server.replace(node_server);
+        }
 
         window.config.as_ref().replace(config);
         window
@@ -107,7 +110,7 @@ impl ButtonEvents for CreatorWindow {
                     self.api_server.replace(api_server);
                     return event;
                 }
-                Err(_) => {},
+                Err(_) => {}
             }
 
             self.config.replace(server_config);
@@ -123,7 +126,7 @@ impl ButtonEvents for CreatorWindow {
                     self.frontend_server.replace(frontend_server);
                     return event;
                 }
-                Err(_) => {},
+                Err(_) => {}
             }
 
             self.config.replace(server_config);
@@ -139,7 +142,7 @@ impl ButtonEvents for CreatorWindow {
                     self.node_server.replace(node_server);
                     return event;
                 }
-                Err(_) => {},
+                Err(_) => {}
             }
 
             self.config.replace(server_config);

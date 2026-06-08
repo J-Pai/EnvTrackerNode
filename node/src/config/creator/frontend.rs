@@ -4,7 +4,6 @@ use appcui::prelude::*;
 
 use crate::config::FrontendServerConfig;
 use crate::config::Ip;
-use crate::config::NodeClass;
 use crate::config::ServerConfig;
 use crate::config::creator::CreatorWindow;
 
@@ -106,7 +105,6 @@ impl FrontendServerUi {
     ) -> Result<EventProcessStatus, Handle<Button>> {
         if handle == self.save_button {
             server_config.frontend_server = self.generate_config(window);
-
         }
         Err(handle)
     }

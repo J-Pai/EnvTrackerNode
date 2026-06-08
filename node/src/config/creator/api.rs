@@ -262,7 +262,11 @@ impl ApiServerUi {
         None
     }
 
-    pub(super) fn restore_config(&mut self, window: &mut CreatorWindow, config: Option<ApiServerConfig>) {
+    pub(super) fn restore_config(
+        &mut self,
+        window: &mut CreatorWindow,
+        config: Option<ApiServerConfig>,
+    ) {
         let config = if let Some(config) = config {
             config
         } else {
