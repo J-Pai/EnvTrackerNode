@@ -61,14 +61,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
-    let kasa: Option<Kasa> = None;
+    let mut kasa: Option<Kasa> = None;
 
     if let Some(node) = config.get_node_config() {
         for n in node.get_nodes() {
             let NodeClass::KasaDevice(id, cfg, sch) = n else {
                 continue;
             };
-            let mut kasa = Kasa::new(mq.clone(), scheduler.clone()).await;
+            let kasa = kasa.get_or_insert(Kasa::new(mq.clone(), scheduler.clone()).await);
             kasa.add_device(&id, &cfg).await?;
             kasa.add_polling(&id, &sch).await?;
         }
@@ -84,24 +84,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let poller = Poller::new(scheduler, db);
 
     if let Some(mut kasa) = kasa {
+        tracing::info!("[Service] Kasa Node");
         web = web.setup_kasa_route(&mut kasa).await?;
     }
 
     if let Some(config) = config.get_frontend_config() {
+        tracing::info!("[Service] Frontend");
         web = web.setup_frontend_route(&config).await?;
     }
 
     if let Some(config) = config.get_api_config() {
+        tracing::info!("[Service] API Backend");
         web = web.setup_api_route(&config).await?;
     }
 
     web.start(poller).await?;
-    // .setup_router(&config)
-    // .await?
-    // .setup_listener(&config)
-    // .await?
-    // .start()
-    // .await?;
 
     Ok(())
 }
