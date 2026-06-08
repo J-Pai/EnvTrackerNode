@@ -23,12 +23,13 @@ struct NodeDeviceConfigUi {
     username: Handle<TextField>,
     password: Handle<TextField>,
     polling_schedule: Handle<TextField>,
+    polling_endpoint: Handle<TextField>,
     node_class: NodeClass,
     height: u16,
 }
 
 impl NodeDeviceConfigUi {
-    const NODE_HEIGHT: u16 = 16;
+    const NODE_HEIGHT: u16 = 18;
 
     fn new(
         data: NodeClass,
@@ -44,7 +45,7 @@ impl NodeDeviceConfigUi {
             unreachable!();
         };
 
-        let smaller = if editor { 0 } else { 2 };
+        let smaller = if editor { 0 } else { 4 };
         let height = Self::NODE_HEIGHT - smaller;
 
         let info = if id.is_empty() {
@@ -99,9 +100,20 @@ impl NodeDeviceConfigUi {
         polling_schedule.set_enabled(editor);
         let polling_schedule = node_panel.add(polling_schedule);
 
+        node_panel.add(label!("'Polling Endpoint:', x:0, y:10, w: 32"));
+        let mut polling_endpoint = textfield!("caption='', x:32, y:10, w: 32");
+        let api = if let Some(api) = schedule.get_api().clone() {
+            api.clone()
+        } else {
+            String::new()
+        };
+        polling_endpoint.set_text(&api);
+        polling_endpoint.set_enabled(editor);
+        let polling_endpoint = node_panel.add(polling_endpoint);
+
         let dropdown = if editor {
             let mut db = DropDownList::<NodeClass>::new(
-                layout!("x:0, y:10, w:64"),
+                layout!("x:0, y:12, w:64"),
                 dropdownlist::Flags::ShowDescription,
             );
             db.add(NodeClass::KasaDevice(
@@ -117,8 +129,8 @@ impl NodeDeviceConfigUi {
         };
 
         let (add, update) = if editor {
-            let add = button!("'Add', x:0, y: 12, w:16");
-            let update = button!("'Update', x:32, y: 12, w: 16");
+            let add = button!("'Add', x:0, y: 14, w:16");
+            let update = button!("'Update', x:32, y: 14, w: 16");
             (Some(node_panel.add(add)), Some(node_panel.add(update)))
         } else {
             (None, None)
@@ -135,6 +147,7 @@ impl NodeDeviceConfigUi {
             username,
             password,
             polling_schedule,
+            polling_endpoint,
             node_class: NodeClass::KasaDevice(
                 String::new(),
                 Default::default(),
@@ -153,6 +166,7 @@ pub(super) struct NodeUi {
     add_node_button: Handle<Button>,
     update_node_button: Handle<Button>,
     remove_nodes_button: Handle<Button>,
+    load_node_button: Handle<Button>,
     node_index: usize,
     node_configs: HashMap<usize, NodeDeviceConfigUi>,
 }
@@ -183,6 +197,7 @@ impl NodeUi {
 
         let mut node_panel = Panel::new("", layout!("x:50%, y:0, w: 50%, h: 100%"));
         let remove_nodes = node_panel.add(button!("'Remove Nodes', x:1, y:0, w:16"));
+        let load_node = node_panel.add(button!("'Load Node', x:32, y:0, w:16"));
         let node_panel = tabs.add(index, node_panel);
 
         Self {
@@ -193,6 +208,7 @@ impl NodeUi {
             add_node_button: add_node,
             update_node_button: update_node,
             remove_nodes_button: remove_nodes,
+            load_node_button: load_node,
             node_index: 0,
             node_configs: HashMap::new(),
         }
@@ -287,6 +303,80 @@ impl NodeUi {
                         password.set_text(&device_config.get_password());
                         let polling_schedule = window.control_mut(config.polling_schedule).unwrap();
                         polling_schedule.set_text(&schedule.schedule);
+                        let polling_endpoint = window.control_mut(config.polling_endpoint).unwrap();
+                        let api = if let Some(api) = schedule.get_api().clone() {
+                            api.clone()
+                        } else {
+                            String::new()
+                        };
+                        polling_endpoint.set_text(&api);
+                    }
+                }
+            }
+        }
+        window.request_update();
+    }
+
+    fn load_node(&mut self, window: &mut CreatorWindow) {
+        for location in self.node_configs.keys() {
+            if let Some(config) = self.node_configs.get(location) {
+                let update = window.control(config.checkbox.unwrap()).unwrap();
+                if update.is_checked() {
+                    if let NodeClass::KasaDevice(_, _, _) = &config.node_class {
+                        let name = window
+                            .control(config.name)
+                            .unwrap()
+                            .text()
+                            .trim()
+                            .to_string();
+                        let editor_name = window.control_mut(self.node_editor_panel.name).unwrap();
+                        editor_name.set_text(&name);
+
+                        let ip = window.control(config.ip).unwrap().text().trim().to_string();
+                        let editor_ip = window.control_mut(self.node_editor_panel.ip).unwrap();
+                        editor_ip.set_text(&ip);
+
+                        let username = window
+                            .control(config.username)
+                            .unwrap()
+                            .text()
+                            .trim()
+                            .to_string();
+                        let editor_username =
+                            window.control_mut(self.node_editor_panel.username).unwrap();
+                        editor_username.set_text(&username);
+
+                        let password = window
+                            .control_mut(config.password)
+                            .unwrap()
+                            .text()
+                            .trim()
+                            .to_string();
+                        let editor_password =
+                            window.control_mut(self.node_editor_panel.password).unwrap();
+                        editor_password.set_text(&password);
+
+                        let polling_schedule = window
+                            .control(config.polling_schedule)
+                            .unwrap()
+                            .text()
+                            .trim()
+                            .to_string();
+                        let editor_polling_schedule = window
+                            .control_mut(self.node_editor_panel.polling_schedule)
+                            .unwrap();
+                        editor_polling_schedule.set_text(&polling_schedule);
+
+                        let polling_endpoint = window
+                            .control(config.polling_endpoint)
+                            .unwrap()
+                            .text()
+                            .trim()
+                            .to_string();
+                        let editor_polling_endpoint = window
+                            .control_mut(self.node_editor_panel.polling_endpoint)
+                            .unwrap();
+                        editor_polling_endpoint.set_text(&polling_endpoint);
                     }
                 }
             }
@@ -325,10 +415,17 @@ impl NodeUi {
                         };
                         let polling_schedule = if let Some(polling_schedule) =
                             window.control(config.polling_schedule)
+                            && let Some(polling_endpoint) = window.control(config.polling_endpoint)
                         {
+                            let polling_endpoint = polling_endpoint.text().trim();
+                            let endpoint = if polling_endpoint.is_empty() {
+                                None
+                            } else {
+                                Some(polling_endpoint.to_string())
+                            };
                             PollingConfig {
                                 schedule: polling_schedule.text().to_string(),
-                                api: None,
+                                api: endpoint,
                             }
                         } else {
                             return None;
@@ -387,38 +484,50 @@ impl NodeUi {
                 && let Some(node_class) = node_class.selected_item()
             {
                 match node_class {
-                    NodeClass::KasaDevice(_, _, _) => NodeClass::KasaDevice(
-                        window
-                            .control(self.node_editor_panel.name)
-                            .unwrap()
-                            .text()
-                            .to_string(),
-                        KasaDeviceConfig {
-                            ip: Ip(window
-                                .control(self.node_editor_panel.ip)
-                                .unwrap()
-                                .text()
-                                .to_string()),
-                            username: window
-                                .control(self.node_editor_panel.username)
-                                .unwrap()
-                                .text()
-                                .to_string(),
-                            password: window
-                                .control(self.node_editor_panel.password)
+                    NodeClass::KasaDevice(_, _, _) => {
+                        let polling_endpoint = window
+                            .control(self.node_editor_panel.polling_endpoint)
+                            .unwrap();
+
+                        let polling_endpoint = polling_endpoint.text().trim();
+                        let endpoint = if polling_endpoint.is_empty() {
+                            None
+                        } else {
+                            Some(polling_endpoint.to_string())
+                        };
+                        NodeClass::KasaDevice(
+                            window
+                                .control(self.node_editor_panel.name)
                                 .unwrap()
                                 .text()
                                 .to_string(),
-                        },
-                        PollingConfig {
-                            schedule: window
-                                .control(self.node_editor_panel.polling_schedule)
-                                .unwrap()
-                                .text()
-                                .to_string(),
-                            api: None,
-                        },
-                    ),
+                            KasaDeviceConfig {
+                                ip: Ip(window
+                                    .control(self.node_editor_panel.ip)
+                                    .unwrap()
+                                    .text()
+                                    .to_string()),
+                                username: window
+                                    .control(self.node_editor_panel.username)
+                                    .unwrap()
+                                    .text()
+                                    .to_string(),
+                                password: window
+                                    .control(self.node_editor_panel.password)
+                                    .unwrap()
+                                    .text()
+                                    .to_string(),
+                            },
+                            PollingConfig {
+                                schedule: window
+                                    .control(self.node_editor_panel.polling_schedule)
+                                    .unwrap()
+                                    .text()
+                                    .to_string(),
+                                api: endpoint,
+                            },
+                        )
+                    }
                     NodeClass::Unknown => NodeClass::default(),
                 }
             } else {
@@ -435,38 +544,50 @@ impl NodeUi {
                 && let Some(node_class) = node_class.selected_item()
             {
                 match node_class {
-                    NodeClass::KasaDevice(_, _, _) => NodeClass::KasaDevice(
-                        window
-                            .control(self.node_editor_panel.name)
-                            .unwrap()
-                            .text()
-                            .to_string(),
-                        KasaDeviceConfig {
-                            ip: Ip(window
-                                .control(self.node_editor_panel.ip)
-                                .unwrap()
-                                .text()
-                                .to_string()),
-                            username: window
-                                .control(self.node_editor_panel.username)
-                                .unwrap()
-                                .text()
-                                .to_string(),
-                            password: window
-                                .control(self.node_editor_panel.password)
+                    NodeClass::KasaDevice(_, _, _) => {
+                        let polling_endpoint = window
+                            .control(self.node_editor_panel.polling_endpoint)
+                            .unwrap();
+
+                        let polling_endpoint = polling_endpoint.text().trim();
+                        let endpoint = if polling_endpoint.is_empty() {
+                            None
+                        } else {
+                            Some(polling_endpoint.to_string())
+                        };
+                        NodeClass::KasaDevice(
+                            window
+                                .control(self.node_editor_panel.name)
                                 .unwrap()
                                 .text()
                                 .to_string(),
-                        },
-                        PollingConfig {
-                            schedule: window
-                                .control(self.node_editor_panel.polling_schedule)
-                                .unwrap()
-                                .text()
-                                .to_string(),
-                            api: None,
-                        },
-                    ),
+                            KasaDeviceConfig {
+                                ip: Ip(window
+                                    .control(self.node_editor_panel.ip)
+                                    .unwrap()
+                                    .text()
+                                    .to_string()),
+                                username: window
+                                    .control(self.node_editor_panel.username)
+                                    .unwrap()
+                                    .text()
+                                    .to_string(),
+                                password: window
+                                    .control(self.node_editor_panel.password)
+                                    .unwrap()
+                                    .text()
+                                    .to_string(),
+                            },
+                            PollingConfig {
+                                schedule: window
+                                    .control(self.node_editor_panel.polling_schedule)
+                                    .unwrap()
+                                    .text()
+                                    .to_string(),
+                                api: endpoint,
+                            },
+                        )
+                    }
                     NodeClass::Unknown => NodeClass::default(),
                 }
             } else {
@@ -479,6 +600,11 @@ impl NodeUi {
 
         if handle == self.remove_nodes_button {
             self.remove_nodes(window);
+            return Ok(EventProcessStatus::Processed);
+        }
+
+        if handle == self.load_node_button {
+            self.load_node(window);
             return Ok(EventProcessStatus::Processed);
         }
 

@@ -141,6 +141,7 @@ pub(super) struct ApiServerUi {
     update_node_button: Handle<Button>,
     add_node_button: Handle<Button>,
     remove_nodes_button: Handle<Button>,
+    load_node_button: Handle<Button>,
     node_index: usize,
     node_configs: HashMap<usize, NodeConfigUi>,
 }
@@ -172,6 +173,7 @@ impl ApiServerUi {
 
         let mut node_panel = Panel::new("", layout!("x:50%, y:0, w: 50%, h: 100%"));
         let remove_nodes = node_panel.add(button!("'Remove Nodes', x:1, y:0, w:16"));
+        let load_node = node_panel.add(button!("'Load Node', x:32, y:0, w:16"));
         let node_panel = tabs.add(index, node_panel);
         let add_node = node_editor_panel.add.take().unwrap();
         let update_node = node_editor_panel.update.take().unwrap();
@@ -185,6 +187,7 @@ impl ApiServerUi {
             update_node_button: update_node,
             add_node_button: add_node,
             remove_nodes_button: remove_nodes,
+            load_node_button: load_node,
             node_index: 0,
             node_configs: HashMap::new(),
         }
@@ -262,6 +265,51 @@ impl ApiServerUi {
             }
         }
 
+        window.request_update();
+    }
+
+    fn load_node(&mut self, window: &mut CreatorWindow) {
+        for location in self.node_configs.keys() {
+            if let Some(config) = self.node_configs.get(location) {
+                let update = window.control(config.checkbox.unwrap()).unwrap();
+                if update.is_checked() {
+                    let name = window
+                        .control(config.name)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_name = window.control_mut(self.node_editor_panel.name).unwrap();
+                    editor_name.set_text(&name);
+
+                    let ip = window.control(config.ip).unwrap().text().trim().to_string();
+                    let editor_ip = window.control_mut(self.node_editor_panel.ip).unwrap();
+                    editor_ip.set_text(&ip);
+
+                    let polling_schedule = window
+                        .control(config.polling_schedule)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_polling_schedule = window
+                        .control_mut(self.node_editor_panel.polling_schedule)
+                        .unwrap();
+                    editor_polling_schedule.set_text(&polling_schedule);
+
+                    let polling_endpoint = window
+                        .control(config.polling_endpoint)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_polling_endpoint = window
+                        .control_mut(self.node_editor_panel.polling_endpoint)
+                        .unwrap();
+                    editor_polling_endpoint.set_text(&polling_endpoint);
+                }
+            }
+        }
         window.request_update();
     }
 
@@ -430,6 +478,11 @@ impl ApiServerUi {
             );
 
             self.update_nodes(window, data);
+            return Ok(EventProcessStatus::Processed);
+        }
+
+        if handle == self.load_node_button {
+            self.load_node(window);
             return Ok(EventProcessStatus::Processed);
         }
 
