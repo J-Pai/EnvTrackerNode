@@ -54,6 +54,8 @@ impl NodeConfigUi {
         let (id, device_config, schedule) = match data {
             NodeClass::KasaDevice(id, device_config, schedule) => (id, device_config, schedule),
             NodeClass::Unknown => (
+                // Unknown is currently an unlikely configuration, as such, defaulting to Kasa
+                // Device. Once other node types arrive this will be adjusted.
                 String::from("node_name"),
                 KasaDeviceConfig::default(),
                 PollingConfig::default(),
@@ -259,9 +261,9 @@ impl ApiServerUi {
                     && let NodeClass::KasaDevice(id, device_config, schedule) = &data
                 {
                     let name = window.control_mut(config.name).unwrap();
-                    // name.set_text(&data.0);
+                    name.set_text(&id);
                     let ip = window.control_mut(config.ip).unwrap();
-                    // ip.set_text(&data.1.0);
+                    ip.set_text(&device_config.get_ip());
                     let polling_schedule = window.control_mut(config.polling_schedule).unwrap();
                     polling_schedule.set_text(&schedule.schedule);
                     let polling_endpoint = window.control_mut(config.polling_endpoint).unwrap();
@@ -365,7 +367,17 @@ impl ApiServerUi {
                     } else {
                         return None;
                     };
-                    nodes.push(NodeClass::default());
+
+                    // Assuming everything is just a Kasa Device for now.
+                    nodes.push(NodeClass::KasaDevice(
+                        name,
+                        KasaDeviceConfig {
+                            ip,
+                            username: String::new(),
+                            password: String::new(),
+                        },
+                        polling_schedule,
+                    ));
                 } else {
                     return None;
                 };
@@ -430,8 +442,22 @@ impl ApiServerUi {
             let class = class.selected_item();
             let data = match class.unwrap() {
                 NodeClass::KasaDevice(_, _, _) => NodeClass::KasaDevice(
-                    Default::default(),
-                    Default::default(),
+                    window
+                        .control(self.node_editor_panel.name)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string(),
+                    KasaDeviceConfig {
+                        ip: Ip(window
+                            .control(self.node_editor_panel.ip)
+                            .unwrap()
+                            .text()
+                            .trim()
+                            .to_string()),
+                        username: String::new(),
+                        password: String::new(),
+                    },
                     PollingConfig {
                         schedule: window
                             .control(self.node_editor_panel.polling_schedule)
@@ -471,8 +497,22 @@ impl ApiServerUi {
             let class = class.selected_item();
             let data = match class.unwrap() {
                 NodeClass::KasaDevice(_, _, _) => NodeClass::KasaDevice(
-                    Default::default(),
-                    Default::default(),
+                    window
+                        .control(self.node_editor_panel.name)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string(),
+                    KasaDeviceConfig {
+                        ip: Ip(window
+                            .control(self.node_editor_panel.ip)
+                            .unwrap()
+                            .text()
+                            .trim()
+                            .to_string()),
+                        username: String::new(),
+                        password: String::new(),
+                    },
                     PollingConfig {
                         schedule: window
                             .control(self.node_editor_panel.polling_schedule)
