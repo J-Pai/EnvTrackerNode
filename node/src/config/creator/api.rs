@@ -8,7 +8,6 @@ use crate::config::ApiServerConfig;
 use crate::config::Ip;
 use crate::config::KasaDeviceConfig;
 use crate::config::NodeClass;
-use crate::config::NodeDatasource;
 use crate::config::PollingConfig;
 use crate::config::ServerConfig;
 use crate::config::creator::CreatorWindow;
@@ -30,7 +29,7 @@ impl NodeConfigUi {
     const NODE_HEIGHT: u16 = 14;
 
     pub(super) fn new(
-        data: NodeDatasource,
+        data: NodeClass,
         panel: &mut Panel,
         editor: bool,
         id: String,
@@ -52,6 +51,15 @@ impl NodeConfigUi {
                 .build(),
         );
 
+        let (id, device_config, schedule) = match data {
+            NodeClass::KasaDevice(id, device_config, schedule) => (id, device_config, schedule),
+            NodeClass::Unknown => (
+                String::from("node_name"),
+                KasaDeviceConfig::default(),
+                PollingConfig::default(),
+            ),
+        };
+
         let checkbox = if editor {
             let name_label = label!("'Node Name:', x:0, y:0, w:32");
             node_editor_panel.add(name_label);
@@ -61,24 +69,24 @@ impl NodeConfigUi {
             Some(node_editor_panel.add(checkbox))
         };
         let mut name = textfield!("caption='node_name', x:32, y:0, w: 32");
-        name.set_text(&data.0);
+        name.set_text(&id);
         name.set_enabled(editor);
         let name = node_editor_panel.add(name);
         node_editor_panel.add(label!("'IP:', x:0, y:2, w: 32"));
         let mut ip = textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32");
-        ip.set_text(&data.1.0);
+        ip.set_text(&device_config.get_ip());
         ip.set_enabled(editor);
         let ip = node_editor_panel.add(ip);
 
         node_editor_panel.add(label!("'Polling Schedule:', x:0, y:4, w: 32"));
         let mut polling_schedule = textfield!("caption='0 * * * * *', x:32, y:4, w: 32");
-        polling_schedule.set_text(&data.2.schedule);
+        polling_schedule.set_text(&schedule.schedule);
         polling_schedule.set_enabled(editor);
         let polling_schedule = node_editor_panel.add(polling_schedule);
 
         node_editor_panel.add(label!("'Polling Endpoint:', x:0, y:6, w: 32"));
         let mut polling_endpoint = textfield!("caption='', x:32, y:6, w: 32");
-        let api = if let Some(api) = data.2.get_api().clone() {
+        let api = if let Some(api) = schedule.get_api().clone() {
             api.clone()
         } else {
             String::new()
@@ -161,7 +169,7 @@ impl ApiServerUi {
         let db = form_panel.add(textfield!("caption='sqlite.db', x:32, y:2, w:32"));
 
         let mut node_editor_panel = NodeConfigUi::new(
-            NodeDatasource::default(),
+            NodeClass::default(),
             &mut form_panel,
             true,
             String::new(),
@@ -193,7 +201,7 @@ impl ApiServerUi {
         }
     }
 
-    fn add_node(&mut self, window: &mut CreatorWindow, data: NodeDatasource) {
+    fn add_node(&mut self, window: &mut CreatorWindow, data: NodeClass) {
         let index = self.node_configs.len() as u16;
         let node_panel = window.control_mut(self.node_panel).unwrap();
         self.node_configs.insert(
@@ -243,19 +251,21 @@ impl ApiServerUi {
         window.request_update();
     }
 
-    fn update_nodes(&mut self, window: &mut CreatorWindow, data: NodeDatasource) {
+    fn update_nodes(&mut self, window: &mut CreatorWindow, data: NodeClass) {
         for location in self.node_configs.keys() {
             if let Some(config) = self.node_configs.get(location) {
                 let update = window.control(config.checkbox.unwrap()).unwrap();
-                if update.is_checked() {
+                if update.is_checked()
+                    && let NodeClass::KasaDevice(id, device_config, schedule) = &data
+                {
                     let name = window.control_mut(config.name).unwrap();
-                    name.set_text(&data.0);
+                    // name.set_text(&data.0);
                     let ip = window.control_mut(config.ip).unwrap();
-                    ip.set_text(&data.1.0);
+                    // ip.set_text(&data.1.0);
                     let polling_schedule = window.control_mut(config.polling_schedule).unwrap();
-                    polling_schedule.set_text(&data.2.schedule);
+                    polling_schedule.set_text(&schedule.schedule);
                     let polling_endpoint = window.control_mut(config.polling_endpoint).unwrap();
-                    let api = if let Some(api) = data.2.get_api().clone() {
+                    let api = if let Some(api) = schedule.get_api().clone() {
                         api.clone()
                     } else {
                         String::new()
@@ -323,7 +333,7 @@ impl ApiServerUi {
                 return None;
             };
 
-            let mut nodes: Vec<NodeDatasource> = vec![];
+            let mut nodes: Vec<NodeClass> = vec![];
 
             for (_, (_, config)) in self.node_configs.iter().enumerate() {
                 if let Some(_) = window.control(config.panel) {
@@ -355,7 +365,7 @@ impl ApiServerUi {
                     } else {
                         return None;
                     };
-                    nodes.push(NodeDatasource(name, ip, polling_schedule));
+                    nodes.push(NodeClass::default());
                 } else {
                     return None;
                 };
@@ -414,26 +424,25 @@ impl ApiServerUi {
                 Some(polling_endpoint.to_string())
             };
 
-            let data = NodeDatasource(
-                window
-                    .control(self.node_editor_panel.name)
-                    .unwrap()
-                    .text()
-                    .to_string(),
-                Ip(window
-                    .control(self.node_editor_panel.ip)
-                    .unwrap()
-                    .text()
-                    .to_string()),
-                PollingConfig {
-                    schedule: window
-                        .control(self.node_editor_panel.polling_schedule)
-                        .unwrap()
-                        .text()
-                        .to_string(),
-                    api: endpoint,
-                },
-            );
+            let class = window
+                .control(self.node_editor_panel.dropdown.unwrap())
+                .unwrap();
+            let class = class.selected_item();
+            let data = match class.unwrap() {
+                NodeClass::KasaDevice(_, _, _) => NodeClass::KasaDevice(
+                    Default::default(),
+                    Default::default(),
+                    PollingConfig {
+                        schedule: window
+                            .control(self.node_editor_panel.polling_schedule)
+                            .unwrap()
+                            .text()
+                            .to_string(),
+                        api: endpoint,
+                    },
+                ),
+                NodeClass::Unknown => NodeClass::Unknown,
+            };
 
             self.add_node(window, data);
             return Ok(EventProcessStatus::Processed);
@@ -456,26 +465,25 @@ impl ApiServerUi {
                 Some(polling_endpoint.to_string())
             };
 
-            let data = NodeDatasource(
-                window
-                    .control(self.node_editor_panel.name)
-                    .unwrap()
-                    .text()
-                    .to_string(),
-                Ip(window
-                    .control(self.node_editor_panel.ip)
-                    .unwrap()
-                    .text()
-                    .to_string()),
-                PollingConfig {
-                    schedule: window
-                        .control(self.node_editor_panel.polling_schedule)
-                        .unwrap()
-                        .text()
-                        .to_string(),
-                    api: endpoint,
-                },
-            );
+            let class = window
+                .control(self.node_editor_panel.dropdown.unwrap())
+                .unwrap();
+            let class = class.selected_item();
+            let data = match class.unwrap() {
+                NodeClass::KasaDevice(_, _, _) => NodeClass::KasaDevice(
+                    Default::default(),
+                    Default::default(),
+                    PollingConfig {
+                        schedule: window
+                            .control(self.node_editor_panel.polling_schedule)
+                            .unwrap()
+                            .text()
+                            .to_string(),
+                        api: endpoint,
+                    },
+                ),
+                NodeClass::Unknown => NodeClass::Unknown,
+            };
 
             self.update_nodes(window, data);
             return Ok(EventProcessStatus::Processed);

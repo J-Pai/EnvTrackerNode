@@ -103,25 +103,11 @@ impl PollingConfig {
     }
 }
 
-/// Node datasource configuration.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct NodeDatasource(String, Ip, PollingConfig);
-
-impl Default for NodeDatasource {
-    fn default() -> Self {
-        Self(
-            String::from("node_name"),
-            Ip::default(),
-            PollingConfig::default(),
-        )
-    }
-}
-
 /// API and Database server configuration.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ApiServerConfig {
     /// List of nodes to poll and its polling schedule.
-    nodes: Vec<NodeDatasource>,
+    nodes: Vec<NodeClass>,
     /// Path to database file (SQLite).
     db: String,
 }
@@ -131,7 +117,7 @@ impl ApiServerConfig {
         self.db.clone()
     }
 
-    pub(crate) fn get_nodes(&self) -> &Vec<NodeDatasource> {
+    pub(crate) fn get_nodes(&self) -> &Vec<NodeClass> {
         &self.nodes
     }
 }
