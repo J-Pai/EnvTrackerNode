@@ -130,6 +130,10 @@ impl ApiServerConfig {
     pub(crate) fn get_db(&self) -> String {
         self.db.clone()
     }
+
+    pub(crate) fn get_nodes(&self) -> &Vec<NodeDatasource> {
+        &self.nodes
+    }
 }
 
 // Frontend configuration.
