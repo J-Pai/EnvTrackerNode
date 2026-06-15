@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::extract::Path;
 use axum::routing;
 use serde_json::Value;
 use tokio::sync::RwLock;

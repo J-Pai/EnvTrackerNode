@@ -1,7 +1,6 @@
 //! Logic for serving the frontend.
 
 use axum::body::Body;
-use axum::extract::Path;
 use axum::extract::Request;
 use axum::http::header;
 use axum::response::IntoResponse;

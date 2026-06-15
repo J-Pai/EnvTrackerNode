@@ -87,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut web = Web::new(db.clone());
-    let poller = Poller::new(scheduler, db);
+    let mut poller = Poller::new(scheduler, db);
 
     if let Some(mut kasa) = kasa {
         tracing::info!("[Service] Kasa Node");
@@ -101,7 +101,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(config) = config.get_api_config() {
         tracing::info!("[Service] API Backend");
-        web = web.setup_api_route(&config).await?;
+        poller = poller.setup_node_polling(&config).await?;
+        // web = web.setup_api_route(&config).await?;
     }
 
     web.start(poller).await?;

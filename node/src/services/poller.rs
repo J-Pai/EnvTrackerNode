@@ -1,34 +1,120 @@
 //! Logic for polling node endpoints.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
+use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
 use tokio::sync::RwLock;
+use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
 
 use crate::config::ApiServerConfig;
+use crate::config::NodeClass;
 use crate::services::db::Db;
+use crate::services::kasa::KasaChildInfo;
 
 pub(crate) struct Poller {
     scheduler: Arc<RwLock<JobScheduler>>,
     db: Option<Db>,
-    clients: HashMap<String, Client>,
 }
 
 impl Poller {
     pub(crate) fn new(scheduler: Arc<RwLock<JobScheduler>>, db: Option<Db>) -> Self {
-        Self {
-            scheduler,
-            db,
-            clients: HashMap::new(),
-        }
+        Self { scheduler, db }
     }
 
-    pub(crate) fn setup_node_client(
+    pub(crate) async fn setup_node_polling(
         self,
         config: &ApiServerConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        let nodes = config.get_nodes();
+
+        for node in nodes {
+            let node = node.clone();
+            let scheduler = self.scheduler.read().await;
+            let node_client = ClientBuilder::new(Client::new()).build();
+            let db = self.db.as_ref().unwrap().clone();
+
+            match node {
+                NodeClass::KasaDevice(topic, device_config, polling) => {
+                    let route = match polling.clone().get_api() {
+                        Some(endpoint) => endpoint,
+                        None => String::new(),
+                    };
+
+                    let job = Job::new_async(polling.get_schedule(), move |_uuid, _l| {
+                        Box::pin({
+                            let topic = topic.clone();
+                            let device_config = device_config.clone();
+                            let route = route.clone();
+                            let mut db = db.clone();
+                            let node_client = node_client.clone();
+                            async move {
+                                if let Err(e) = db.create_connection().await {
+                                    tracing::warn!("Unable to create connection: {:#?}", e);
+                                    return;
+                                };
+
+                                let mut sample_count = 0;
+                                let url = format!("http://{}{}", device_config.get_ip(), route);
+
+                                loop {
+                                    sample_count += 1;
+
+                                    match node_client.get(&url).send().await {
+                                        Ok(data) => {
+                                            let json =
+                                                data.text().await.unwrap_or("[]".to_string());
+
+                                            match serde_json::from_str::<Vec<Vec<KasaChildInfo>>>(
+                                                &json,
+                                            ) {
+                                                Ok(data) => {
+                                                    if data.is_empty() {
+                                                        break;
+                                                    }
+                                                    if let Err(e) =
+                                                        db.push_kasa_data(&topic, &data).await
+                                                    {
+                                                        tracing::warn!(
+                                                            "Failed to write data: {:#?}",
+                                                            e
+                                                        );
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    tracing::warn!("Error parsing data {:#?}", e);
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(
+                                                "Issue with: {}{} - {:#?}",
+                                                device_config.get_ip(),
+                                                route,
+                                                e
+                                            );
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                tracing::debug!(
+                                    "Requested {}x {}{}",
+                                    sample_count,
+                                    device_config.get_ip(),
+                                    route
+                                );
+                            }
+                        })
+                    })?;
+
+                    scheduler.add(job).await?;
+                }
+                _ => {}
+            }
+        }
+
         Ok(self)
     }
 

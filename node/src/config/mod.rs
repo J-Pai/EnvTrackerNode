@@ -101,6 +101,10 @@ impl PollingConfig {
     pub(crate) fn get_api(&self) -> Option<String> {
         self.api.clone()
     }
+
+    pub(crate) fn get_schedule(&self) -> String {
+        self.schedule.clone()
+    }
 }
 
 /// API and Database server configuration.
