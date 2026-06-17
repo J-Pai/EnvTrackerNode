@@ -1,0 +1,9 @@
+[build]
+default-target = "aarch64-unknown-linux-gnu"
+
+[target.aarch64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get update && apt-get upgrade",
+    "apt-get install --assume-yes libncursesw5-dev:$CROSS_DEB_ARCH"
+]

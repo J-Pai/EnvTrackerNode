@@ -1,4 +1,6 @@
-venv
-target
 dist
+install/release
+target
+target_trunk
+venv
 *.db*
