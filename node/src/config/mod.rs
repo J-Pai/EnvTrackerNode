@@ -5,8 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::exit;
 
-use crate::config::creator::Creator;
-
+#[cfg(feature = "tui")]
 mod creator;
 
 /// Base configuration structure.
@@ -19,6 +18,7 @@ pub(crate) struct ServerConfig {
 
 impl ServerConfig {
     pub(crate) fn new(path: PathBuf, edit_config: bool) -> Self {
+        #[allow(unused_variables)]
         let config = if let Ok(config_text) = fs::read_to_string(&path)
             && let Ok(config) = toml::from_str(&config_text)
         {
@@ -36,7 +36,8 @@ impl ServerConfig {
             ServerConfig::default()
         };
 
-        Creator::new(config).unwrap().create().unwrap().write(path);
+        #[cfg(feature = "tui")]
+        crate::config::creator::Creator::new(config).unwrap().create().unwrap().write(path);
 
         exit(0);
     }

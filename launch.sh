@@ -64,3 +64,6 @@ CARGO_TARGET_DIR="target_trunk" trunk $TRUNK_ACTION $RELEASE_FLAG &
 
 echo "=== Cargo RUN ==="
 $CARGO_BINARY $CARGO_ACTION $RELEASE_FLAG -- $@
+
+echo "Finalizing..."
+wait

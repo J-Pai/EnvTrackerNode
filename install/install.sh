@@ -14,8 +14,12 @@ cd $SCRIPT_DIR
 
 rm -rf release
 mkdir -p release
-zip -r release/envtrackernode.zip \
-	./install_node.sh \
-	../dist \
-	../target/aarch64-unknown-linux-gnu/release/node
+pushd ..
+zip -r ./install/release/envtrackernode.zip \
+	./install/install_node.sh \
+	./dist \
+	./target/aarch64-unknown-linux-musl/release/node \
+	-x "./dist/.stage/*"
+popd
 
+scp -r release $1
