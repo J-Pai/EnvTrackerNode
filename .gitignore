@@ -1,5 +1,6 @@
 dist
 install/release
+install/*.zip
 target
 target_trunk
 venv
