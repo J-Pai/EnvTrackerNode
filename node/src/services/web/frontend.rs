@@ -1,17 +1,14 @@
 //! Logic for serving the frontend.
 
+use crate::config::FrontendServerConfig;
 use axum::body::Body;
 use axum::extract::Request;
 use axum::http::header;
 use axum::response::IntoResponse;
 use axum::response::Response;
 use axum::routing;
-use notify::Watcher;
 use tokio::io::AsyncReadExt;
 use tower_http::services::ServeDir;
-use tower_livereload::LiveReloadLayer;
-
-use crate::config::FrontendServerConfig;
 
 use super::Web;
 
@@ -55,6 +52,9 @@ impl Web {
 
         #[cfg(debug_assertions)]
         {
+            use notify::Watcher;
+            use tower_livereload::LiveReloadLayer;
+
             let router = self.router;
             let livereload = LiveReloadLayer::new();
             let reloader = livereload.reloader();

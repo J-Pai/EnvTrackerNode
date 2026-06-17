@@ -1,7 +1,6 @@
 //! Sets up the web services.
 
 use axum::Router;
-use notify::RecommendedWatcher;
 
 use crate::services::db::Db;
 use crate::services::poller::Poller;
@@ -12,13 +11,15 @@ mod kasa_node;
 
 pub(crate) struct Web {
     router: Router,
-    watcher: Option<RecommendedWatcher>,
+    #[cfg(debug_assertions)]
+    watcher: Option<notify::RecommendedWatcher>,
 }
 
 impl Web {
     pub(crate) fn new(_db: Option<Db>) -> Self {
         Self {
             router: Router::new(),
+            #[cfg(debug_assertions)]
             watcher: None,
         }
     }

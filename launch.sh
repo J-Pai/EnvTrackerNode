@@ -7,11 +7,16 @@ pkill -INT trunk
 
 RELEASE_FLAG=""
 TRUNK_ACTION="build"
+CARGO_ACTION="run"
 
 while [ $# -gt 0 ]; do
 	case $1 in
 		release)
 			RELEASE_FLAG="--release"
+			;;
+		build-release)
+			RELEASE_FLAG="--release"
+			CARGO_ACTION="build"
 			;;
 		watch)
 			TRUNK_ACTION="watch"
@@ -41,4 +46,4 @@ fi
 
 echo "=== Cargo RUN ==="
 
-cargo run $RELEASE_FLAG -- $@
+cargo $CARGO_ACTION $RELEASE_FLAG -- $@
