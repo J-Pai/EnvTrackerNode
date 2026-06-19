@@ -317,9 +317,9 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "appcui"
-version = "0.4.11"
+version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "201c2270151e31bf6a7c2b2d073f3e005c7546beb6da265ebd2a80569ff78fa1"
+checksum = "5a37fcbde5587057c06e49c0d85d16a5853a9d2dee1172c9da801694561bef8c"
 dependencies = [
  "EnumBitFlags",
  "appcui_proc_macro",

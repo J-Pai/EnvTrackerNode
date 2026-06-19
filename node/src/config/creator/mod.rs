@@ -5,9 +5,11 @@ use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use appcui::backend::Type;
 use appcui::prelude::*;
 
-use crate::config::{NodeClass, ServerConfig};
+use crate::config::NodeClass;
+use crate::config::ServerConfig;
 use crate::error::NodeError;
 use api::ApiServerUi;
 use frontend::FrontendServerUi;

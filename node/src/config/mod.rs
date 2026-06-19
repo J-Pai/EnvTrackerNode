@@ -37,7 +37,11 @@ impl ServerConfig {
         };
 
         #[cfg(feature = "tui")]
-        crate::config::creator::Creator::new(config).unwrap().create().unwrap().write(path);
+        crate::config::creator::Creator::new(config)
+            .unwrap()
+            .create()
+            .unwrap()
+            .write(path);
 
         exit(0);
     }
