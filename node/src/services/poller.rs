@@ -35,83 +35,75 @@ impl Poller {
             let node_client = ClientBuilder::new(Client::new()).build();
             let db = self.db.as_ref().unwrap().clone();
 
-            match node {
-                NodeClass::KasaDevice(topic, device_config, polling) => {
-                    let route = match polling.clone().get_api() {
-                        Some(endpoint) => endpoint,
-                        None => String::new(),
-                    };
+            if let NodeClass::KasaDevice(topic, device_config, polling) = node {
+                let route = polling.clone().get_api().unwrap_or_default();
 
-                    let job = Job::new_async(polling.get_schedule(), move |_uuid, _l| {
-                        Box::pin({
-                            let topic = topic.clone();
-                            let device_config = device_config.clone();
-                            let route = route.clone();
-                            let mut db = db.clone();
-                            let node_client = node_client.clone();
-                            async move {
-                                if let Err(e) = db.create_connection().await {
-                                    tracing::warn!("Unable to create connection: {:#?}", e);
-                                    return;
-                                };
+                let job = Job::new_async(polling.get_schedule(), move |_uuid, _l| {
+                    Box::pin({
+                        let topic = topic.clone();
+                        let device_config = device_config.clone();
+                        let route = route.clone();
+                        let mut db = db.clone();
+                        let node_client = node_client.clone();
+                        async move {
+                            if let Err(e) = db.create_connection().await {
+                                tracing::warn!("Unable to create connection: {:#?}", e);
+                                return;
+                            };
 
-                                let mut sample_count = 0;
-                                let url = format!("http://{}{}", device_config.get_ip(), route);
+                            let mut sample_count = 0;
+                            let url = format!("http://{}{}", device_config.get_ip(), route);
 
-                                loop {
-                                    sample_count += 1;
+                            loop {
+                                sample_count += 1;
 
-                                    match node_client.get(&url).send().await {
-                                        Ok(data) => {
-                                            let json =
-                                                data.text().await.unwrap_or("[]".to_string());
+                                match node_client.get(&url).send().await {
+                                    Ok(data) => {
+                                        let json = data.text().await.unwrap_or("[]".to_string());
 
-                                            match serde_json::from_str::<Vec<Vec<KasaChildInfo>>>(
-                                                &json,
-                                            ) {
-                                                Ok(data) => {
-                                                    if data.is_empty() {
-                                                        break;
-                                                    }
-                                                    if let Err(e) =
-                                                        db.push_kasa_data(&topic, &data).await
-                                                    {
-                                                        tracing::warn!(
-                                                            "Failed to write data: {:#?}",
-                                                            e
-                                                        );
-                                                    }
+                                        match serde_json::from_str::<Vec<Vec<KasaChildInfo>>>(&json)
+                                        {
+                                            Ok(data) => {
+                                                if data.is_empty() {
+                                                    break;
                                                 }
-                                                Err(e) => {
-                                                    tracing::warn!("Error parsing data {:#?}", e);
+                                                if let Err(e) =
+                                                    db.push_kasa_data(&topic, &data).await
+                                                {
+                                                    tracing::warn!(
+                                                        "Failed to write data: {:#?}",
+                                                        e
+                                                    );
                                                 }
                                             }
-                                        }
-                                        Err(e) => {
-                                            tracing::warn!(
-                                                "Issue with: {}{} - {:#?}",
-                                                device_config.get_ip(),
-                                                route,
-                                                e
-                                            );
-                                            break;
+                                            Err(e) => {
+                                                tracing::warn!("Error parsing data {:#?}", e);
+                                            }
                                         }
                                     }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "Issue with: {}{} - {:#?}",
+                                            device_config.get_ip(),
+                                            route,
+                                            e
+                                        );
+                                        break;
+                                    }
                                 }
-
-                                tracing::debug!(
-                                    "Requested {}x {}{}",
-                                    sample_count,
-                                    device_config.get_ip(),
-                                    route
-                                );
                             }
-                        })
-                    })?;
 
-                    scheduler.add(job).await?;
-                }
-                _ => {}
+                            tracing::debug!(
+                                "Requested {}x {}{}",
+                                sample_count,
+                                device_config.get_ip(),
+                                route
+                            );
+                        }
+                    })
+                })?;
+
+                scheduler.add(job).await?;
             }
         }
 

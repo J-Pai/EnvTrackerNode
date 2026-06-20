@@ -153,7 +153,7 @@ impl NodeDeviceConfigUi {
                 Default::default(),
                 Default::default(),
             ),
-            height: height,
+            height,
         }
     }
 }
@@ -249,7 +249,7 @@ impl NodeUi {
                     index,
                 ),
             );
-            self.node_index = self.node_index + 1;
+            self.node_index += 1;
             window.request_update();
         }
     }
@@ -274,7 +274,7 @@ impl NodeUi {
 
         let mut node_configs: Vec<(&usize, &NodeDeviceConfigUi)> =
             self.node_configs.iter().collect();
-        node_configs.sort_by(|x, y| x.0.cmp(&y.0));
+        node_configs.sort_by(|x, y| x.0.cmp(y.0));
 
         for (index, (_, config)) in node_configs.iter().enumerate() {
             let repositioned = config.height * index as u16 + Self::NODE_START_Y;
@@ -291,26 +291,26 @@ impl NodeUi {
         for location in self.node_configs.keys() {
             if let Some(config) = self.node_configs.get(location) {
                 let update = window.control(config.checkbox.unwrap()).unwrap();
-                if update.is_checked() {
-                    if let NodeClass::KasaDevice(id, device_config, schedule) = &data {
-                        let name = window.control_mut(config.name).unwrap();
-                        name.set_text(&id);
-                        let ip = window.control_mut(config.ip).unwrap();
-                        ip.set_text(&device_config.get_ip());
-                        let username = window.control_mut(config.username).unwrap();
-                        username.set_text(&device_config.get_username());
-                        let password = window.control_mut(config.password).unwrap();
-                        password.set_text(&device_config.get_password());
-                        let polling_schedule = window.control_mut(config.polling_schedule).unwrap();
-                        polling_schedule.set_text(&schedule.schedule);
-                        let polling_endpoint = window.control_mut(config.polling_endpoint).unwrap();
-                        let api = if let Some(api) = schedule.get_api().clone() {
-                            api.clone()
-                        } else {
-                            String::new()
-                        };
-                        polling_endpoint.set_text(&api);
-                    }
+                if update.is_checked()
+                    && let NodeClass::KasaDevice(id, device_config, schedule) = &data
+                {
+                    let name = window.control_mut(config.name).unwrap();
+                    name.set_text(id);
+                    let ip = window.control_mut(config.ip).unwrap();
+                    ip.set_text(&device_config.get_ip());
+                    let username = window.control_mut(config.username).unwrap();
+                    username.set_text(&device_config.get_username());
+                    let password = window.control_mut(config.password).unwrap();
+                    password.set_text(&device_config.get_password());
+                    let polling_schedule = window.control_mut(config.polling_schedule).unwrap();
+                    polling_schedule.set_text(&schedule.schedule);
+                    let polling_endpoint = window.control_mut(config.polling_endpoint).unwrap();
+                    let api = if let Some(api) = schedule.get_api().clone() {
+                        api.clone()
+                    } else {
+                        String::new()
+                    };
+                    polling_endpoint.set_text(&api);
                 }
             }
         }
@@ -321,63 +321,63 @@ impl NodeUi {
         for location in self.node_configs.keys() {
             if let Some(config) = self.node_configs.get(location) {
                 let update = window.control(config.checkbox.unwrap()).unwrap();
-                if update.is_checked() {
-                    if let NodeClass::KasaDevice(_, _, _) = &config.node_class {
-                        let name = window
-                            .control(config.name)
-                            .unwrap()
-                            .text()
-                            .trim()
-                            .to_string();
-                        let editor_name = window.control_mut(self.node_editor_panel.name).unwrap();
-                        editor_name.set_text(&name);
+                if update.is_checked()
+                    && let NodeClass::KasaDevice(_, _, _) = &config.node_class
+                {
+                    let name = window
+                        .control(config.name)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_name = window.control_mut(self.node_editor_panel.name).unwrap();
+                    editor_name.set_text(&name);
 
-                        let ip = window.control(config.ip).unwrap().text().trim().to_string();
-                        let editor_ip = window.control_mut(self.node_editor_panel.ip).unwrap();
-                        editor_ip.set_text(&ip);
+                    let ip = window.control(config.ip).unwrap().text().trim().to_string();
+                    let editor_ip = window.control_mut(self.node_editor_panel.ip).unwrap();
+                    editor_ip.set_text(&ip);
 
-                        let username = window
-                            .control(config.username)
-                            .unwrap()
-                            .text()
-                            .trim()
-                            .to_string();
-                        let editor_username =
-                            window.control_mut(self.node_editor_panel.username).unwrap();
-                        editor_username.set_text(&username);
+                    let username = window
+                        .control(config.username)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_username =
+                        window.control_mut(self.node_editor_panel.username).unwrap();
+                    editor_username.set_text(&username);
 
-                        let password = window
-                            .control_mut(config.password)
-                            .unwrap()
-                            .text()
-                            .trim()
-                            .to_string();
-                        let editor_password =
-                            window.control_mut(self.node_editor_panel.password).unwrap();
-                        editor_password.set_text(&password);
+                    let password = window
+                        .control_mut(config.password)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_password =
+                        window.control_mut(self.node_editor_panel.password).unwrap();
+                    editor_password.set_text(&password);
 
-                        let polling_schedule = window
-                            .control(config.polling_schedule)
-                            .unwrap()
-                            .text()
-                            .trim()
-                            .to_string();
-                        let editor_polling_schedule = window
-                            .control_mut(self.node_editor_panel.polling_schedule)
-                            .unwrap();
-                        editor_polling_schedule.set_text(&polling_schedule);
+                    let polling_schedule = window
+                        .control(config.polling_schedule)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_polling_schedule = window
+                        .control_mut(self.node_editor_panel.polling_schedule)
+                        .unwrap();
+                    editor_polling_schedule.set_text(&polling_schedule);
 
-                        let polling_endpoint = window
-                            .control(config.polling_endpoint)
-                            .unwrap()
-                            .text()
-                            .trim()
-                            .to_string();
-                        let editor_polling_endpoint = window
-                            .control_mut(self.node_editor_panel.polling_endpoint)
-                            .unwrap();
-                        editor_polling_endpoint.set_text(&polling_endpoint);
-                    }
+                    let polling_endpoint = window
+                        .control(config.polling_endpoint)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_polling_endpoint = window
+                        .control_mut(self.node_editor_panel.polling_endpoint)
+                        .unwrap();
+                    editor_polling_endpoint.set_text(&polling_endpoint);
                 }
             }
         }
@@ -390,9 +390,9 @@ impl NodeUi {
         {
             let mut nodes: Vec<NodeClass> = vec![];
 
-            for (_, (_, config)) in self.node_configs.iter().enumerate() {
+            for (_, config) in self.node_configs.iter() {
                 if let NodeClass::KasaDevice(_, _, _) = config.node_class {
-                    if let Some(_) = window.control(config.panel) {
+                    if window.control(config.panel).is_some() {
                         let name = if let Some(name) = window.control(config.name) {
                             name.text().to_string()
                         } else {

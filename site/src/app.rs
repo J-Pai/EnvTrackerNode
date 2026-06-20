@@ -1,7 +1,7 @@
 use egui::Hyperlink;
 use egui::OpenUrl;
 use egui::Response;
-use egui::Widget;
+use egui::Widget as _;
 use egui::util::History;
 use egui_plot::Legend;
 use egui_plot::Line;
@@ -10,7 +10,7 @@ use egui_plot::PlotPoint;
 use egui_plot::PlotPoints;
 use egui_tiles::SimplificationOptions;
 
-#[allow(unused)]
+#[expect(unused)]
 macro_rules! console_log {
     ($expr:expr) => {
         web_sys::console::log_1(&web_sys::wasm_bindgen::JsValue::from_str($expr.as_str()));
@@ -79,7 +79,7 @@ impl Default for BorrowPointsExample {
 
 impl BorrowPointsExample {
     pub fn show_plot(&self, ui: &mut egui::Ui, nr: i32, reset: bool) -> Response {
-        let mut plot = Plot::new(format!("plot{}", nr))
+        let mut plot = Plot::new(format!("plot{nr}"))
             .legend(Legend::default())
             .width(ui.available_width() - 10.0);
 
@@ -240,7 +240,7 @@ impl eframe::App for EnvApp {
                 egui::widgets::global_theme_preference_switch(ui);
                 if ui.button("🏠 Home").clicked() {
                     ui.open_url(OpenUrl::same_tab("/"));
-                };
+                }
                 ui.separator();
                 ui.toggle_value(&mut self.state.control_panel, "🖥 Control Panel");
                 ui.separator();
@@ -262,7 +262,7 @@ impl eframe::App for EnvApp {
                         if ui.button("Reset Tiles").clicked() {
                             self.reset_tree();
                             behavior.reset_plot();
-                        };
+                        }
                         ui.separator();
                         self.frame_history.ui(ui);
                         ui.checkbox(&mut self.state.continuous, "Run Mode - Continuous");

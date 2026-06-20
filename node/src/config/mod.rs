@@ -23,7 +23,7 @@ impl ServerConfig {
             && let Ok(config) = toml::from_str(&config_text)
         {
             if !edit_config {
-                return ServerConfig::from(config);
+                return config;
             }
 
             config
@@ -96,6 +96,7 @@ impl Default for PollingConfig {
     }
 }
 
+#[allow(clippy::to_string_trait_impl)]
 impl ToString for PollingConfig {
     fn to_string(&self) -> String {
         self.schedule.clone()

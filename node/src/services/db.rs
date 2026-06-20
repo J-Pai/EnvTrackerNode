@@ -72,14 +72,16 @@ impl Db {
             let conn = db.connect()?;
             conn.execute(
                 format!(
-                    r#"CREATE TABLE IF NOT EXISTS {} (utc_ns INTEGER PRIMARY KEY NOT NULL UNIQUE,
-                                                    alias TEXT NOT NULL,
-                                                    id TEXT NOT NULL,
-                                                    current_ma INTEGER NOT NULL,
-                                                    power_mw INTEGER NOT NULL,
-                                                    voltage_mv INTEGER NOT NULL,
-                                                    total_wh INTEGER NOT NULL)"#,
-                    format!("kasa_device_{}", topic),
+                    r#"CREATE TABLE IF NOT EXISTS kasa_device_{} (
+                            utc_ns INTEGER PRIMARY KEY NOT NULL UNIQUE,
+                            alias TEXT NOT NULL,
+                            id TEXT NOT NULL,
+                            current_ma INTEGER NOT NULL,
+                            power_mw INTEGER NOT NULL,
+                            voltage_mv INTEGER NOT NULL,
+                            total_wh INTEGER NOT NULL
+                    )"#,
+                    topic
                 ),
                 (),
             )
@@ -115,8 +117,8 @@ impl Db {
         }
 
         let statement = format!(
-            "INSERT INTO {} (utc_ns, alias, id, current_ma, power_mw, voltage_mv, total_wh) VALUES {};",
-            format!("kasa_device_{}", topic),
+            "INSERT INTO kasa_device_{} (utc_ns, alias, id, current_ma, power_mw, voltage_mv, total_wh) VALUES {};",
+            topic,
             data.join(",").as_str()
         );
 

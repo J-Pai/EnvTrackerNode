@@ -101,12 +101,12 @@ struct KasaDevice {
 
 impl KasaDevice {
     async fn new(
-        topic: &String,
+        topic: &str,
         mq: Arc<RwLock<MessageQueue>>,
         scheduler: Arc<RwLock<JobScheduler>>,
     ) -> Self {
         let device: Self = Self {
-            topic: topic.clone(),
+            topic: topic.to_owned(),
             alias: String::new(),
             transport: Arc::new(Mutex::const_new(None)),
             mq,
@@ -159,7 +159,7 @@ impl KasaDevice {
             .send(INFO)
             .await
             .expect("System info inaccessible");
-        let data: Value = serde_json::from_str(&response.as_str()).unwrap();
+        let data: Value = serde_json::from_str(response.as_str()).unwrap();
 
         let system = if let Value::Object(system) = data {
             system
@@ -344,19 +344,19 @@ impl Kasa {
             .await
             .setup_topic()
             .await
-            .expect(format!("Topic creation for [{}] failed", name).as_str())
+            .unwrap_or_else(|_| panic!("Topic creation for [{}] failed", name))
             .setup_transport(config)
             .await
-            .expect(format!("Transport creation for [{}] failed", name).as_str())
+            .unwrap_or_else(|_| panic!("Transport creation for [{}] failed", name))
             .setup_system_info()
             .await
-            .expect(format!("System Info extraction for [{}] failed", name).as_str());
+            .unwrap_or_else(|_| panic!("System Info extraction for [{}] failed", name));
         self.devices.insert(name.clone(), device);
         Ok(())
     }
 
     pub(crate) fn get_devices(&self) -> Vec<String> {
-        self.devices.keys().map(|k| k.clone()).collect()
+        self.devices.keys().cloned().collect()
     }
 
     pub(crate) async fn add_polling(

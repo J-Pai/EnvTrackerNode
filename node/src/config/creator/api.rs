@@ -128,7 +128,7 @@ impl NodeConfigUi {
         let node_editor_panel = panel.add(node_editor_panel);
 
         Self {
-            checkbox: checkbox,
+            checkbox,
             add,
             update,
             dropdown,
@@ -192,8 +192,8 @@ impl ApiServerUi {
             enable,
             save_button: save,
             db_field: db,
-            node_editor_panel: node_editor_panel,
-            node_panel: node_panel,
+            node_editor_panel,
+            node_panel,
             update_node_button: update_node,
             add_node_button: add_node,
             remove_nodes_button: remove_nodes,
@@ -217,7 +217,7 @@ impl ApiServerUi {
                 index,
             ),
         );
-        self.node_index = self.node_index + 1;
+        self.node_index += 1;
         window.request_update();
     }
 
@@ -240,7 +240,7 @@ impl ApiServerUi {
         }
 
         let mut node_configs: Vec<(&usize, &NodeConfigUi)> = self.node_configs.iter().collect();
-        node_configs.sort_by(|x, y| x.0.cmp(&y.0));
+        node_configs.sort_by(|x, y| x.0.cmp(y.0));
 
         for (index, (_, config)) in node_configs.iter().enumerate() {
             let repositioned = config.height * index as u16 + Self::NODE_START_Y;
@@ -261,7 +261,7 @@ impl ApiServerUi {
                     && let NodeClass::KasaDevice(id, device_config, schedule) = &data
                 {
                     let name = window.control_mut(config.name).unwrap();
-                    name.set_text(&id);
+                    name.set_text(id);
                     let ip = window.control_mut(config.ip).unwrap();
                     ip.set_text(&device_config.get_ip());
                     let polling_schedule = window.control_mut(config.polling_schedule).unwrap();
@@ -337,8 +337,8 @@ impl ApiServerUi {
 
             let mut nodes: Vec<NodeClass> = vec![];
 
-            for (_, (_, config)) in self.node_configs.iter().enumerate() {
-                if let Some(_) = window.control(config.panel) {
+            for (_, config) in self.node_configs.iter() {
+                if window.control(config.panel).is_some() {
                     let name = if let Some(name) = window.control(config.name) {
                         name.text().to_string()
                     } else {

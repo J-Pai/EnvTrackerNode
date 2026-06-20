@@ -5,7 +5,6 @@ use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use appcui::backend::Type;
 use appcui::prelude::*;
 
 use crate::config::NodeClass;
@@ -92,7 +91,7 @@ impl CreatorWindow {
             tab!("d:f, tabs: ['API Server', 'Frontend Server', 'Node'], tw: 32, type: OnTop");
 
         let mut window = Self {
-            config: config,
+            config,
             base: window!("'ServerConfig',dock:fill"),
             api_server: Some(ApiServerUi::new(&mut tabs, 0)),
             frontend_server: Some(FrontendServerUi::new(&mut tabs, 1)),
@@ -126,13 +125,10 @@ impl ButtonEvents for CreatorWindow {
         if let Some(mut api_server) = self.api_server.take() {
             let mut server_config = self.config.take();
 
-            match api_server.button_handler(self, &mut server_config, handle) {
-                Ok(event) => {
-                    self.config.replace(server_config);
-                    self.api_server.replace(api_server);
-                    return event;
-                }
-                Err(_) => {}
+            if let Ok(event) = api_server.button_handler(self, &mut server_config, handle) {
+                self.config.replace(server_config);
+                self.api_server.replace(api_server);
+                return event;
             }
 
             self.config.replace(server_config);
@@ -142,13 +138,10 @@ impl ButtonEvents for CreatorWindow {
         if let Some(mut frontend_server) = self.frontend_server.take() {
             let mut server_config = self.config.take();
 
-            match frontend_server.button_handler(self, &mut server_config, handle) {
-                Ok(event) => {
-                    self.config.replace(server_config);
-                    self.frontend_server.replace(frontend_server);
-                    return event;
-                }
-                Err(_) => {}
+            if let Ok(event) = frontend_server.button_handler(self, &mut server_config, handle) {
+                self.config.replace(server_config);
+                self.frontend_server.replace(frontend_server);
+                return event;
             }
 
             self.config.replace(server_config);
@@ -158,13 +151,10 @@ impl ButtonEvents for CreatorWindow {
         if let Some(mut node_server) = self.node_server.take() {
             let mut server_config = self.config.take();
 
-            match node_server.button_handler(self, &mut server_config, handle) {
-                Ok(event) => {
-                    self.config.replace(server_config);
-                    self.node_server.replace(node_server);
-                    return event;
-                }
-                Err(_) => {}
+            if let Ok(event) = node_server.button_handler(self, &mut server_config, handle) {
+                self.config.replace(server_config);
+                self.node_server.replace(node_server);
+                return event;
             }
 
             self.config.replace(server_config);
