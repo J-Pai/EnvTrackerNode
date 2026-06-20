@@ -1,12 +1,6 @@
 //! Logic for serving the frontend.
 
 use crate::config::FrontendServerConfig;
-use axum::body::Body;
-use axum::extract::Request;
-use axum::http::header;
-use axum::response::IntoResponse;
-use axum::response::Response;
-use axum::routing;
 use tokio::io::AsyncReadExt;
 use tower_http::services::ServeDir;
 
@@ -27,27 +21,7 @@ impl Web {
             .await?;
         let serve_dir = ServeDir::new("dist");
 
-        let update_index_file = async move |_request: Request| -> Response {
-            let index_file = index_file
-                .clone()
-                .replace("href=\"/", format!("href=\"{}/", base).as_str())
-                .replace("'/", format!("'{}/", base).as_str());
-
-            let body = Body::new(index_file);
-
-            let headers = [
-                (
-                    header::CONTENT_DISPOSITION,
-                    "inline; filename=\"index.html\"",
-                ),
-            ];
-
-            (headers, body).into_response()
-        };
-
-        self.router = router
-            .route("/", routing::get(update_index_file))
-            .fallback_service(serve_dir);
+        self.router = router.fallback_service(serve_dir);
 
         #[cfg(debug_assertions)]
         {

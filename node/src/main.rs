@@ -96,7 +96,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(config) = config.get_api_config() {
         tracing::info!("[Service] API Backend");
         poller = poller.setup_node_polling(&config).await?;
-        // web = web.setup_api_route(&config).await?;
+        web = web.setup_api_route(&config).await?;
     }
 
     web.start(poller).await?;

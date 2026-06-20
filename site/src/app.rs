@@ -256,7 +256,7 @@ impl eframe::App for EnvApp {
                     ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
                         ui.add_space(4.0);
                         ui.vertical_centered(|ui| {
-                            ui.heading("💻 Control Panel");
+                            ui.heading("💻 Control Panel 2");
                         });
                         ui.separator();
                         if ui.button("Reset Tiles").clicked() {
