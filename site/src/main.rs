@@ -1,6 +1,10 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {}
+
 // When compiling natively:
+#[cfg(target_arch = "wasm32")]
 fn main() {
     use eframe::wasm_bindgen::JsCast as _;
 
@@ -21,11 +25,18 @@ fn main() {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
+        let api_endpoint = document
+            .get_element_by_id("api")
+            .expect("Failed to find api")
+            .dyn_into::<web_sys::HtmlLinkElement>()
+            .expect("api was not a HtmlLinkElement")
+            .href();
+
         let start_result = eframe::WebRunner::new()
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(site::EnvApp::new(cc)))),
+                Box::new(|cc| Ok(Box::new(site::EnvApp::new(cc, api_endpoint)))),
             )
             .await;
 

@@ -18,7 +18,7 @@ log = "0.4.29"
 # You only need serde if you want app persistence:
 serde = { version = "1.0.228", features = ["derive"] }
 egui_tiles = "0.15.0"
-web-sys = { version = "0.3.95", features = ["console"] }
+web-sys = { version = "0.3.102", features = ["console", "HtmlLinkElement"] }
 egui_plot = { version = "0.35.0", features = ["serde"] }
 
 wasm-bindgen-futures = "0.4.68"

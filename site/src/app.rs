@@ -11,6 +11,7 @@ use egui_plot::PlotPoints;
 use egui_tiles::SimplificationOptions;
 
 #[expect(unused)]
+#[macro_export]
 macro_rules! console_log {
     ($expr:expr) => {
         web_sys::console::log_1(&web_sys::wasm_bindgen::JsValue::from_str($expr.as_str()));
@@ -162,7 +163,8 @@ pub struct EnvApp {
 
 impl EnvApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, api_endpoint: String) -> Self {
+        console_log!(format!("{api_endpoint}"));
         if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
