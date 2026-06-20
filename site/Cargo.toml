@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["j-pai <jesse.pai@gmail.com>"]
 edition = "2024"
 include = ["**/*.rs", "Cargo.toml"]
-rust-version = "1.92"
+rust-version = "1.96"
 
 [package.metadata.docs.rs]
 all-features = true
