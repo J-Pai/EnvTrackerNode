@@ -12,12 +12,14 @@ cd $SCRIPT_DIR
 
 ../launch.sh build-release
 
+rm -rf *.toml
 rm -rf *.zip
 rm -rf release
 mkdir -p release
 pushd ..
 
 rsync -aP ./install/install_node.sh install/release
+rsync -aP ./install/config.toml install/release
 rsync -aP ./target/aarch64-unknown-linux-musl/release/node install/release
 rsync -aP --exclude ./dist/.stage ./dist install/release
 

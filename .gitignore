@@ -1,6 +1,7 @@
 dist
 install/release
 install/*.zip
+install/*.toml
 target
 target_trunk
 venv

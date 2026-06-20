@@ -6,6 +6,7 @@ cd $SCRIPT_DIR
 pkill -INT trunk
 
 RELEASE_FLAG=""
+CONFIG_FLAG=""
 TRUNK_ACTION="build"
 CARGO_BINARY="cargo"
 CARGO_ACTION="run"
@@ -31,6 +32,9 @@ while [ $# -gt 0 ] && [[ "$1" != "build-release" ]]; do
 		release)
 			RELEASE_FLAG="--release"
 			;;
+		config)
+			CONFIG_FLAG="--features=tui"
+			;;
 		watch)
 			TRUNK_ACTION="watch"
 			;;
@@ -52,18 +56,22 @@ while [ $# -gt 0 ] && [[ "$1" != "build-release" ]]; do
 	shift
 done
 
-echo "=== TRUNK ==="
-CARGO_TARGET_DIR="target_trunk" trunk $TRUNK_ACTION $RELEASE_FLAG &
-[[ "$CARGO_ACTION" == "run" ]] && {
-	echo "Waiting for trunk to complete"; wait;
-	rc=$?
-	if [[ "$rc" != "0" || "${TRUNK_ACTION}" != "build" ]]; then
-		exit $rc
-	fi
-}
+if [[ "$CONFIG_FLAG" == "" ]]; then
+	echo "=== TRUNK ==="
+	CARGO_TARGET_DIR="target_trunk" trunk $TRUNK_ACTION $RELEASE_FLAG &
+	[[ "$CARGO_ACTION" == "run" ]] && {
+		echo "Waiting for trunk to complete"; wait;
+		rc=$?
+		if [[ "$rc" != "0" || "${TRUNK_ACTION}" != "build" ]]; then
+			exit $rc
+		fi
+	}
 
-echo "=== Cargo RUN ==="
-$CARGO_BINARY $CARGO_ACTION $RELEASE_FLAG -- $@
+	echo "=== Cargo RUN ==="
+	$CARGO_BINARY $CARGO_ACTION $RELEASE_FLAG -- $@
 
-echo "Finalizing..."
-wait
+	echo "Finalizing..."
+	wait
+else
+	$CARGO_BINARY $CARGO_ACTION $CONFIG_FLAG -- --config $SCRIPT_DIR/install/config.toml --edit-config
+fi

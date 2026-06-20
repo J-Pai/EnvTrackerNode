@@ -13,12 +13,17 @@ rm -rf /opt/envtrackernode_node/release
 mkdir -p /opt/envtrackernode_node/release
 cp -r $SCRIPT_DIR/node /opt/envtrackernode_node/release/node
 
+if [ -f $SCRIPT_DIR/config.toml ]; then
+	cp -f $SCRIPT_DIR/config.toml /opt/envtrackernode_node/config.toml
+fi
+
 echo ">> Creating service file."
 
 cat << 'EOF' >| /etc/systemd/system/envtrackernode_node.service
 [Unit]
 Description=EnvTrackerNode -- node
-After=network.target network-online.target bluetooth.service
+Wants=network.target network-online.target bluetooth.service
+Requires=network.target network-online.target bluetooth.service
 
 [Service]
 Type=exec
@@ -40,5 +45,5 @@ systemctl daemon-reload
 systemctl enable envtrackernode_node.service
 systemctl restart envtrackernode_node.service
 
-echo ">> Make sure to create a config.toml file."
-echo ">> Create at: /opt/envtrackernode_node/config.toml"
+echo ">> Make sure to create a config file at:"
+echo ">> /opt/envtrackernode_node/config.toml"
