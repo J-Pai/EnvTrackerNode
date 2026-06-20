@@ -77,12 +77,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let kasa = kasa.get_or_insert(Kasa::new(mq.clone(), scheduler.clone()).await);
             kasa.add_device(&id, &cfg).await?;
             kasa.add_polling(&id, &sch).await?;
-
-            if db.is_some() {
-                let topic = kasa.get_topic(&id)?.clone();
-                let db_topic = db.take().unwrap().create_kasa_table(&topic).await?;
-                db.replace(db_topic);
-            }
         }
     }
 

@@ -9,6 +9,7 @@ use turso::Connection;
 use turso::Database;
 
 use crate::config::ApiServerConfig;
+use crate::config::NodeClass;
 use crate::error::NodeError;
 use crate::services::kasa::KasaChildInfo;
 
@@ -30,7 +31,7 @@ impl Db {
     pub(crate) async fn new(config: &ApiServerConfig) -> Result<Self, Box<dyn std::error::Error>> {
         let db = Builder::new_local(config.get_db().as_str()).build().await?;
 
-        let db = Self {
+        let mut db = Self {
             db: Arc::new(RwLock::new(db)),
             conn: None,
         };
@@ -40,6 +41,15 @@ impl Db {
             let db = db.db.read().await;
             let conn = db.connect()?;
             conn.pragma_update("wal_checkpoint", "TRUNCATE").await?;
+        }
+
+        for node in config.get_nodes() {
+            match node {
+                NodeClass::KasaDevice(topic, _, _) => {
+                    db = db.create_kasa_table(topic).await?;
+                }
+                NodeClass::Unknown => {}
+            }
         }
 
         Ok(db)
