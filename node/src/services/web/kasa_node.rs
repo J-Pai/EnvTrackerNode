@@ -35,7 +35,10 @@ impl Web {
                 devices
                     .allocate_subscriber(
                         device_id.clone(),
-                        TopicOptions::default(),
+                        TopicOptions {
+                            max_messages: Some(Kasa::MAX_MESSAGES),
+                            ..Default::default()
+                        },
                         ConsumptionMode::Earliest,
                     )
                     .await?,
@@ -67,6 +70,7 @@ impl Web {
                         } else {
                             return "[]".to_string();
                         };
+
                         let msg =
                             match timeout(Duration::from_millis(100), subscriber.recv_batch(100))
                                 .await

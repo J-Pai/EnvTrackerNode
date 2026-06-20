@@ -124,7 +124,7 @@ impl KasaDevice {
             self.topic.clone(),
             TopicOptions {
                 // Should track data for up to 3 months.
-                max_messages: Some(Duration::as_secs(&Duration::from_hours(24 * 90)) as usize),
+                max_messages: Some(Kasa::MAX_MESSAGES),
                 ..Default::default()
             },
         )
@@ -321,6 +321,9 @@ pub(crate) struct Kasa {
 }
 
 impl Kasa {
+    pub(crate) const MAX_MESSAGES: usize =
+        Duration::as_secs(&Duration::from_hours(24 * 90)) as usize;
+
     pub(crate) async fn new(
         mq: Arc<RwLock<MessageQueue>>,
         scheduler: Arc<RwLock<JobScheduler>>,
