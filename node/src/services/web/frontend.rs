@@ -36,7 +36,6 @@ impl Web {
             let body = Body::new(index_file);
 
             let headers = [
-                (header::CONTENT_TYPE, "text/html, charset=utf-8"),
                 (
                     header::CONTENT_DISPOSITION,
                     "inline; filename=\"index.html\"",
