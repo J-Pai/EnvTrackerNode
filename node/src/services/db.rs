@@ -72,7 +72,7 @@ impl Db {
             let conn = db.connect()?;
             conn.execute(
                 format!(
-                    r#"CREATE TABLE IF NOT EXISTS {} (utc_ns INTEGER NOT NULL,
+                    r#"CREATE TABLE IF NOT EXISTS {} (utc_ns INTEGER PRIMARY KEY NOT NULL UNIQUE,
                                                     alias TEXT NOT NULL,
                                                     id TEXT NOT NULL,
                                                     current_ma INTEGER NOT NULL,
