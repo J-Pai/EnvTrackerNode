@@ -3646,6 +3646,7 @@ dependencies = [
  "config",
  "cron",
  "hex",
+ "http-body-util",
  "kasa-core",
  "notify",
  "rand 0.10.1",

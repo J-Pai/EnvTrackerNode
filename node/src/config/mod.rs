@@ -57,6 +57,12 @@ impl ServerConfig {
     pub(crate) fn get_api_config(&self) -> Option<ApiServerConfig> {
         self.api_server.clone()
     }
+
+    pub(crate) fn override_frontend_base(&mut self, base: &String) {
+        if let Some(frontend_config) = &mut self.frontend_server {
+            frontend_config.base = Some(base.clone());
+        }
+    }
 }
 
 /// IP address + port.
@@ -66,6 +72,12 @@ pub(crate) struct Ip(String);
 impl Default for Ip {
     fn default() -> Self {
         Self(String::from("0.0.0.0:3000"))
+    }
+}
+
+impl ToString for Ip {
+    fn to_string(&self) -> String {
+        self.0.clone()
     }
 }
 

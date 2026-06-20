@@ -29,7 +29,7 @@ fn main() {
             .get_element_by_id("api")
             .expect("Failed to find api")
             .dyn_into::<web_sys::HtmlLinkElement>()
-            .expect("api was not a HtmlLinkElement")
+            .expect("api is not a HtmlLinkElement")
             .href();
 
         let start_result = eframe::WebRunner::new()

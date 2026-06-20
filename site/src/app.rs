@@ -10,7 +10,8 @@ use egui_plot::PlotPoint;
 use egui_plot::PlotPoints;
 use egui_tiles::SimplificationOptions;
 
-#[expect(unused)]
+#[allow(clippy::allow_attributes)]
+#[allow(unused)]
 #[macro_export]
 macro_rules! console_log {
     ($expr:expr) => {
@@ -163,7 +164,7 @@ pub struct EnvApp {
 
 impl EnvApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, api_endpoint: String) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, api_endpoint: &str) -> Self {
         console_log!(format!("{api_endpoint}"));
         if let Some(storage) = cc.storage {
             Self {

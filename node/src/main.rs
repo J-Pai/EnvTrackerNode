@@ -32,6 +32,9 @@ struct Args {
     /// Edit server configuration.
     #[arg(short, long)]
     edit_config: bool,
+    /// Override the base defined in config.toml.
+    #[arg(short, long)]
+    base: Option<String>,
 }
 
 #[tokio::main]
@@ -47,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    let config = config::ServerConfig::new(
+    let mut config = config::ServerConfig::new(
         match args.config {
             Some(path) => path,
             None => {
@@ -58,6 +61,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         args.edit_config,
     );
+
+    if let Some(base) = args.base {
+        config.override_frontend_base(&base);
+    }
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
