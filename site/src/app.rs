@@ -1,3 +1,4 @@
+use egui::Color32;
 use egui::Hyperlink;
 use egui::OpenUrl;
 use egui::Response;
@@ -135,7 +136,18 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         _tile_id: egui_tiles::TileId,
         pane: &mut Pane,
     ) -> egui_tiles::UiResponse {
+        fn clear_color(visuals: &egui::Visuals) -> Color32 {
+            // Give the area behind the floating windows a different color, because it looks better:
+            let color = egui::lerp(
+                egui::Rgba::from(visuals.panel_fill)..=egui::Rgba::from(visuals.extreme_bg_color),
+                0.0,
+            );
+            egui::Color32::from(color)
+        }
+
         egui::CentralPanel::no_frame().show_inside(ui, |ui| {
+            ui.painter()
+                .rect_filled(ui.max_rect(), 0.0, clear_color(ui.visuals()));
             ui.add_space(10.0);
             BorrowPointsExample::default().show_plot(ui, pane.nr, self.reset);
         });
@@ -222,16 +234,6 @@ impl eframe::App for EnvApp {
         if self.state.continuous {
             ctx.request_repaint();
         }
-    }
-
-    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
-        // Give the area behind the floating windows a different color, because it looks better:
-        let color = egui::lerp(
-            egui::Rgba::from(visuals.panel_fill)..=egui::Rgba::from(visuals.extreme_bg_color),
-            0.5,
-        );
-        let color = egui::Color32::from(color);
-        color.to_normalized_gamma_f32()
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
