@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
     let mut kasa: Option<Kasa> = None;
 
-    let mut db = if let Some(config) = config.get_api_config() {
+    let db = if let Some(config) = config.get_api_config() {
         Some(Db::new(&config).await?)
     } else {
         None

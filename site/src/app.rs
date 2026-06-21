@@ -160,21 +160,23 @@ pub struct State {
 pub struct EnvApp {
     state: State,
     frame_history: FrameHistory,
+    api_endpoint: String,
 }
 
 impl EnvApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, api_endpoint: &str) -> Self {
-        console_log!(format!("{api_endpoint}"));
+    pub fn new(cc: &eframe::CreationContext<'_>, api_endpoint: String) -> Self {
         if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
                 frame_history: Default::default(),
+                api_endpoint,
             }
         } else {
             Self {
                 state: Default::default(),
                 frame_history: Default::default(),
+                api_endpoint,
             }
         }
     }
@@ -259,7 +261,7 @@ impl eframe::App for EnvApp {
                     ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
                         ui.add_space(4.0);
                         ui.vertical_centered(|ui| {
-                            ui.heading("💻 Control Panel 2");
+                            ui.heading("💻 Control Panel");
                         });
                         ui.separator();
                         if ui.button("Reset Tiles").clicked() {
@@ -269,6 +271,11 @@ impl eframe::App for EnvApp {
                         ui.separator();
                         self.frame_history.ui(ui);
                         ui.checkbox(&mut self.state.continuous, "Run Mode - Continuous");
+                        ui.separator();
+                        ui.label("API Endpoint:");
+                        Hyperlink::from_label_and_url(&self.api_endpoint, &self.api_endpoint)
+                            .open_in_new_tab(true)
+                            .ui(ui);
                         ui.separator();
                     });
                     ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
