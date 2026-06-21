@@ -57,7 +57,6 @@ impl Poller {
         device_config: KasaDeviceConfig,
         polling: PollingConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let scheduler = self.scheduler.read().await;
         let node_client = ClientBuilder::new(Client::new()).build();
         let db = self.db.as_ref().unwrap().clone();
 
@@ -120,9 +119,8 @@ impl Poller {
             })
         })?;
 
-        scheduler.add(job).await?;
+        self.scheduler.read().await.add(job).await?;
 
-        drop(scheduler);
         Ok(self)
     }
 

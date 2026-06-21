@@ -1,7 +1,8 @@
 //! Logic for handling API calls from the frontend (or other clients).
 
+use axum::routing;
+
 use crate::config::ApiServerConfig;
-use crate::config::KasaDeviceConfig;
 use crate::config::NodeClass;
 
 use super::Web;
@@ -14,9 +15,7 @@ impl Web {
         let mut web = self;
         for node in config.get_nodes() {
             web = match node {
-                NodeClass::KasaDevice(topic, config, _) => {
-                    web.setup_kasa_api_route(topic, config).await?
-                }
+                NodeClass::KasaDevice(topic, _, _) => web.setup_kasa_api_route(topic).await?,
 
                 NodeClass::Unknown => continue,
             };
@@ -26,10 +25,17 @@ impl Web {
     }
 
     async fn setup_kasa_api_route(
-        self,
+        mut self,
         topic: &String,
-        config: &KasaDeviceConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut router = self.router;
+
+        router = router.route(
+            &format!("/api/kasa/{}", topic),
+            routing::get(move || async move { format!("[]") }),
+        );
+
+        self.router = router;
         Ok(self)
     }
 }
