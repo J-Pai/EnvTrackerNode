@@ -34,7 +34,7 @@ struct Args {
     edit_config: bool,
     /// Override the base defined in config.toml.
     #[arg(short, long)]
-    base: Option<String>,
+    no_base: bool,
 }
 
 #[tokio::main]
@@ -62,8 +62,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.edit_config,
     );
 
-    if let Some(base) = args.base {
-        config.override_frontend_base(&base);
+    if args.no_base {
+        config.override_frontend_base(&String::new());
     }
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
