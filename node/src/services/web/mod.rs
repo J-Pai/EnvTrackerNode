@@ -11,14 +11,16 @@ mod kasa_node;
 
 pub(crate) struct Web {
     router: Router,
+    db: Option<Db>,
     #[cfg(debug_assertions)]
     watcher: Option<notify::RecommendedWatcher>,
 }
 
 impl Web {
-    pub(crate) fn new(_db: Option<Db>) -> Self {
+    pub(crate) fn new(db: Option<Db>) -> Self {
         Self {
             router: Router::new(),
+            db,
             #[cfg(debug_assertions)]
             watcher: None,
         }

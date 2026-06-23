@@ -1,9 +1,11 @@
 //! Logic for handling API calls from the frontend (or other clients).
 
+use axum::extract::Query;
 use axum::routing;
 
 use crate::config::ApiServerConfig;
 use crate::config::NodeClass;
+use crate::services::db::DeviceQuery;
 
 use super::Web;
 
@@ -29,10 +31,29 @@ impl Web {
         topic: &String,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let mut router = self.router;
+        let db = self.db.as_ref().unwrap().clone();
+        let topic = topic.clone();
 
         router = router.route(
             &format!("/api/kasa/{}", topic),
-            routing::get(move || async move { format!("[]") }),
+            routing::get(move |Query(query): Query<DeviceQuery>| async move {
+                match db.query_kasa_data(&topic, &query).await {
+                    Ok(data) => {
+                        tracing::debug!("Query complete: {:#?}", query);
+                        match serde_json::to_string(&data) {
+                            Ok(data) => data,
+                            Err(e) => {
+                                tracing::warn!("Failed to serialize data ({:#?}): {:#?}", query, e);
+                                format!("[]")
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to query data ({:#?}): {:#?}", query, e);
+                        format!("[]")
+                    }
+                }
+            }),
         );
 
         self.router = router;

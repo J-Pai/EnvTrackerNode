@@ -60,7 +60,7 @@ impl Poller {
         let node_client = ClientBuilder::new(Client::new()).build();
         let db = self.db.as_ref().unwrap().clone();
 
-        let job = Job::new_async(polling.get_schedule(), move |_uuid, _l| {
+        let job = Job::new_async(polling.get_schedule(), move |uuid, _l| {
             Box::pin({
                 let topic = topic.clone();
                 let device_config = device_config.clone();
@@ -68,13 +68,15 @@ impl Poller {
                 let mut db = db.clone();
                 let node_client = node_client.clone();
                 async move {
-                    if let Err(e) = db.create_connection().await {
-                        tracing::warn!("Unable to create connection: {:#?}", e);
-                        return;
-                    };
-
                     let mut sample_count = 0;
                     let url = format!("http://{}{}", device_config.get_ip(), route);
+
+                    tracing::debug!("{} - Polling", uuid);
+
+                    if let Err(e) = db.try_write_lock().await {
+                        tracing::warn!("{} - Polling action already happening: {:#?}", uuid, e);
+                        return;
+                    }
 
                     loop {
                         sample_count += 1;
@@ -110,7 +112,8 @@ impl Poller {
                     }
 
                     tracing::debug!(
-                        "Requested {}x {}{}",
+                        "{} - Requested {}x {}{}",
+                        uuid,
                         sample_count,
                         device_config.get_ip(),
                         route
