@@ -40,12 +40,12 @@ impl EnvApp {
             });
 
         if let Some(tree) = &mut self.state.tile_tree {
-            tree.ui(&mut self.tree_behavior, ui);
+            tree.ui(&mut self.tile_behavior, ui);
         }
 
         if reset {
             self.reset_tree();
-            self.tree_behavior.reset_plot();
+            self.tile_behavior.reset_plot();
         }
     }
 
