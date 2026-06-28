@@ -1,8 +1,6 @@
 use egui::Color32;
-use egui::Hyperlink;
 use egui::OpenUrl;
 use egui::Response;
-use egui::Widget as _;
 use egui::util::History;
 use egui_plot::Legend;
 use egui_plot::Line;
@@ -10,6 +8,8 @@ use egui_plot::Plot;
 use egui_plot::PlotPoint;
 use egui_plot::PlotPoints;
 use egui_tiles::SimplificationOptions;
+
+mod control_panel;
 
 #[allow(clippy::allow_attributes)]
 #[allow(unused)]
@@ -145,11 +145,15 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
             egui::Color32::from(color)
         }
 
-        egui::CentralPanel::no_frame().show_inside(ui, |ui| {
+        egui::CentralPanel::no_frame().show(ui, |ui| {
             ui.painter()
                 .rect_filled(ui.max_rect(), 0.0, clear_color(ui.visuals()));
+            ui.separator();
             ui.add_space(10.0);
             BorrowPointsExample::default().show_plot(ui, pane.nr, self.reset);
+            if self.reset {
+                self.reset = false;
+            }
         });
 
         Default::default()
@@ -172,25 +176,32 @@ pub struct State {
 pub struct EnvApp {
     state: State,
     frame_history: FrameHistory,
+    tree_behavior: TreeBehavior,
     api_endpoint: String,
 }
 
 impl EnvApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>, api_endpoint: String) -> Self {
-        if let Some(storage) = cc.storage {
+        let mut app = if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
                 frame_history: Default::default(),
+                tree_behavior: TreeBehavior::default(),
                 api_endpoint,
             }
         } else {
             Self {
                 state: Default::default(),
                 frame_history: Default::default(),
+                tree_behavior: TreeBehavior::default(),
                 api_endpoint,
             }
-        }
+        };
+
+        app.create_tree();
+
+        app
     }
 }
 
@@ -228,7 +239,8 @@ impl eframe::App for EnvApp {
         eframe::set_value(storage, eframe::APP_KEY, &self.state);
     }
 
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        ctx.plugin_or_default::<egui_async::EguiAsyncPlugin>();
         self.frame_history
             .on_new_frame(ctx.input(|i| i.time), frame.info().cpu_usage);
         if self.state.continuous {
@@ -238,10 +250,7 @@ impl eframe::App for EnvApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        let mut behavior = TreeBehavior::default();
-        self.create_tree();
-
-        egui::Panel::top("top_panel").show_inside(ui, |ui| {
+        egui::Panel::top("top_panel").show(ui, |ui| {
             // The top panel is often a good place for a menu bar:
             egui::MenuBar::new().ui(ui, |ui| {
                 egui::widgets::global_theme_preference_switch(ui);
@@ -254,67 +263,8 @@ impl eframe::App for EnvApp {
             });
         });
 
-        egui::CentralPanel::no_frame().show_inside(ui, |ui| {
-            egui::Panel::left("control_panel")
-                .resizable(false)
-                .max_size(250.0)
-                .min_size(250.0)
-                .show_animated_inside(ui, self.state.control_panel, |ui| {
-                    ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
-                        ui.add_space(4.0);
-                        ui.vertical_centered(|ui| {
-                            ui.heading("💻 Control Panel");
-                        });
-                        ui.separator();
-                        if ui.button("Reset Tiles").clicked() {
-                            self.reset_tree();
-                            behavior.reset_plot();
-                        }
-                        ui.separator();
-                        self.frame_history.ui(ui);
-                        ui.checkbox(&mut self.state.continuous, "Run Mode - Continuous");
-                        ui.separator();
-                        ui.label("API Endpoint:");
-                        Hyperlink::from_label_and_url(&self.api_endpoint, &self.api_endpoint)
-                            .open_in_new_tab(true)
-                            .ui(ui);
-                        ui.separator();
-                    });
-                    ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                        ui.add_space(4.0);
-                        powered_by_egui_and_eframe(ui);
-                    });
-                });
-
-            if let Some(tree) = &mut self.state.tile_tree {
-                tree.ui(&mut behavior, ui);
-            }
+        egui::CentralPanel::no_frame().show(ui, |ui| {
+            self.control_panel_ui(ui);
         });
     }
-}
-
-fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        ui.label("Powered by ");
-        Hyperlink::from_label_and_url("egui", "https://github.com/emilk/egui")
-            .open_in_new_tab(true)
-            .ui(ui);
-        ui.label(" and ");
-        Hyperlink::from_label_and_url(
-            "eframe",
-            "https://github.com/emilk/egui/tree/master/crates/eframe",
-        )
-        .open_in_new_tab(true)
-        .ui(ui);
-        ui.label(".");
-    });
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        Hyperlink::from_label_and_url("EnvTrackerNode", "https://github.com/J-Pai/EnvTrackerNode")
-            .open_in_new_tab(true)
-            .ui(ui);
-        ui.label("  ");
-        egui::warn_if_debug_build(ui);
-    });
 }

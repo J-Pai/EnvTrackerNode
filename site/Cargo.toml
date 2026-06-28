@@ -11,17 +11,18 @@ all-features = true
 targets = ["wasm32-unknown-unknown"]
 
 [dependencies]
-egui = "0.34.1"
-eframe = { version = "0.34.1", features = ["persistence"] }
+egui = "0.35.0"
+eframe = { version = "0.35.0", features = ["persistence"] }
 log = "0.4.29"
 
 # You only need serde if you want app persistence:
 serde = { version = "1.0.228", features = ["derive"] }
-egui_tiles = "0.15.0"
+egui_tiles = "0.16.0"
 web-sys = { version = "0.3.102", features = ["console", "HtmlLinkElement"] }
-egui_plot = { version = "0.35.0", features = ["serde"] }
+egui_plot = { version = "0.36.0", features = ["serde"] }
 
 wasm-bindgen-futures = "0.4.68"
+egui-async = "0.5.0"
 
 # [patch.crates-io]
 
