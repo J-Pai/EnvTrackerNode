@@ -69,12 +69,20 @@ impl Poller {
                 let node_client = node_client.clone();
                 async move {
                     let mut sample_count = 0;
-                    let url = format!("http://{}{}", device_config.get_ip(), route);
+                    let mut url = format!("http://{}{}", device_config.get_ip(), route);
 
-                    tracing::debug!("{} - Polling", uuid);
+                    if let Some(size) = device_config.get_batch_size() {
+                        url = format!("{url}?size={size}");
+                    }
+
+                    tracing::debug!("{} - Kasa Polling", uuid);
 
                     if let Err(e) = db.try_write_lock().await {
-                        tracing::warn!("{} - Polling action already happening: {:#?}", uuid, e);
+                        tracing::warn!(
+                            "{} - Kasa Polling action already happening: {:#?}",
+                            uuid,
+                            e
+                        );
                         return;
                     }
 
@@ -112,7 +120,7 @@ impl Poller {
                     }
 
                     tracing::debug!(
-                        "{} - Requested {}x {}{}",
+                        "{} - Kasa Requested {}x {}{}",
                         uuid,
                         sample_count,
                         device_config.get_ip(),

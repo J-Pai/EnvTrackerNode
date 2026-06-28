@@ -169,6 +169,7 @@ pub(crate) struct KasaDeviceConfig {
     ip: Ip,
     username: String,
     password: String,
+    batch_size: Option<usize>,
 }
 
 impl KasaDeviceConfig {
@@ -183,6 +184,10 @@ impl KasaDeviceConfig {
     pub(crate) fn get_password(&self) -> String {
         self.password.clone()
     }
+
+    pub(crate) fn get_batch_size(&self) -> Option<usize> {
+        self.batch_size
+    }
 }
 
 impl Default for KasaDeviceConfig {
@@ -191,6 +196,7 @@ impl Default for KasaDeviceConfig {
             ip: Ip(String::from("0.0.0.0:3001")),
             username: String::from("username@email.com"),
             password: String::from("somepassword"),
+            batch_size: None,
         }
     }
 }

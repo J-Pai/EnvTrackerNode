@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use axum::extract::Query;
 use axum::routing;
 use serde_json::Value;
 use tokio::sync::RwLock;
@@ -17,7 +18,14 @@ use crate::services::kasa::Kasa;
 
 use super::Web;
 
+#[derive(serde::Deserialize, Clone, Debug)]
+struct KasaRouteQuery {
+    size: Option<usize>,
+}
+
 impl Web {
+    const DEFAULT_KASA_BATCH_SIZE: usize = 100;
+
     pub(crate) async fn setup_kasa_route(
         mut self,
         devices: &mut Kasa,
@@ -60,7 +68,7 @@ impl Web {
             let subscribers = kasa_subscribers.clone();
             router = router.route(
                 &endpoint,
-                routing::get(move || {
+                routing::get(move |Query(query): Query<KasaRouteQuery>| {
                     let kasa_subscribers = subscribers.clone();
 
                     async move {
@@ -71,15 +79,20 @@ impl Web {
                             return "[]".to_string();
                         };
 
-                        let msg =
-                            match timeout(Duration::from_millis(100), subscriber.recv_batch(100))
-                                .await
-                            {
-                                Ok(result) => result.unwrap(),
-                                Err(_) => {
-                                    return "[]".to_string();
-                                }
-                            };
+                        tracing::debug!("Query: {:?}", query);
+
+                        let msg = match timeout(
+                            Duration::from_millis(100),
+                            subscriber
+                                .recv_batch(query.size.unwrap_or(Web::DEFAULT_KASA_BATCH_SIZE)),
+                        )
+                        .await
+                        {
+                            Ok(result) => result.unwrap(),
+                            Err(_) => {
+                                return "[]".to_string();
+                            }
+                        };
 
                         let mut output: Vec<String> = Vec::new();
 
