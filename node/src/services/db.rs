@@ -7,8 +7,6 @@ use tokio::sync::RwLock;
 use turso::Builder;
 use turso::Connection;
 use turso::Database;
-use turso::Params;
-use turso::params::params_from_iter;
 
 use crate::config::ApiServerConfig;
 use crate::config::NodeClass;
@@ -113,22 +111,19 @@ impl DeviceQuery {
             base_query = format!("{base_query} {append} utc_ns <= ?4");
         }
 
-        let mut order = "";
-        if let Some(order_by) = order_by {
-            match order_by {
-                Order::asc => base_query = format!("{base_query} ASC"),
-                Order::desc => base_query = format!("{base_query} DESC"),
-            }
-            order = "ORDER BY";
-        }
-
-        if let Some(column) = column
+        if let Some(order_by) = order_by
+            && let Some(column) = column
             && distinct.is_none()
         {
+            let order = "ORDER BY";
             match column {
                 Column::utc_ns => base_query = format!("{base_query} {order} utc_ns"),
                 Column::alias => base_query = format!("{base_query} {order} alias"),
                 Column::id => base_query = format!("{base_query} {order} id"),
+            }
+            match order_by {
+                Order::asc => base_query = format!("{base_query} ASC"),
+                Order::desc => base_query = format!("{base_query} DESC"),
             }
         }
 
