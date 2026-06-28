@@ -22,8 +22,8 @@ echo ">> Creating service file."
 cat << 'EOF' >| /etc/systemd/system/envtrackernode_node.service
 [Unit]
 Description=EnvTrackerNode -- node
-Wants=network.target network-online.target bluetooth.service
-Requires=network.target network-online.target bluetooth.service
+After=network.target network-online.target bluetooth.service tailscaled.service multi-user.target
+Wants=network.target network-online.target bluetooth.service tailscaled.service multi-user.target
 
 [Service]
 Type=exec
