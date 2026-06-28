@@ -6,6 +6,7 @@ use axum::routing;
 use crate::config::ApiServerConfig;
 use crate::config::NodeClass;
 use crate::services::db::DeviceQuery;
+use crate::services::db::QueryResult;
 
 use super::Web;
 
@@ -40,7 +41,13 @@ impl Web {
                 match db.query_kasa_data(&topic, &query).await {
                     Ok(data) => {
                         tracing::debug!("Query complete: {:#?}", query);
-                        match serde_json::to_string(&data) {
+
+                        let data = match data {
+                            QueryResult::KasaDeviceInfo(data) => serde_json::to_string(&data),
+                            QueryResult::Distinct(data) => serde_json::to_string(&data),
+                        };
+
+                        match data {
                             Ok(data) => data,
                             Err(e) => {
                                 tracing::warn!("Failed to serialize data ({:#?}): {:#?}", query, e);

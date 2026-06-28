@@ -1,7 +1,6 @@
 //! Manages db interactions for specific devices.
 
 use std::sync::Arc;
-
 use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
 use tokio::sync::RwLock;
@@ -17,44 +16,114 @@ use crate::services::kasa::KasaChildInfo;
 use crate::services::kasa::KasaDeviceChild;
 
 #[derive(serde::Deserialize, Clone, Debug)]
+#[allow(nonstandard_style)]
+enum Column {
+    utc_ns,
+    alias,
+    id,
+}
+
+#[derive(serde::Deserialize, Clone, Debug)]
+#[allow(nonstandard_style)]
+enum Order {
+    asc,
+    desc,
+}
+
+#[derive(serde::Deserialize, Clone, Debug)]
 pub(crate) struct DeviceQuery {
     start_time_ns: Option<i64>,
     end_time_ns: Option<i64>,
-    alias: Option<u64>,
-    id: Option<u64>,
+    alias: Option<String>,
+    id: Option<String>,
     distinct: Option<String>,
+    order_by: Option<Order>,
+    column: Option<Column>,
     limit: Option<usize>,
+}
+
+pub(crate) enum QueryResult {
+    KasaDeviceInfo(Vec<KasaChildInfo>),
+    Distinct(Vec<(String, String)>),
 }
 
 impl DeviceQuery {
     const DEFAULT_LIMIT: usize = 100;
 
     fn generate_query(&self, table: &String) -> String {
-        match self {
-            DeviceQuery {
-                start_time_ns: None,
-                end_time_ns: None,
-                alias: None,
-                id: None,
-                distinct: None,
-                limit: Some(0),
-            } => {
-                format!("SELECT * FROM {}", table)
-            }
-            DeviceQuery {
-                start_time_ns: None,
-                end_time_ns: None,
-                alias: None,
-                id: None,
-                distinct: None,
-                limit: Some(limit),
-            } => {
-                format!("SELECT * FROM {} LIMIT {}", table, limit)
-            }
-            _ => {
-                format!("SELECT * FROM {} LIMIT {}", table, Self::DEFAULT_LIMIT)
+        let DeviceQuery {
+            start_time_ns,
+            end_time_ns,
+            alias,
+            id,
+            distinct,
+            order_by,
+            column,
+            limit,
+        } = self;
+
+        let mut base_query = format!("SELECT * FROM {table}");
+
+        if let Some(_) = distinct
+            && let Some(column) = column
+        {
+            match column {
+                Column::alias => base_query = format!("SELECT DISTINCT(alias), id FROM {table}"),
+                Column::id => base_query = format!("SELECT DISTINCT(id), alias FROM {table}"),
+                _ => {}
             }
         }
+
+        if start_time_ns.is_some() || end_time_ns.is_some() || alias.is_some() || id.is_some() {
+            base_query = format!("{base_query} WHERE ");
+        }
+
+        let mut append = "";
+        if let Some(alias) = alias {
+            base_query = format!("{base_query} alias = '{alias}'");
+            append = "and";
+        }
+
+        if let Some(id) = id {
+            base_query = format!("{base_query} {append} id = '{id}'");
+            append = "and";
+        }
+
+        if let Some(start_time_ns) = start_time_ns {
+            base_query = format!("{base_query} {append} id >= '{start_time_ns}'");
+            append = "and";
+        }
+
+        if let Some(end_time_ns) = end_time_ns {
+            base_query = format!("{base_query} {append} id >= '{end_time_ns}'");
+        }
+
+        let mut order = "";
+        if let Some(order_by) = order_by {
+            match order_by {
+                Order::asc => base_query = format!("{base_query} ASC"),
+                Order::desc => base_query = format!("{base_query} DESC"),
+            }
+            order = "ORDER BY";
+        }
+
+        if let Some(column) = column
+            && distinct.is_none()
+        {
+            match column {
+                Column::utc_ns => base_query = format!("{base_query} {order} utc_ns"),
+                Column::alias => base_query = format!("{base_query} {order} alias"),
+                Column::id => base_query = format!("{base_query} {order} id"),
+            }
+        }
+
+        match limit {
+            Some(0) => {}
+            Some(limit) => base_query = format!("{base_query} LIMIT {limit}"),
+            None => base_query = format!("{base_query} LIMIT {}", Self::DEFAULT_LIMIT),
+        };
+
+        return base_query;
     }
 }
 
@@ -79,6 +148,7 @@ impl Clone for Db {
 impl Drop for Db {
     fn drop(&mut self) {
         self.write_lock_release();
+        tracing::debug!("db write lock dropped");
     }
 }
 
@@ -194,35 +264,44 @@ impl Db {
         &self,
         topic: &String,
         query: &DeviceQuery,
-    ) -> Result<Vec<KasaChildInfo>, Box<dyn std::error::Error>> {
+    ) -> Result<QueryResult, Box<dyn std::error::Error>> {
         let mut data: Vec<KasaChildInfo> = vec![];
+        let mut distinct: Vec<(String, String)> = vec![];
 
         let table = format!("kasa_device_{}", topic);
         let sql_query = query.generate_query(&table);
 
-        tracing::debug!("SQL query [{:?}]", query);
+        tracing::debug!("SQL query [{:?}]", sql_query);
         let conn = self.read_conn.read().await;
         let mut rows = conn.query(sql_query, ()).await?;
 
         while let Some(row) = rows.next().await? {
-            data.push(KasaChildInfo {
-                utc_ns: row.get(0)?,
-                info: KasaDeviceChild {
-                    alias: row.get(1)?,
-                    id: row.get(2)?,
-                    state: true,
-                },
-                emeter: EMeter {
-                    current_ma: row.get(3)?,
-                    power_mw: row.get(4)?,
-                    voltage_mv: row.get(5)?,
-                    total_wh: row.get(6)?,
-                },
-            });
+            if row.column_count() == 2 {
+                distinct.push((row.get(0)?, row.get(1)?));
+            } else {
+                data.push(KasaChildInfo {
+                    utc_ns: row.get(0)?,
+                    info: KasaDeviceChild {
+                        alias: row.get(1)?,
+                        id: row.get(2)?,
+                        state: true,
+                    },
+                    emeter: EMeter {
+                        current_ma: row.get(3)?,
+                        power_mw: row.get(4)?,
+                        voltage_mv: row.get(5)?,
+                        total_wh: row.get(6)?,
+                    },
+                });
+            }
         }
 
         tracing::debug!("SQL query completed");
 
-        Ok(data)
+        if !distinct.is_empty() {
+            Ok(QueryResult::Distinct(distinct))
+        } else {
+            Ok(QueryResult::KasaDeviceInfo(data))
+        }
     }
 }
