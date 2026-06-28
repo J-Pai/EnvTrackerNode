@@ -7,6 +7,8 @@ use tokio::sync::RwLock;
 use turso::Builder;
 use turso::Connection;
 use turso::Database;
+use turso::Params;
+use turso::params::params_from_iter;
 
 use crate::config::ApiServerConfig;
 use crate::config::NodeClass;
@@ -47,10 +49,13 @@ pub(crate) enum QueryResult {
     Distinct(Vec<(String, String)>),
 }
 
+#[derive(Debug)]
+struct DeviceQueryArgs(String, String, i64, i64);
+
 impl DeviceQuery {
     const DEFAULT_LIMIT: usize = 100;
 
-    fn generate_query(&self, table: &String) -> String {
+    fn generate_query(&self, table: &String) -> (String, DeviceQueryArgs) {
         let DeviceQuery {
             start_time_ns,
             end_time_ns,
@@ -63,6 +68,7 @@ impl DeviceQuery {
         } = self;
 
         let mut base_query = format!("SELECT * FROM {table}");
+        let mut args = DeviceQueryArgs(String::new(), String::new(), 0, 0);
 
         if let Some(_) = distinct
             && let Some(column) = column
@@ -72,6 +78,11 @@ impl DeviceQuery {
                 Column::id => base_query = format!("SELECT DISTINCT(id), alias FROM {table}"),
                 _ => {}
             }
+
+            return (
+                base_query,
+                DeviceQueryArgs(String::new(), String::new(), 0, 0),
+            );
         }
 
         if start_time_ns.is_some() || end_time_ns.is_some() || alias.is_some() || id.is_some() {
@@ -80,22 +91,26 @@ impl DeviceQuery {
 
         let mut append = "";
         if let Some(alias) = alias {
-            base_query = format!("{base_query} alias = '{alias}'");
+            args.0 = alias.clone();
+            base_query = format!("{base_query} alias = ?1");
             append = "and";
         }
 
         if let Some(id) = id {
-            base_query = format!("{base_query} {append} id = '{id}'");
+            args.1 = id.clone();
+            base_query = format!("{base_query} {append} id = ?2");
             append = "and";
         }
 
         if let Some(start_time_ns) = start_time_ns {
-            base_query = format!("{base_query} {append} id >= '{start_time_ns}'");
+            args.2 = *start_time_ns;
+            base_query = format!("{base_query} {append} utc_ns >= ?3");
             append = "and";
         }
 
         if let Some(end_time_ns) = end_time_ns {
-            base_query = format!("{base_query} {append} id >= '{end_time_ns}'");
+            args.3 = *end_time_ns;
+            base_query = format!("{base_query} {append} utc_ns <= ?4");
         }
 
         let mut order = "";
@@ -123,7 +138,7 @@ impl DeviceQuery {
             None => base_query = format!("{base_query} LIMIT {}", Self::DEFAULT_LIMIT),
         };
 
-        return base_query;
+        return (base_query, args);
     }
 }
 
@@ -273,7 +288,10 @@ impl Db {
 
         tracing::debug!("SQL query [{:?}]", sql_query);
         let conn = self.read_conn.read().await;
-        let mut rows = conn.query(sql_query, ()).await?;
+        let DeviceQueryArgs(alias, id, start_time_ns, end_time_ns) = sql_query.1;
+        let mut rows = conn
+            .query(sql_query.0, (alias, id, start_time_ns, end_time_ns))
+            .await?;
 
         while let Some(row) = rows.next().await? {
             if row.column_count() == 2 {
