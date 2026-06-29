@@ -8,6 +8,7 @@ use crate::config::FrontendServerConfig;
 use axum::body::Bytes;
 use axum::http::Request;
 use axum::http::Response;
+use axum::http::StatusCode;
 use axum::http::header;
 use http_body_util::BodyExt;
 use http_body_util::Full;
@@ -70,12 +71,8 @@ where
                 Err(_e) => {
                     tracing::error!("Failed to collect response body for base uri replacement.");
                     return Ok(Response::builder()
-                        .status(500)
-                        .body(
-                            Full::from("Internal Server Error")
-                                .map_err(|e| e.into())
-                                .boxed_unsync(),
-                        )
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Full::from("").map_err(|e| e.into()).boxed_unsync())
                         .unwrap());
                 }
             };
@@ -85,12 +82,8 @@ where
                 Err(_e) => {
                     tracing::error!("HTML content is not utf8.");
                     return Ok(Response::builder()
-                        .status(500)
-                        .body(
-                            Full::from("Internal Server Error")
-                                .map_err(|e| e.into())
-                                .boxed_unsync(),
-                        )
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Full::from("").map_err(|e| e.into()).boxed_unsync())
                         .unwrap());
                 }
             };

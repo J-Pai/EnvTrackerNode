@@ -90,7 +90,15 @@ impl Poller {
                         sample_count += 1;
 
                         match node_client.get(&url).send().await {
-                            Ok(data) => {
+                            Ok(mut data) => {
+                                data = match data.error_for_status() {
+                                    Err(err) => {
+                                        tracing::warn!("Received status code: {:#?}", err);
+                                        break;
+                                    }
+                                    Ok(data) => data,
+                                };
+
                                 let json = data.text().await.unwrap_or("[]".to_string());
 
                                 match serde_json::from_str::<Vec<Vec<KasaChildInfo>>>(&json) {
