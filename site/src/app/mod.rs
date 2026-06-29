@@ -5,6 +5,7 @@ use fps::FrameHistory;
 
 mod control_panel;
 mod fps;
+mod kasa;
 mod tile;
 
 #[allow(clippy::allow_attributes)]
