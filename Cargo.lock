@@ -5724,7 +5724,9 @@ dependencies = [
  "egui_plot",
  "egui_tiles",
  "log",
+ "reqwest-middleware",
  "serde",
+ "serde_json",
  "wasm-bindgen-futures",
  "web-sys",
 ]

@@ -1,7 +1,9 @@
 use egui::OpenUrl;
+use fps::FrameHistory;
 use tile::Tile;
 use tile::TileBehavior;
-use fps::FrameHistory;
+
+use crate::app::kasa::Kasa;
 
 mod control_panel;
 mod fps;
@@ -30,7 +32,7 @@ pub struct EnvApp {
     state: State,
     frame_history: FrameHistory,
     tile_behavior: TileBehavior,
-    api_endpoint: String,
+    kasa: Kasa,
 }
 
 impl EnvApp {
@@ -41,14 +43,14 @@ impl EnvApp {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
                 frame_history: Default::default(),
                 tile_behavior: TileBehavior::default(),
-                api_endpoint,
+                kasa: Kasa::new(&api_endpoint),
             }
         } else {
             Self {
                 state: Default::default(),
                 frame_history: Default::default(),
                 tile_behavior: TileBehavior::default(),
-                api_endpoint,
+                kasa: Kasa::new(&api_endpoint),
             }
         };
 
@@ -118,6 +120,7 @@ impl eframe::App for EnvApp {
 
         egui::CentralPanel::no_frame().show(ui, |ui| {
             self.control_panel_ui(ui);
+            self.kasa.ui();
         });
     }
 }

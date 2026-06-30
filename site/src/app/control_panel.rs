@@ -27,11 +27,6 @@ impl EnvApp {
                     self.frame_history.ui(ui);
                     ui.checkbox(&mut self.state.continuous, "Run Mode - Continuous");
                     ui.separator();
-                    ui.label("API Endpoint:");
-                    Hyperlink::from_label_and_url(&self.api_endpoint, &self.api_endpoint)
-                        .open_in_new_tab(true)
-                        .ui(ui);
-                    ui.separator();
                 });
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.add_space(4.0);
