@@ -46,7 +46,7 @@ impl Web {
 
         router = router
             .route(
-                &format!("/api/kasa/{}", topic),
+                &format!("/api/kasa/{topic}"),
                 routing::get(move |Query(query): Query<DeviceQuery>| async move {
                     match db.query_kasa_data(&topic, &query).await {
                         Ok(data) => {

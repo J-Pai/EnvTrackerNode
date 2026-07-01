@@ -93,7 +93,7 @@ where
             // `<link id="api" href="/{base}/"` if base if provided.
             let content = content.replace(
                 "<link id=\"api\" href=\"",
-                format!("<link id=\"api\" href=\"{}", api_server_ip).as_str(),
+                format!("<link id=\"api\" href=\"{api_server_ip}").as_str(),
             );
 
             let content = if !base.is_empty() {
@@ -108,7 +108,7 @@ where
                 //
                 // Replaces wasm script block.
                 content
-                    .replace("href=\"/", format!("href=\"{}/", base).as_str())
+                    .replace("href=\"/", format!("href=\"{base}/").as_str())
                     .replace(
                         "<script data-event-stream=\"/_tower-livereload",
                         format!("<<script data-event-stream=\"{}/_tower-livereload", base).as_str(),
