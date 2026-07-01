@@ -7,6 +7,8 @@ See [PiKVM](pikvm.md) for more information on reverse proxies.
 
 ## Reverse Proxy
 
+For the proxy_pass address, prefer an IP address.
+
 ```shell
         location /env {
             rewrite ^/env$ / break;
