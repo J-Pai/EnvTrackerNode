@@ -75,7 +75,7 @@ impl Poller {
                         url = format!("{url}?size={size}");
                     }
 
-                    tracing::debug!("{} - Kasa Polling", uuid);
+                    tracing::debug!("{} - Kasa Polling - {}", uuid, url);
 
                     if let Err(e) = db.try_write_lock().await {
                         tracing::warn!(
