@@ -11,6 +11,7 @@ pub(super) struct FrontendServerUi {
     enable: Handle<CheckBox>,
     save_button: Handle<Button>,
     ip_field: Handle<TextField>,
+    kasa_api_field: Handle<TextField>,
     base_field: Handle<TextField>,
 }
 
@@ -26,8 +27,11 @@ impl FrontendServerUi {
         form_panel.add(label!("'API Server IP:', x:0, y:2, w: 32"));
         let ip = textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32");
         let ip = form_panel.add(ip);
-        form_panel.add(label!("'Base:', x:0, y:4, w: 32"));
-        let base = textfield!("caption='', x:32, y:4, w: 32");
+        form_panel.add(label!("'Kasa API Endpoint:', x:0, y:4, w: 32"));
+        let kasa_api = textfield!("caption='/kasa', x:32, y:4, w: 32");
+        let kasa_api = form_panel.add(kasa_api);
+        form_panel.add(label!("'Base:', x:0, y:6, w: 32"));
+        let base = textfield!("caption='', x:32, y:6, w: 32");
         let base = form_panel.add(base);
 
         tabs.add(index, form_panel);
@@ -36,6 +40,7 @@ impl FrontendServerUi {
             enable,
             save_button: save,
             ip_field: ip,
+            kasa_api_field: kasa_api,
             base_field: base,
         }
     }
@@ -46,6 +51,12 @@ impl FrontendServerUi {
         {
             let api_server_ip = if let Some(ip) = window.control(self.ip_field) {
                 Ip(ip.text().to_string())
+            } else {
+                return None;
+            };
+
+            let kasa_api = if let Some(kasa_api) = window.control(self.kasa_api_field) {
+                kasa_api.text().to_string()
             } else {
                 return None;
             };
@@ -64,6 +75,7 @@ impl FrontendServerUi {
 
             return Some(FrontendServerConfig {
                 api_server_ip,
+                kasa_api,
                 base,
             });
         }
@@ -84,6 +96,10 @@ impl FrontendServerUi {
 
         if let Some(ip) = window.control_mut(self.ip_field) {
             ip.set_text(&config.get_api_server_ip().0);
+        }
+
+        if let Some(kasa_api) = window.control_mut(self.kasa_api_field) {
+            kasa_api.set_text(&config.get_kasa_api());
         }
 
         if let Some(base) = window.control_mut(self.base_field)

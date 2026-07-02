@@ -33,6 +33,8 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 turso = "0.5.3"
 
 [features]
+default = ["tui"]
+
 # TUI is optional b/c it relies on libcurses.
 # Painful to get working on aarch64-unknown-none-musl
 tui = ["dep:appcui"]

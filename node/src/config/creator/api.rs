@@ -22,11 +22,12 @@ pub(super) struct NodeConfigUi {
     ip: Handle<TextField>,
     polling_schedule: Handle<TextField>,
     polling_endpoint: Handle<TextField>,
+    batch_size: Handle<TextField>,
     height: u16,
 }
 
 impl NodeConfigUi {
-    const NODE_HEIGHT: u16 = 14;
+    const NODE_HEIGHT: u16 = 16;
 
     pub(super) fn new(
         data: NodeClass,
@@ -89,7 +90,7 @@ impl NodeConfigUi {
         node_editor_panel.add(label!("'Polling Endpoint:', x:0, y:6, w: 32"));
         let mut polling_endpoint = textfield!("caption='', x:32, y:6, w: 32");
         let api = if let Some(api) = schedule.get_api().clone() {
-            api.clone()
+            api
         } else {
             String::new()
         };
@@ -97,9 +98,20 @@ impl NodeConfigUi {
         polling_endpoint.set_enabled(editor);
         let polling_endpoint = node_editor_panel.add(polling_endpoint);
 
+        node_editor_panel.add(label!("'Batch Size:', x:0, y:8, w: 32"));
+        let mut batch_size = textfield!("caption='0.0.0.0:3000', x:32, y:8, w: 32");
+        let size = if let Some(batch_size) = device_config.get_batch_size() {
+            format!("{batch_size}").to_string()
+        } else {
+            String::new()
+        };
+        batch_size.set_text(&size);
+        batch_size.set_enabled(editor);
+        let batch_size = node_editor_panel.add(batch_size);
+
         let dropdown = if editor {
             let mut db = DropDownList::<NodeClass>::new(
-                layout!("x:0, y:8, w:64"),
+                layout!("x:0, y:10, w:64"),
                 dropdownlist::Flags::ShowDescription,
             );
             db.add(NodeClass::KasaDevice(
@@ -115,8 +127,8 @@ impl NodeConfigUi {
         };
 
         let (add, update) = if editor {
-            let add = button!("'Add', x:0, y: 10, w:16");
-            let update = button!("'Update', x:32, y: 10, w: 16");
+            let add = button!("'Add', x:0, y: 12, w:16");
+            let update = button!("'Update', x:32, y: 12, w: 16");
             (
                 Some(node_editor_panel.add(add)),
                 Some(node_editor_panel.add(update)),
@@ -137,6 +149,7 @@ impl NodeConfigUi {
             ip,
             polling_schedule,
             polling_endpoint,
+            batch_size,
             height,
         }
     }
@@ -273,6 +286,13 @@ impl ApiServerUi {
                         String::new()
                     };
                     polling_endpoint.set_text(&api);
+                    let batch_size = window.control_mut(config.batch_size).unwrap();
+                    let size = if let Some(size) = device_config.get_batch_size() {
+                        format!("{size}")
+                    } else {
+                        String::new()
+                    };
+                    batch_size.set_text(&size);
                 }
             }
         }
@@ -319,6 +339,17 @@ impl ApiServerUi {
                         .control_mut(self.node_editor_panel.polling_endpoint)
                         .unwrap();
                     editor_polling_endpoint.set_text(&polling_endpoint);
+
+                    let batch_size = window
+                        .control(config.batch_size)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_batch_size = window
+                        .control_mut(self.node_editor_panel.batch_size)
+                        .unwrap();
+                    editor_batch_size.set_text(&batch_size);
                 }
             }
         }
@@ -368,6 +399,20 @@ impl ApiServerUi {
                         return None;
                     };
 
+                    let batch_size = if let Some(size) = window.control(config.batch_size) {
+                        let batch_size = size.text().trim();
+                        if batch_size.is_empty() {
+                            None
+                        } else {
+                            match usize::from_str_radix(batch_size, 10) {
+                                Ok(size) => Some(size),
+                                Err(_) => return None,
+                            }
+                        }
+                    } else {
+                        return None;
+                    };
+
                     // Assuming everything is just a Kasa Device for now.
                     nodes.push(NodeClass::KasaDevice(
                         name,
@@ -375,6 +420,7 @@ impl ApiServerUi {
                             ip,
                             username: String::new(),
                             password: String::new(),
+                            batch_size,
                         },
                         polling_schedule,
                     ));
@@ -457,6 +503,18 @@ impl ApiServerUi {
                             .to_string()),
                         username: String::new(),
                         password: String::new(),
+                        batch_size: match usize::from_str_radix(
+                            &window
+                                .control(self.node_editor_panel.batch_size)
+                                .unwrap()
+                                .text()
+                                .trim()
+                                .to_string(),
+                            10,
+                        ) {
+                            Ok(v) => Some(v),
+                            Err(_) => None,
+                        },
                     },
                     PollingConfig {
                         schedule: window
@@ -512,6 +570,18 @@ impl ApiServerUi {
                             .to_string()),
                         username: String::new(),
                         password: String::new(),
+                        batch_size: match usize::from_str_radix(
+                            &window
+                                .control(self.node_editor_panel.batch_size)
+                                .unwrap()
+                                .text()
+                                .trim()
+                                .to_string(),
+                            10,
+                        ) {
+                            Ok(v) => Some(v),
+                            Err(_) => None,
+                        },
                     },
                     PollingConfig {
                         schedule: window

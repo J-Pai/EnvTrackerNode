@@ -37,20 +37,24 @@ pub struct EnvApp {
 
 impl EnvApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, api_endpoint: String) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        api_endpoint: String,
+        kasa_api_endpoint: String,
+    ) -> Self {
         let mut app = if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
                 frame_history: Default::default(),
                 tile_behavior: TileBehavior::default(),
-                kasa: Kasa::new(&api_endpoint),
+                kasa: Kasa::new(&api_endpoint, &kasa_api_endpoint),
             }
         } else {
             Self {
                 state: Default::default(),
                 frame_history: Default::default(),
                 tile_behavior: TileBehavior::default(),
-                kasa: Kasa::new(&api_endpoint),
+                kasa: Kasa::new(&api_endpoint, &kasa_api_endpoint),
             }
         };
 

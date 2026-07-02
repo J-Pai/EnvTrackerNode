@@ -28,11 +28,24 @@ fn main() {
             .expect("api is not a HtmlLinkElement")
             .href();
 
+        let kasa_api_endpoint = document
+            .get_element_by_id("kasa_api")
+            .expect("Failed to find kasa_api")
+            .dyn_into::<web_sys::HtmlLinkElement>()
+            .expect("kasas_api is not a HtmlLinkElement")
+            .href();
+
         let start_result = eframe::WebRunner::new()
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(site::EnvApp::new(cc, api_endpoint)))),
+                Box::new(|cc| {
+                    Ok(Box::new(site::EnvApp::new(
+                        cc,
+                        api_endpoint,
+                        kasa_api_endpoint,
+                    )))
+                }),
             )
             .await;
 

@@ -19,22 +19,34 @@ pub(crate) struct ServerConfig {
 impl ServerConfig {
     pub(crate) fn new(path: PathBuf, edit_config: bool) -> Self {
         #[allow(unused_variables)]
-        let config = if let Ok(config_text) = fs::read_to_string(&path)
-            && let Ok(config) = toml::from_str(&config_text)
-        {
-            if !edit_config {
-                return config;
-            }
-
-            config
-        } else {
-            println!(
-                "[ServerConfig] Error obtaining config file: {}",
-                path.to_string_lossy()
-            );
-
-            ServerConfig::default()
-        };
+        let config = fs::read_to_string(&path).map_or_else(
+            |e| {
+                println!(
+                    "[ServerConfig] Error obtaining config file: {}. {}",
+                    path.to_string_lossy(),
+                    e,
+                );
+                ServerConfig::default()
+            },
+            |v| {
+                toml::from_str(&v).map_or_else(
+                    |e| {
+                        println!(
+                            "[ServerConfig] Error parsing config file: {}. {}",
+                            path.to_string_lossy(),
+                            e,
+                        );
+                        ServerConfig::default()
+                    },
+                    |v| {
+                        if !edit_config {
+                            return v;
+                        }
+                        v
+                    },
+                )
+            },
+        );
 
         #[cfg(feature = "tui")]
         crate::config::creator::Creator::new(config)
@@ -149,6 +161,8 @@ impl ApiServerConfig {
 pub(crate) struct FrontendServerConfig {
     /// API server for data.
     api_server_ip: Ip,
+    /// Kasa API endpoint.
+    kasa_api: String,
     /// Offset base URL.
     base: Option<String>,
 }
@@ -156,6 +170,10 @@ pub(crate) struct FrontendServerConfig {
 impl FrontendServerConfig {
     pub(crate) fn get_api_server_ip(&self) -> Ip {
         self.api_server_ip.clone()
+    }
+
+    pub(crate) fn get_kasa_api(&self) -> String {
+        self.kasa_api.clone()
     }
 
     pub(crate) fn get_base(&self) -> Option<String> {

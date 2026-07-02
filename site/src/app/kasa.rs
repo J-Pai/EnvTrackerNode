@@ -41,9 +41,9 @@ pub(super) struct Kasa {
 }
 
 impl Kasa {
-    pub(super) fn new(api_endpoint: &String) -> Self {
+    pub(super) fn new(api_endpoint: &String, kasa_api_endpoint: &String) -> Self {
         Self {
-            api_endpoint: api_endpoint.clone(),
+            api_endpoint: format!("{}{}", api_endpoint, kasa_api_endpoint).to_string(),
             data: Bind::new(true),
         }
     }
@@ -54,11 +54,7 @@ impl Kasa {
 
         self.data.request_every_sec(
             || async move {
-                match api_client
-                    .get(format!("{api_endpoint}/kasa/smart_strip"))
-                    .send()
-                    .await
-                {
+                match api_client.get(format!("{api_endpoint}")).send().await {
                     Ok(mut data) => {
                         data = match data.error_for_status() {
                             Ok(data) => data,

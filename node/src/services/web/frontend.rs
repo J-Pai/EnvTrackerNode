@@ -25,6 +25,7 @@ pub struct UpdateBaseUriHtmlService<S> {
     inner: S,
     base: String,
     api_server_ip: String,
+    kasa_api: String,
 }
 
 impl<S, ReqBody, ResBody> Service<Request<ReqBody>> for UpdateBaseUriHtmlService<S>
@@ -47,6 +48,7 @@ where
         let response_future = self.inner.call(request);
         let base = self.base.clone();
         let api_server_ip = self.api_server_ip.clone();
+        let kasa_api = self.kasa_api.clone();
 
         Box::pin(async move {
             let response = response_future.await?;
@@ -90,10 +92,18 @@ where
 
             // Replaces
             // `<link id="api" href="/"` with
-            // `<link id="api" href="/{base}/"` if base if provided.
+            // `<link id="api" href="/{api_server_ip}/"` if base if provided.
             let content = content.replace(
                 "<link id=\"api\" href=\"",
                 format!("<link id=\"api\" href=\"{api_server_ip}").as_str(),
+            );
+
+            // Replaces
+            // `<link id="kasa_api" href="/"` with
+            // `<link id="kasa_api" href="/{base}/"` if base if provided.
+            let content = content.replace(
+                "<link id=\"api\" href=\"",
+                format!("<link id=\"api\" href=\"{kasa_api}").as_str(),
             );
 
             let content = if !base.is_empty() {
@@ -131,6 +141,7 @@ where
 pub struct UpdateBaseUrilHtmlLayer {
     base: String,
     api_server_ip: String,
+    kasa_api: String,
 }
 
 impl<S> Layer<S> for UpdateBaseUrilHtmlLayer {
@@ -141,6 +152,7 @@ impl<S> Layer<S> for UpdateBaseUrilHtmlLayer {
             inner,
             base: self.base.clone(),
             api_server_ip: self.api_server_ip.clone(),
+            kasa_api: self.kasa_api.clone(),
         }
     }
 }
@@ -184,10 +196,12 @@ impl Web {
 
         let base = config.get_base().unwrap_or(String::new());
         let api_server_ip = config.get_api_server_ip().to_string();
+        let kasa_api = config.get_kasa_api().to_string();
 
         self.router = router.layer(UpdateBaseUrilHtmlLayer {
             base,
             api_server_ip,
+            kasa_api,
         });
 
         Ok(self)

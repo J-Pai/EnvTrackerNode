@@ -23,6 +23,7 @@ if [[ "$1" == "build-release" ]]; then
 	CARGO_BINARY="cross"
 	CARGO_ACTION="build"
 	RELEASE_FLAG="--release"
+	CONFIG_FLAG="--no-default-features"
 	shift
 	set -x
 fi
@@ -31,9 +32,7 @@ while [ $# -gt 0 ] && [[ "$1" != "build-release" ]]; do
 	case $1 in
 		release)
 			RELEASE_FLAG="--release"
-			;;
-		config)
-			CONFIG_FLAG="--features=tui"
+			CONFIG_FLAG="--no-default-features"
 			;;
 		watch)
 			TRUNK_ACTION="watch"
@@ -56,22 +55,18 @@ while [ $# -gt 0 ] && [[ "$1" != "build-release" ]]; do
 	shift
 done
 
-if [[ "$CONFIG_FLAG" == "" ]]; then
-	echo "=== TRUNK ==="
-	CARGO_TARGET_DIR="target_trunk" trunk $TRUNK_ACTION $RELEASE_FLAG &
-	[[ "$CARGO_ACTION" == "run" ]] && {
-		echo "Waiting for trunk to complete"; wait;
-		rc=$?
-		if [[ "$rc" != "0" || "${TRUNK_ACTION}" != "build" ]]; then
-			exit $rc
-		fi
-	}
+echo "=== TRUNK ==="
+CARGO_TARGET_DIR="target_trunk" trunk $TRUNK_ACTION $RELEASE_FLAG &
+[[ "$CARGO_ACTION" == "run" ]] && {
+	echo "Waiting for trunk to complete"; wait;
+	rc=$?
+	if [[ "$rc" != "0" || "${TRUNK_ACTION}" != "build" ]]; then
+		exit $rc
+	fi
+}
 
-	echo "=== Cargo RUN ==="
-	$CARGO_BINARY $CARGO_ACTION $RELEASE_FLAG -- $@
+echo "=== Cargo RUN ==="
+$CARGO_BINARY $CARGO_ACTION $RELEASE_FLAG $CONFIG_FLAG -- $@
 
-	echo "Finalizing..."
-	wait
-else
-	$CARGO_BINARY $CARGO_ACTION $CONFIG_FLAG -- --config $SCRIPT_DIR/install/config.toml --edit-config
-fi
+echo "Finalizing..."
+wait

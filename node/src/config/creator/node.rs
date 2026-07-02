@@ -436,6 +436,7 @@ impl NodeUi {
                                 ip,
                                 username,
                                 password,
+                                batch_size: None,
                             },
                             polling_schedule,
                         ));
@@ -517,6 +518,7 @@ impl NodeUi {
                                     .unwrap()
                                     .text()
                                     .to_string(),
+                                batch_size: None,
                             },
                             PollingConfig {
                                 schedule: window
@@ -577,6 +579,7 @@ impl NodeUi {
                                     .unwrap()
                                     .text()
                                     .to_string(),
+                                batch_size: None,
                             },
                             PollingConfig {
                                 schedule: window
