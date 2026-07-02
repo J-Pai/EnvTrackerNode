@@ -41,9 +41,9 @@ pub(super) struct Kasa {
 }
 
 impl Kasa {
-    pub(super) fn new(api_endpoint: &String, kasa_api_endpoint: &String) -> Self {
+    pub(super) fn new(kasa_api_endpoint: &String) -> Self {
         Self {
-            api_endpoint: format!("{}{}", api_endpoint, kasa_api_endpoint).to_string(),
+            api_endpoint: kasa_api_endpoint.clone(),
             data: Bind::new(true),
         }
     }

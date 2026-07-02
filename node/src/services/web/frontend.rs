@@ -102,8 +102,8 @@ where
             // `<link id="kasa_api" href="/"` with
             // `<link id="kasa_api" href="/{base}/"` if base if provided.
             let content = content.replace(
-                "<link id=\"api\" href=\"",
-                format!("<link id=\"api\" href=\"{kasa_api}").as_str(),
+                "<link id=\"kasa_api\" href=\"",
+                format!("<link id=\"kasa_api\" href=\"{kasa_api}").as_str(),
             );
 
             let content = if !base.is_empty() {

@@ -1,6 +1,5 @@
 //! UI element for main panel.
 
-use egui::Color32;
 use egui::Response;
 use egui_plot::Legend;
 use egui_plot::Line;
@@ -28,7 +27,7 @@ impl BorrowPointsExample {
     pub fn show_plot(&self, ui: &mut egui::Ui, nr: i32, reset: bool) -> Response {
         let mut plot = Plot::new(format!("plot{nr}"))
             .legend(Legend::default())
-            .width(ui.available_width() - 10.0);
+            .width(ui.available_width());
 
         if reset {
             plot = plot.reset();
@@ -86,21 +85,15 @@ impl egui_tiles::Behavior<Tile> for TileBehavior {
         _tile_id: egui_tiles::TileId,
         tile: &mut Tile,
     ) -> egui_tiles::UiResponse {
-        fn clear_color(visuals: &egui::Visuals) -> Color32 {
-            // Give the area behind the floating windows a different color, because it looks better:
-            let color = egui::lerp(
-                egui::Rgba::from(visuals.panel_fill)..=egui::Rgba::from(visuals.extreme_bg_color),
-                0.0,
-            );
-            egui::Color32::from(color)
-        }
-
         egui::CentralPanel::no_frame().show(ui, |ui| {
-            ui.painter()
-                .rect_filled(ui.max_rect(), 0.0, clear_color(ui.visuals()));
-            ui.separator();
-            ui.add_space(10.0);
+            egui::Panel::left(format!("label{}", tile.nr))
+                .resizable(false)
+                .min_size(175.0)
+                .max_size(175.0)
+                .show(ui, |_ui| {});
+
             BorrowPointsExample::default().show_plot(ui, tile.nr, self.reset);
+
             if self.reset {
                 self.reset = false;
             }
@@ -110,6 +103,6 @@ impl egui_tiles::Behavior<Tile> for TileBehavior {
     }
 
     fn ideal_tile_aspect_ratio(&self) -> f32 {
-        4.0 / 1.5
+        4.0 / 1.0
     }
 }
