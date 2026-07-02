@@ -18,7 +18,6 @@ pub(crate) struct ServerConfig {
 
 impl ServerConfig {
     pub(crate) fn new(path: PathBuf, edit_config: bool) -> Self {
-        #[allow(unused_variables)]
         let config = fs::read_to_string(&path).map_or_else(
             |e| {
                 println!(
@@ -26,7 +25,7 @@ impl ServerConfig {
                     path.to_string_lossy(),
                     e,
                 );
-                ServerConfig::default()
+                Err(ServerConfig::default())
             },
             |v| {
                 toml::from_str(&v).map_or_else(
@@ -36,26 +35,31 @@ impl ServerConfig {
                             path.to_string_lossy(),
                             e,
                         );
-                        ServerConfig::default()
+                        Err(ServerConfig::default())
                     },
                     |v| {
                         if !edit_config {
-                            return v;
+                            return Ok(v);
                         }
-                        v
+                        Err(v)
                     },
                 )
             },
         );
 
-        #[cfg(feature = "tui")]
-        crate::config::creator::Creator::new(config)
-            .unwrap()
-            .create()
-            .unwrap()
-            .write(path);
+        match config {
+            Ok(config) => config,
+            Err(config) => {
+                #[cfg(feature = "tui")]
+                crate::config::creator::Creator::new(config)
+                    .unwrap()
+                    .create()
+                    .unwrap()
+                    .write(path);
 
-        exit(0);
+                exit(0);
+            }
+        }
     }
 
     pub(crate) fn get_node_config(&self) -> Option<Node> {
