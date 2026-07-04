@@ -1,6 +1,5 @@
 use egui::Frame;
 use egui::OpenUrl;
-use egui_tiles::Behavior;
 use fps::FrameHistory;
 use tile::TileBehavior;
 
@@ -16,7 +15,6 @@ mod tile;
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct State {
-    control_panel: bool,
     continuous: bool,
     tiles: egui_tiles::Tree<Pane>,
 }
@@ -24,7 +22,6 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            control_panel: false,
             continuous: false,
             tiles: Pane::new_tree("root_tree"),
         }
@@ -33,6 +30,7 @@ impl Default for State {
 
 pub struct EnvApp {
     state: State,
+    control_panel: bool,
     frame_history: FrameHistory,
     tile_behavior: TileBehavior,
     kasa: Kasa,
@@ -48,6 +46,7 @@ impl EnvApp {
         let app = if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
+                control_panel: false,
                 frame_history: Default::default(),
                 tile_behavior: TileBehavior::default(),
                 kasa: Kasa::new(&kasa_api_endpoint),
@@ -55,6 +54,7 @@ impl EnvApp {
         } else {
             Self {
                 state: Default::default(),
+                control_panel: false,
                 frame_history: Default::default(),
                 tile_behavior: TileBehavior::default(),
                 kasa: Kasa::new(&kasa_api_endpoint),
@@ -91,7 +91,7 @@ impl eframe::App for EnvApp {
                     ui.open_url(OpenUrl::same_tab("/"));
                 }
                 ui.separator();
-                ui.toggle_value(&mut self.state.control_panel, "🖥 Control Panel");
+                ui.toggle_value(&mut self.control_panel, "🖥 Control Panel");
                 ui.separator();
             });
         });

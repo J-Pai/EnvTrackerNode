@@ -13,7 +13,7 @@ impl EnvApp {
             .resizable(false)
             .max_size(250.0)
             .min_size(250.0)
-            .show_collapsible(ui, &mut self.state.control_panel, |ui| {
+            .show_collapsible(ui, &mut self.control_panel, |ui| {
                 ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
                     ui.add_space(4.0);
                     ui.vertical_centered(|ui| {

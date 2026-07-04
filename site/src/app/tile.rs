@@ -90,15 +90,7 @@ impl Pane {
 }
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
-pub(super) struct TileBehavior {
-    reset: bool,
-}
-
-impl TileBehavior {
-    pub(super) fn reset_plot(&mut self) {
-        self.reset = true;
-    }
-}
+pub(super) struct TileBehavior {}
 
 impl egui_tiles::Behavior<Pane> for TileBehavior {
     fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
@@ -130,9 +122,6 @@ impl egui_tiles::Behavior<Pane> for TileBehavior {
         _tile_id: egui_tiles::TileId,
         view: &mut Pane,
     ) -> egui_tiles::UiResponse {
-        if self.reset {
-            self.reset = false;
-        }
         view.ui(ui)
     }
 
