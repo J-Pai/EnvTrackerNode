@@ -6,10 +6,9 @@ use egui::Margin;
 use egui_tiles::SimplificationOptions;
 use egui_tiles::TileId;
 use egui_tiles::Tiles;
+use egui_tiles::Tree;
 
 use crate::app::kasa::BorrowPointsExample;
-
-pub(super) type Tile = egui_tiles::Tree<Pane>;
 
 /// Tile/Pane rendering.
 #[derive(Default, serde::Deserialize, serde::Serialize)]
@@ -21,6 +20,19 @@ impl Pane {
     pub(super) fn new(nr: i32) -> Self {
         Self { nr }
     }
+
+    pub(super) fn new_tree(id: &'static str) -> Tree<Self> {
+        let mut tiles = egui_tiles::Tiles::default();
+        let mut next_view_nr = 0;
+        let mut gen_pane = || {
+            let pane = Pane::new(next_view_nr);
+            next_view_nr += 1;
+            pane
+        };
+        let children = (0..6).map(|_| tiles.insert_pane(gen_pane())).collect();
+        let root = tiles.insert_grid_tile(children);
+        egui_tiles::Tree::new(id, root, tiles)
+    }
 }
 
 impl Pane {
@@ -29,6 +41,7 @@ impl Pane {
             egui::Theme::Dark => egui::epaint::Hsva::new(0.0, 0.0, 0.025, 1.0),
             egui::Theme::Light => egui::epaint::Hsva::new(0.0, 0.0, 1.0, 1.0),
         };
+        let mut drag = egui_tiles::UiResponse::None;
         egui::Panel::left(format!("data_panel{}", self.nr))
             .frame(Frame {
                 fill: Color32::from(color),
@@ -40,8 +53,15 @@ impl Pane {
             .show(ui, |ui| {
                 ui.label(format!("Pane {}", self.nr));
                 ui.separator();
-                // let color = egui::epaint::Hsva::new(0.103 * self.nr as f32, 0.5, 0.5, 1.0);
-                // ui.painter().rect_filled(ui.max_rect(), 0.0, color);
+                let dragged = ui
+                    .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
+                    .on_hover_cursor(egui::CursorIcon::Grab)
+                    .dragged();
+                if dragged {
+                    drag = egui_tiles::UiResponse::DragStarted;
+                } else {
+                    drag = egui_tiles::UiResponse::None;
+                }
             });
         egui::CentralPanel::no_frame()
             .frame(Frame {
@@ -62,19 +82,10 @@ impl Pane {
                     .show(ui, |ui| {
                         // let color = egui::epaint::Hsva::new(0.103 * self.nr as f32, 0.5, 0.5, 1.0);
                         // ui.painter().rect_filled(ui.max_rect(), 0.0, color);
-                        BorrowPointsExample::default().show_plot(ui, self.nr, false)
+                        BorrowPointsExample::default().show_plot(ui, self.nr, false);
                     });
             });
-
-        let dragged = ui
-            .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
-            .on_hover_cursor(egui::CursorIcon::Grab)
-            .dragged();
-        if dragged {
-            egui_tiles::UiResponse::DragStarted
-        } else {
-            egui_tiles::UiResponse::None
-        }
+        drag
     }
 }
 

@@ -33,15 +33,6 @@ impl EnvApp {
                     Self::app_information(ui);
                 });
             });
-
-        if let Some(tree) = &mut self.state.tiles {
-            tree.ui(&mut self.tile_behavior, ui);
-        }
-
-        if reset {
-            self.reset_tree();
-            self.tile_behavior.reset_plot();
-        }
     }
 
     fn app_information(ui: &mut egui::Ui) {

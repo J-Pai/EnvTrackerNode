@@ -1,5 +1,6 @@
 use egui::Frame;
 use egui::OpenUrl;
+use egui_tiles::Behavior;
 use fps::FrameHistory;
 use tile::TileBehavior;
 
@@ -13,11 +14,21 @@ mod tile;
 
 /// Persistent state tracking.
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[derive(Default, serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct State {
     control_panel: bool,
     continuous: bool,
-    tiles: Option<tile::Tile>,
+    tiles: egui_tiles::Tree<Pane>,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            control_panel: false,
+            continuous: false,
+            tiles: Pane::new_tree("root_tree"),
+        }
+    }
 }
 
 pub struct EnvApp {
@@ -34,7 +45,7 @@ impl EnvApp {
         _api_endpoint: String,
         kasa_api_endpoint: String,
     ) -> Self {
-        let mut app = if let Some(storage) = cc.storage {
+        let app = if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
                 frame_history: Default::default(),
@@ -50,37 +61,7 @@ impl EnvApp {
             }
         };
 
-        app.create_tree();
-
         app
-    }
-}
-
-impl EnvApp {
-    fn create_tree(&mut self) {
-        if self.state.tiles.is_some() {
-            return;
-        }
-
-        let mut next_view_nr = 0;
-        let mut gen_pane = || {
-            let pane = Pane::new(next_view_nr);
-            next_view_nr += 1;
-            pane
-        };
-
-        let mut tiles = egui_tiles::Tiles::default();
-
-        let children = (0..6).map(|_| tiles.insert_pane(gen_pane())).collect();
-        let root = tiles.insert_grid_tile(children);
-        let tile = egui_tiles::Tree::new("root_tree", root, tiles);
-
-        self.state.tiles = Some(tile);
-    }
-
-    fn reset_tree(&mut self) {
-        self.state.tiles = None;
-        self.create_tree();
     }
 }
 
@@ -122,6 +103,7 @@ impl eframe::App for EnvApp {
             })
             .show(ui, |ui| {
                 self.control_panel_ui(ui);
+                self.state.tiles.ui(&mut self.tile_behavior, ui);
             });
     }
 }
