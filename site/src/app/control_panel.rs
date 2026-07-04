@@ -33,6 +33,10 @@ impl EnvApp {
                     Self::app_information(ui);
                 });
             });
+
+        if reset {
+            self.reset_tiles();
+        }
     }
 
     fn app_information(ui: &mut egui::Ui) {

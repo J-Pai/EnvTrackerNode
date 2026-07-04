@@ -1,10 +1,18 @@
+use std::collections::HashMap;
+use std::collections::HashSet;
+
 use egui::Frame;
 use egui::OpenUrl;
+use egui_async::Bind;
+use egui_tiles::Tree;
 use fps::FrameHistory;
 use tile::TileBehavior;
 
 use crate::app::kasa::Kasa;
+use crate::app::kasa::KasaDeviceChildAlias;
+use crate::app::kasa::KasaDeviceChildId;
 use crate::app::tile::Pane;
+use crate::app::tile::PaneId;
 
 mod control_panel;
 mod fps;
@@ -17,23 +25,27 @@ mod tile;
 pub struct State {
     continuous: bool,
     tiles: egui_tiles::Tree<Pane>,
+    pane_ids: HashSet<PaneId>,
 }
 
 impl Default for State {
     fn default() -> Self {
         Self {
             continuous: false,
-            tiles: Pane::new_tree("root_tree"),
+            tiles: EnvApp::new_tree(),
+            pane_ids: HashSet::new(),
         }
     }
 }
 
+#[derive(Default)]
 pub struct EnvApp {
     state: State,
     control_panel: bool,
     frame_history: FrameHistory,
     tile_behavior: TileBehavior,
-    kasa: Kasa,
+    kasa_api_endpoint: String,
+    kasa_device_ids: Bind<Vec<(KasaDeviceChildId, KasaDeviceChildAlias)>, String>,
 }
 
 impl EnvApp {
@@ -43,25 +55,37 @@ impl EnvApp {
         _api_endpoint: String,
         kasa_api_endpoint: String,
     ) -> Self {
-        let app = if let Some(storage) = cc.storage {
+        let mut app = if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
-                control_panel: false,
-                frame_history: Default::default(),
-                tile_behavior: TileBehavior::default(),
-                kasa: Kasa::new(&kasa_api_endpoint),
+                kasa_api_endpoint,
+                ..Self::default()
             }
         } else {
             Self {
-                state: Default::default(),
-                control_panel: false,
-                frame_history: Default::default(),
-                tile_behavior: TileBehavior::default(),
-                kasa: Kasa::new(&kasa_api_endpoint),
+                kasa_api_endpoint,
+                ..Self::default()
             }
         };
 
+        Kasa::request_device_ids(&mut app.kasa_device_ids, &app.kasa_api_endpoint);
+
         app
+    }
+}
+
+impl EnvApp {
+    fn new_tree() -> Tree<Pane> {
+        let mut tiles = egui_tiles::Tiles::default();
+        let root = tiles.insert_grid_tile(vec![]);
+        egui_tiles::Tree::new("root_tree", root, tiles)
+    }
+
+    fn reset_tiles(&mut self) {
+        self.state.tiles = Self::new_tree();
+        self.state.pane_ids.clear();
+        self.tile_behavior = TileBehavior::default();
+        Kasa::request_device_ids(&mut self.kasa_device_ids, &self.kasa_api_endpoint);
     }
 }
 
@@ -75,9 +99,40 @@ impl eframe::App for EnvApp {
         ctx.plugin_or_default::<egui_async::EguiAsyncPlugin>();
         self.frame_history
             .on_new_frame(ctx.input(|i| i.time), frame.info().cpu_usage);
-        self.kasa.logic();
         if self.state.continuous {
             ctx.request_repaint();
+        }
+
+        if !self.tile_behavior.kasa_widgets_registered() {
+            let mut widgets = HashMap::<PaneId, Kasa>::new();
+            let devices = Kasa::read_device_ids(&mut self.kasa_device_ids);
+
+            if !devices.is_empty() {
+                for (id, alias) in devices {
+                    let id = PaneId(id.0.clone());
+
+                    if !self.state.pane_ids.contains(&id) {
+                        let tile_id = self.state.tiles.tiles.insert_pane(Pane::new(id.clone(), alias.0));
+
+                        if let Some(root_tile_id) = self.state.tiles.root() {
+                            if let Some(egui_tiles::Tile::Container(egui_tiles::Container::Grid(
+                                root,
+                            ))) = self.state.tiles.tiles.get_mut(root_tile_id)
+                            {
+                                root.add_child(tile_id);
+                            }
+                        } else {
+                            self.state.tiles.root =
+                                Some(self.state.tiles.tiles.insert_grid_tile(vec![tile_id]));
+                        }
+                    }
+
+                    widgets.insert(id.clone(), Kasa::new(&self.kasa_api_endpoint));
+                    self.state.pane_ids.insert(id);
+                }
+
+                self.tile_behavior.register_kasa_widgets(widgets);
+            }
         }
     }
 
@@ -106,4 +161,8 @@ impl eframe::App for EnvApp {
                 self.state.tiles.ui(&mut self.tile_behavior, ui);
             });
     }
+}
+
+trait EnvWidget {
+    fn ui(&mut self, ui: &mut egui::Ui, tile_id: egui_tiles::TileId) -> egui_tiles::UiResponse;
 }

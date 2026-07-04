@@ -1,100 +1,74 @@
 //! UI element for main panel.
 
-use egui::Color32;
-use egui::Frame;
-use egui::Margin;
+use std::collections::HashMap;
+
 use egui_tiles::SimplificationOptions;
 use egui_tiles::TileId;
 use egui_tiles::Tiles;
-use egui_tiles::Tree;
 
-use crate::app::kasa::BorrowPointsExample;
+use crate::app::EnvWidget;
+use crate::app::Kasa;
+
+#[derive(Clone, Default, Eq, PartialEq, Hash, serde::Deserialize, serde::Serialize)]
+pub(super) struct PaneId(pub(super) String);
 
 /// Tile/Pane rendering.
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 pub(super) struct Pane {
-    nr: i32,
+    id: PaneId,
+    alias: String,
 }
 
 impl Pane {
-    pub(super) fn new(nr: i32) -> Self {
-        Self { nr }
+    pub(super) fn new(id: PaneId, alias: String) -> Self {
+        Self { id, alias }
     }
 
-    pub(super) fn new_tree(id: &'static str) -> Tree<Self> {
-        let mut tiles = egui_tiles::Tiles::default();
-        let mut next_view_nr = 0;
-        let mut gen_pane = || {
-            let pane = Pane::new(next_view_nr);
-            next_view_nr += 1;
-            pane
+    pub(super) fn ui(
+        &self,
+        ui: &mut egui::Ui,
+        tile_id: egui_tiles::TileId,
+        widget: Option<&mut dyn EnvWidget>,
+    ) -> egui_tiles::UiResponse {
+        let Some(widget) = widget else {
+            let dragged = ui
+                .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
+                .on_hover_cursor(egui::CursorIcon::Grab)
+                .dragged();
+            if dragged {
+                return egui_tiles::UiResponse::DragStarted;
+            } else {
+                return egui_tiles::UiResponse::None;
+            }
         };
-        let children = (0..6).map(|_| tiles.insert_pane(gen_pane())).collect();
-        let root = tiles.insert_grid_tile(children);
-        egui_tiles::Tree::new(id, root, tiles)
+
+        widget.ui(ui, tile_id)
     }
 }
 
-impl Pane {
-    pub(super) fn ui(&self, ui: &mut egui::Ui) -> egui_tiles::UiResponse {
-        let color = match ui.theme() {
-            egui::Theme::Dark => egui::epaint::Hsva::new(0.0, 0.0, 0.025, 1.0),
-            egui::Theme::Light => egui::epaint::Hsva::new(0.0, 0.0, 1.0, 1.0),
-        };
-        let mut drag = egui_tiles::UiResponse::None;
-        egui::Panel::left(format!("data_panel{}", self.nr))
-            .frame(Frame {
-                fill: Color32::from(color),
-                inner_margin: Margin::same(8),
-                ..Frame::default()
-            })
-            .min_size(200.0)
-            .max_size(200.0)
-            .show(ui, |ui| {
-                ui.label(format!("Pane {}", self.nr));
-                ui.separator();
-                let dragged = ui
-                    .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
-                    .on_hover_cursor(egui::CursorIcon::Grab)
-                    .dragged();
-                if dragged {
-                    drag = egui_tiles::UiResponse::DragStarted;
-                } else {
-                    drag = egui_tiles::UiResponse::None;
-                }
-            });
-        egui::CentralPanel::no_frame()
-            .frame(Frame {
-                fill: Color32::from(color),
-                ..Frame::default()
-            })
-            .show(ui, |ui| {
-                egui::CentralPanel::default_margins()
-                    .frame(Frame {
-                        fill: Color32::from(color),
-                        inner_margin: Margin {
-                            right: 8,
-                            top: 8,
-                            ..Margin::ZERO
-                        },
-                        ..Frame::default()
-                    })
-                    .show(ui, |ui| {
-                        // let color = egui::epaint::Hsva::new(0.103 * self.nr as f32, 0.5, 0.5, 1.0);
-                        // ui.painter().rect_filled(ui.max_rect(), 0.0, color);
-                        BorrowPointsExample::default().show_plot(ui, self.nr, false);
-                    });
-            });
-        drag
+pub(super) struct TileBehavior {
+    kasa_widgets: Option<HashMap<PaneId, Kasa>>,
+}
+
+impl Default for TileBehavior {
+    fn default() -> Self {
+        Self { kasa_widgets: None }
     }
 }
 
-#[derive(Default, serde::Deserialize, serde::Serialize)]
-pub(super) struct TileBehavior {}
+impl TileBehavior {
+    pub(super) fn register_kasa_widgets(&mut self, widget: HashMap<PaneId, Kasa>) {
+        self.kasa_widgets.replace(widget);
+    }
+
+    pub(super) fn kasa_widgets_registered(&self) -> bool {
+        self.kasa_widgets.is_some()
+    }
+}
 
 impl egui_tiles::Behavior<Pane> for TileBehavior {
     fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
-        format!("Pane {}", pane.nr).into()
+        format!("Pane {}", pane.alias).into()
     }
 
     fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
@@ -119,10 +93,15 @@ impl egui_tiles::Behavior<Pane> for TileBehavior {
     fn pane_ui(
         &mut self,
         ui: &mut egui::Ui,
-        _tile_id: egui_tiles::TileId,
+        tile_id: egui_tiles::TileId,
         view: &mut Pane,
     ) -> egui_tiles::UiResponse {
-        view.ui(ui)
+        if let Some(kasa_widgets) = &mut self.kasa_widgets {
+            if let Some(widget) = kasa_widgets.get_mut(&view.id) {
+                return view.ui(ui, tile_id, Some(widget));
+            }
+        }
+        view.ui(ui, tile_id, None)
     }
 
     fn ideal_tile_aspect_ratio(&self) -> f32 {
