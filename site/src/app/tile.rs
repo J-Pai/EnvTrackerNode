@@ -1,54 +1,80 @@
 //! UI element for main panel.
 
-use egui::Response;
-use egui_plot::Legend;
-use egui_plot::Line;
-use egui_plot::Plot;
-use egui_plot::PlotPoint;
-use egui_plot::PlotPoints;
+use egui::Color32;
+use egui::Frame;
+use egui::Margin;
 use egui_tiles::SimplificationOptions;
+use egui_tiles::TileId;
+use egui_tiles::Tiles;
 
-pub(super) type TileTree = egui_tiles::Tree<Tile>;
+use crate::app::kasa::BorrowPointsExample;
 
-pub struct BorrowPointsExample {
-    points: Vec<PlotPoint>,
-}
-
-impl Default for BorrowPointsExample {
-    fn default() -> Self {
-        let points: Vec<[f64; 2]> =
-            vec![[0.0, 1.0], [2.0, 3.0], [3.0, 2.0], [4.0, 5.0], [5.0, 9.0]];
-        let points = points.iter().map(|p| PlotPoint::new(p[0], p[1])).collect();
-        Self { points }
-    }
-}
-
-impl BorrowPointsExample {
-    pub fn show_plot(&self, ui: &mut egui::Ui, nr: i32, reset: bool) -> Response {
-        let mut plot = Plot::new(format!("plot{nr}"))
-            .legend(Legend::default())
-            .width(ui.available_width());
-
-        if reset {
-            plot = plot.reset();
-        }
-
-        plot.show(ui, |plot_ui| {
-            plot_ui.line(Line::new("curve", PlotPoints::Borrowed(&self.points)).name("curve"));
-        })
-        .response
-    }
-}
+pub(super) type Tile = egui_tiles::Tree<Pane>;
 
 /// Tile/Pane rendering.
 #[derive(Default, serde::Deserialize, serde::Serialize)]
-pub(super) struct Tile {
+pub(super) struct Pane {
     nr: i32,
 }
 
-impl Tile {
+impl Pane {
     pub(super) fn new(nr: i32) -> Self {
         Self { nr }
+    }
+}
+
+impl Pane {
+    pub(super) fn ui(&self, ui: &mut egui::Ui) -> egui_tiles::UiResponse {
+        let color = match ui.theme() {
+            egui::Theme::Dark => egui::epaint::Hsva::new(0.0, 0.0, 0.025, 1.0),
+            egui::Theme::Light => egui::epaint::Hsva::new(0.0, 0.0, 1.0, 1.0),
+        };
+        egui::Panel::left(format!("data_panel{}", self.nr))
+            .frame(Frame {
+                fill: Color32::from(color),
+                inner_margin: Margin::same(8),
+                ..Frame::default()
+            })
+            .min_size(200.0)
+            .max_size(200.0)
+            .show(ui, |ui| {
+                ui.label(format!("Pane {}", self.nr));
+                ui.separator();
+                // let color = egui::epaint::Hsva::new(0.103 * self.nr as f32, 0.5, 0.5, 1.0);
+                // ui.painter().rect_filled(ui.max_rect(), 0.0, color);
+            });
+        egui::CentralPanel::no_frame()
+            .frame(Frame {
+                fill: Color32::from(color),
+                ..Frame::default()
+            })
+            .show(ui, |ui| {
+                egui::CentralPanel::default_margins()
+                    .frame(Frame {
+                        fill: Color32::from(color),
+                        inner_margin: Margin {
+                            right: 8,
+                            top: 8,
+                            ..Margin::ZERO
+                        },
+                        ..Frame::default()
+                    })
+                    .show(ui, |ui| {
+                        // let color = egui::epaint::Hsva::new(0.103 * self.nr as f32, 0.5, 0.5, 1.0);
+                        // ui.painter().rect_filled(ui.max_rect(), 0.0, color);
+                        BorrowPointsExample::default().show_plot(ui, self.nr, false)
+                    });
+            });
+
+        let dragged = ui
+            .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
+            .on_hover_cursor(egui::CursorIcon::Grab)
+            .dragged();
+        if dragged {
+            egui_tiles::UiResponse::DragStarted
+        } else {
+            egui_tiles::UiResponse::None
+        }
     }
 }
 
@@ -63,8 +89,8 @@ impl TileBehavior {
     }
 }
 
-impl egui_tiles::Behavior<Tile> for TileBehavior {
-    fn tab_title_for_pane(&mut self, pane: &Tile) -> egui::WidgetText {
+impl egui_tiles::Behavior<Pane> for TileBehavior {
+    fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
         format!("Pane {}", pane.nr).into()
     }
 
@@ -79,27 +105,24 @@ impl egui_tiles::Behavior<Tile> for TileBehavior {
         }
     }
 
+    fn is_tab_closable(&self, _tiles: &Tiles<Pane>, _tile_id: TileId) -> bool {
+        true
+    }
+
+    fn gap_width(&self, _style: &egui::Style) -> f32 {
+        2.0
+    }
+
     fn pane_ui(
         &mut self,
         ui: &mut egui::Ui,
         _tile_id: egui_tiles::TileId,
-        tile: &mut Tile,
+        view: &mut Pane,
     ) -> egui_tiles::UiResponse {
-        egui::CentralPanel::no_frame().show(ui, |ui| {
-            egui::Panel::left(format!("label{}", tile.nr))
-                .resizable(false)
-                .min_size(175.0)
-                .max_size(175.0)
-                .show(ui, |_ui| {});
-
-            BorrowPointsExample::default().show_plot(ui, tile.nr, self.reset);
-
-            if self.reset {
-                self.reset = false;
-            }
-        });
-
-        Default::default()
+        if self.reset {
+            self.reset = false;
+        }
+        view.ui(ui)
     }
 
     fn ideal_tile_aspect_ratio(&self) -> f32 {

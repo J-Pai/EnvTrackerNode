@@ -1,23 +1,15 @@
+use egui::Frame;
 use egui::OpenUrl;
 use fps::FrameHistory;
-use tile::Tile;
 use tile::TileBehavior;
 
 use crate::app::kasa::Kasa;
+use crate::app::tile::Pane;
 
 mod control_panel;
 mod fps;
 mod kasa;
 mod tile;
-
-#[allow(clippy::allow_attributes)]
-#[allow(unused)]
-#[macro_export]
-macro_rules! console_log {
-    ($expr:expr) => {
-        web_sys::console::log_1(&web_sys::wasm_bindgen::JsValue::from_str($expr.as_str()));
-    };
-}
 
 /// Persistent state tracking.
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -25,7 +17,7 @@ macro_rules! console_log {
 pub struct State {
     control_panel: bool,
     continuous: bool,
-    tile_tree: Option<tile::TileTree>,
+    tiles: Option<tile::Tile>,
 }
 
 pub struct EnvApp {
@@ -66,13 +58,13 @@ impl EnvApp {
 
 impl EnvApp {
     fn create_tree(&mut self) {
-        if self.state.tile_tree.is_some() {
+        if self.state.tiles.is_some() {
             return;
         }
 
         let mut next_view_nr = 0;
         let mut gen_pane = || {
-            let pane = Tile::new(next_view_nr);
+            let pane = Pane::new(next_view_nr);
             next_view_nr += 1;
             pane
         };
@@ -81,13 +73,13 @@ impl EnvApp {
 
         let children = (0..6).map(|_| tiles.insert_pane(gen_pane())).collect();
         let root = tiles.insert_grid_tile(children);
-        let tree = egui_tiles::Tree::new("root_tree", root, tiles);
+        let tile = egui_tiles::Tree::new("root_tree", root, tiles);
 
-        self.state.tile_tree = Some(tree);
+        self.state.tiles = Some(tile);
     }
 
     fn reset_tree(&mut self) {
-        self.state.tile_tree = None;
+        self.state.tiles = None;
         self.create_tree();
     }
 }
@@ -102,6 +94,7 @@ impl eframe::App for EnvApp {
         ctx.plugin_or_default::<egui_async::EguiAsyncPlugin>();
         self.frame_history
             .on_new_frame(ctx.input(|i| i.time), frame.info().cpu_usage);
+        self.kasa.logic();
         if self.state.continuous {
             ctx.request_repaint();
         }
@@ -122,9 +115,13 @@ impl eframe::App for EnvApp {
             });
         });
 
-        egui::CentralPanel::no_frame().show(ui, |ui| {
-            self.control_panel_ui(ui);
-            self.kasa.ui();
-        });
+        egui::CentralPanel::no_frame()
+            .frame(Frame {
+                fill: ui.theme().default_style().visuals.panel_fill,
+                ..Frame::default()
+            })
+            .show(ui, |ui| {
+                self.control_panel_ui(ui);
+            });
     }
 }

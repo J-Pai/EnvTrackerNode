@@ -34,7 +34,7 @@ impl EnvApp {
                 });
             });
 
-        if let Some(tree) = &mut self.state.tile_tree {
+        if let Some(tree) = &mut self.state.tiles {
             tree.ui(&mut self.tile_behavior, ui);
         }
 

@@ -2,13 +2,17 @@
 //!
 //! Try to keep this as close as possible to node/src/services/kasa.rs
 
+use egui::Response;
 use egui_async::Bind;
+use egui_plot::Legend;
+use egui_plot::Line;
+use egui_plot::Plot;
+use egui_plot::PlotPoint;
+use egui_plot::PlotPoints;
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::console_log;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct KasaDeviceChild {
@@ -48,7 +52,7 @@ impl Kasa {
         }
     }
 
-    pub(super) fn ui(&mut self) {
+    pub(super) fn logic(&mut self) {
         let api_endpoint = self.api_endpoint.clone();
         let api_client = ClientBuilder::new(Client::new()).build();
 
@@ -66,7 +70,7 @@ impl Kasa {
                         let data = serde_json::from_str::<Vec<KasaChildInfo>>(&json)
                             .map_err(|e| e.to_string());
 
-                        console_log!(format!("{data:#?}"));
+                        log::info!("{data:#?}");
 
                         data
                     }
@@ -75,5 +79,35 @@ impl Kasa {
             },
             10.0,
         );
+    }
+}
+
+pub struct BorrowPointsExample {
+    points: Vec<PlotPoint>,
+}
+
+impl Default for BorrowPointsExample {
+    fn default() -> Self {
+        let points: Vec<[f64; 2]> =
+            vec![[0.0, 1.0], [2.0, 3.0], [3.0, 2.0], [4.0, 5.0], [5.0, 9.0]];
+        let points = points.iter().map(|p| PlotPoint::new(p[0], p[1])).collect();
+        Self { points }
+    }
+}
+
+impl BorrowPointsExample {
+    pub fn show_plot(&self, ui: &mut egui::Ui, nr: i32, reset: bool) -> Response {
+        let mut plot = Plot::new(format!("plot{nr}"))
+            .legend(Legend::default())
+            .width(ui.available_width());
+
+        if reset {
+            plot = plot.reset();
+        }
+
+        plot.show(ui, |plot_ui| {
+            plot_ui.line(Line::new("curve", PlotPoints::Borrowed(&self.points)).name("curve"));
+        })
+        .response
     }
 }
