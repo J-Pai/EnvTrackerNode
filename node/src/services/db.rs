@@ -139,16 +139,16 @@ impl DeviceQuery {
 
 pub(crate) struct Db {
     db: Arc<RwLock<Database>>,
-    read_conn: Arc<RwLock<Connection>>,
     write_conn: Arc<Mutex<Connection>>,
     write_conn_guard: Option<OwnedMutexGuard<Connection>>,
 }
 
 impl Clone for Db {
     fn clone(&self) -> Self {
+        let db = self.db.clone();
+
         Self {
-            db: self.db.clone(),
-            read_conn: self.read_conn.clone(),
+            db,
             write_conn: self.write_conn.clone(),
             write_conn_guard: None,
         }
@@ -165,7 +165,6 @@ impl Drop for Db {
 impl Db {
     pub(crate) async fn new(config: &ApiServerConfig) -> Result<Self, Box<dyn std::error::Error>> {
         let db = Builder::new_local(config.get_db().as_str()).build().await?;
-        let read_conn = db.connect()?;
         let write_conn = db.connect()?;
         write_conn
             .pragma_update("wal_checkpoint", "TRUNCATE")
@@ -173,7 +172,6 @@ impl Db {
 
         let mut db = Self {
             db: Arc::new(RwLock::new(db)),
-            read_conn: Arc::new(RwLock::new(read_conn)),
             write_conn: Arc::new(Mutex::new(write_conn)),
             write_conn_guard: None,
         };
@@ -277,12 +275,13 @@ impl Db {
     ) -> Result<QueryResult, Box<dyn std::error::Error>> {
         let mut data: Vec<KasaChildInfo> = vec![];
         let mut distinct: Vec<(String, String)> = vec![];
+        let db = self.db.read().await;
+        let conn = db.connect()?;
 
         let table = format!("kasa_device_{}", topic);
         let sql_query = query.generate_query(&table);
 
         tracing::debug!("SQL query [{:?}]", sql_query);
-        let conn = self.read_conn.read().await;
         let DeviceQueryArgs(alias, id, start_time_ns, end_time_ns) = sql_query.1;
         let mut rows = conn
             .query(sql_query.0, (alias, id, start_time_ns, end_time_ns))
