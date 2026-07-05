@@ -49,6 +49,7 @@ impl ServerConfig {
 
         match config {
             Ok(config) => config,
+            #[allow(unused_variables)]
             Err(config) => {
                 #[cfg(feature = "tui")]
                 crate::config::creator::Creator::new(config)
