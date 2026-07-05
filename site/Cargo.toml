@@ -19,7 +19,7 @@ log = "0.4.29"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 egui_tiles = "0.16.0"
-web-sys = { version = "0.3.102", features = ["console", "HtmlLinkElement"] }
+web-sys = { version = "0.3.102", features = ["console", "HtmlBaseElement", "HtmlLinkElement"] }
 egui_plot = { version = "0.36.0", features = ["serde"] }
 
 wasm-bindgen-futures = "0.4.68"

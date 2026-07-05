@@ -52,9 +52,10 @@ impl EnvApp {
     /// Called once before the first frame.
     pub fn new(
         cc: &eframe::CreationContext<'_>,
-        _api_endpoint: String,
+        api_endpoint: String,
         kasa_api_endpoint: String,
     ) -> Self {
+        let kasa_api_endpoint = format!("{api_endpoint}/{kasa_api_endpoint}");
         let mut app = if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
@@ -87,23 +88,8 @@ impl EnvApp {
         self.tile_behavior = TileBehavior::default();
         Kasa::request_device_ids(&mut self.kasa_device_ids, &self.kasa_api_endpoint);
     }
-}
 
-impl eframe::App for EnvApp {
-    /// Called by the framework to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, &self.state);
-    }
-
-    fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        ctx.plugin_or_default::<egui_async::EguiAsyncPlugin>();
-        self.frame_history
-            .on_new_frame(ctx.input(|i| i.time), frame.info().cpu_usage);
-
-        if self.state.continuous {
-            ctx.request_repaint();
-        }
-
+    fn load_tiles(&mut self) {
         if !self.tile_behavior.kasa_widgets_registered() {
             let mut widgets = HashMap::<PaneId, Kasa>::new();
             let devices = Kasa::read_device_ids(&mut self.kasa_device_ids);
@@ -139,6 +125,25 @@ impl eframe::App for EnvApp {
                 self.tile_behavior.register_kasa_widgets(widgets);
             }
         }
+    }
+}
+
+impl eframe::App for EnvApp {
+    /// Called by the framework to save state before shutdown.
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, &self.state);
+    }
+
+    fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        ctx.plugin_or_default::<egui_async::EguiAsyncPlugin>();
+        self.frame_history
+            .on_new_frame(ctx.input(|i| i.time), frame.info().cpu_usage);
+
+        if self.state.continuous {
+            ctx.request_repaint();
+        }
+
+        self.load_tiles();
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.

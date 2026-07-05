@@ -21,6 +21,13 @@ fn main() {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
+        let base = document
+            .get_element_by_id("base")
+            .expect("Failed to find api")
+            .dyn_into::<web_sys::HtmlBaseElement>()
+            .expect("api is not a HtmlLinkElement")
+            .href();
+
         let api_endpoint = document
             .get_element_by_id("api")
             .expect("Failed to find api")
@@ -34,6 +41,12 @@ fn main() {
             .dyn_into::<web_sys::HtmlLinkElement>()
             .expect("kasas_api is not a HtmlLinkElement")
             .href();
+
+        let kasa_api_endpoint = if let Some(stripped) = kasa_api_endpoint.strip_prefix(&base) {
+            String::from(stripped)
+        } else {
+            kasa_api_endpoint
+        };
 
         let start_result = eframe::WebRunner::new()
             .start(
