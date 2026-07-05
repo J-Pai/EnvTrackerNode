@@ -53,6 +53,7 @@ pub(super) struct KasaChildInfo {
 pub(super) struct Kasa {
     api_endpoint: String,
     data: Bind<Vec<KasaChildInfo>, String>,
+    plot: BorrowPointsExample,
 }
 
 impl Kasa {
@@ -60,6 +61,7 @@ impl Kasa {
         Self {
             api_endpoint: api_endpoint.clone(),
             data: Bind::new(true),
+            plot: BorrowPointsExample::default(),
         }
     }
 
@@ -190,9 +192,7 @@ impl EnvWidget for Kasa {
                         },
                         ..Frame::default()
                     })
-                    .show(ui, |ui| {
-                        BorrowPointsExample::default().show_plot(ui, id, false);
-                    });
+                    .show(ui, |ui| self.plot.show_plot(ui, id));
             });
 
         drag
@@ -201,6 +201,7 @@ impl EnvWidget for Kasa {
 
 pub struct BorrowPointsExample {
     points: Vec<PlotPoint>,
+    reset: bool,
 }
 
 impl Default for BorrowPointsExample {
@@ -208,18 +209,22 @@ impl Default for BorrowPointsExample {
         let points: Vec<[f64; 2]> =
             vec![[0.0, 1.0], [2.0, 3.0], [3.0, 2.0], [4.0, 5.0], [5.0, 9.0]];
         let points = points.iter().map(|p| PlotPoint::new(p[0], p[1])).collect();
-        Self { points }
+        Self {
+            points,
+            reset: true,
+        }
     }
 }
 
 impl BorrowPointsExample {
-    pub fn show_plot(&self, ui: &mut egui::Ui, id: &PaneId, reset: bool) -> Response {
+    pub fn show_plot(&mut self, ui: &mut egui::Ui, id: &PaneId) -> Response {
         let mut plot = Plot::new(format!("plot-{}", id.0))
             .legend(Legend::default())
             .width(ui.available_width());
 
-        if reset {
+        if self.reset {
             plot = plot.reset();
+            self.reset = false;
         }
 
         plot.show(ui, |plot_ui| {

@@ -68,7 +68,7 @@ impl TileBehavior {
 
 impl egui_tiles::Behavior<Pane> for TileBehavior {
     fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
-        pane.alias.into()
+        pane.alias.clone().into()
     }
 
     fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
