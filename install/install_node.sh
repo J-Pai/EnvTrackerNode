@@ -17,6 +17,14 @@ if [ -f $SCRIPT_DIR/config.toml ]; then
 	cp -f $SCRIPT_DIR/config.toml /opt/envtrackernode_node/config.toml
 fi
 
+mkdir -p /opt/envtrackernode_node/db
+chown -R envtrackernode_node:envtrackernode_node /opt/envtrackernode_node/db
+
+if [[ "$1" == "frontend" ]]; then
+	echo ">> Setting up frontend."
+	cp -r $SCRIPT_DIR/dist /opt/envtrackernode_node/release
+fi
+
 echo ">> Creating service file."
 
 cat << 'EOF' >| /etc/systemd/system/envtrackernode_node.service
