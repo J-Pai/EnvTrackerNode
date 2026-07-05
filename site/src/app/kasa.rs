@@ -138,7 +138,7 @@ impl EnvWidget for Kasa {
                 match api_client
                     .get(format!("{api_endpoint}"))
                     .query(&[
-                        ("limit", "10000"),
+                        ("limit", "1000"),
                         ("id", &device_id),
                         ("order_by", "desc"),
                         ("column", "utc_ns"),
@@ -203,6 +203,7 @@ impl EnvWidget for Kasa {
             .max_size(200.0)
             .resizable(false)
             .show(ui, |ui| {
+                ui.separator();
                 ui.label(format!("POWER (Watts)"));
                 ui.label(format!("{current_power_mw:.3}"));
                 ui.separator();
