@@ -112,7 +112,11 @@ impl eframe::App for EnvApp {
                     let id = PaneId(id.0.clone());
 
                     if !self.state.pane_ids.contains(&id) {
-                        let tile_id = self.state.tiles.tiles.insert_pane(Pane::new(id.clone(), alias.0));
+                        let tile_id = self
+                            .state
+                            .tiles
+                            .tiles
+                            .insert_pane(Pane::new(id.clone(), alias.0));
 
                         if let Some(root_tile_id) = self.state.tiles.root() {
                             if let Some(egui_tiles::Tile::Container(egui_tiles::Container::Grid(
@@ -164,5 +168,5 @@ impl eframe::App for EnvApp {
 }
 
 trait EnvWidget {
-    fn ui(&mut self, ui: &mut egui::Ui, tile_id: egui_tiles::TileId) -> egui_tiles::UiResponse;
+    fn ui(&mut self, ui: &mut egui::Ui, id: &PaneId, alias: &String) -> egui_tiles::UiResponse;
 }

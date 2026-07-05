@@ -18,6 +18,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::app::EnvWidget;
+use crate::app::PaneId;
 
 #[derive(Clone, Deserialize)]
 pub(super) struct KasaDeviceChildAlias(pub(super) String);
@@ -116,7 +117,7 @@ impl Kasa {
 }
 
 impl EnvWidget for Kasa {
-    fn ui(&mut self, ui: &mut egui::Ui, tile_id: egui_tiles::TileId) -> egui_tiles::UiResponse {
+    fn ui(&mut self, ui: &mut egui::Ui, id: &PaneId, alias: &String) -> egui_tiles::UiResponse {
         let color = match ui.theme() {
             egui::Theme::Dark => egui::epaint::Hsva::new(0.0, 0.0, 0.025, 1.0),
             egui::Theme::Light => egui::epaint::Hsva::new(0.0, 0.0, 1.0, 1.0),
@@ -140,7 +141,7 @@ impl EnvWidget for Kasa {
                         let data = serde_json::from_str::<Vec<KasaChildInfo>>(&json)
                             .map_err(|e| e.to_string());
 
-                        log::info!("{data:#?}");
+                        log::info!("query...");
 
                         data
                     }
@@ -150,8 +151,8 @@ impl EnvWidget for Kasa {
             10.0,
         );
 
-        BorrowPointsExample::default().show_plot(ui, &String::new(), false);
-        egui::Panel::left(format!("data_panel_{}", tile_id.0))
+        // BorrowPointsExample::default().show_plot(ui, &String::new(), false);
+        egui::Panel::left(format!("data_panel_{}", id.0))
             .frame(Frame {
                 fill: Color32::from(color),
                 inner_margin: Margin::same(8),
@@ -161,7 +162,7 @@ impl EnvWidget for Kasa {
             .max_size(200.0)
             .resizable(false)
             .show(ui, |ui| {
-                ui.label(format!("Pane {}", tile_id.0));
+                ui.label(format!("Pane {}", alias));
                 ui.separator();
                 let dragged = ui
                     .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())

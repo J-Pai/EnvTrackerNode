@@ -27,7 +27,7 @@ impl Pane {
     pub(super) fn ui(
         &self,
         ui: &mut egui::Ui,
-        tile_id: egui_tiles::TileId,
+        _tile_id: egui_tiles::TileId,
         widget: Option<&mut dyn EnvWidget>,
     ) -> egui_tiles::UiResponse {
         let Some(widget) = widget else {
@@ -42,7 +42,7 @@ impl Pane {
             }
         };
 
-        widget.ui(ui, tile_id)
+        widget.ui(ui, &self.id, &self.alias)
     }
 }
 
