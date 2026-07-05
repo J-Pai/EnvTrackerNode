@@ -4,7 +4,6 @@
 
 use chrono::DateTime;
 use chrono::Local;
-use chrono::TimeZone;
 use egui::Color32;
 use egui::Frame;
 use egui::Margin;
@@ -122,7 +121,7 @@ impl Kasa {
 }
 
 impl EnvWidget for Kasa {
-    fn ui(&mut self, ui: &mut egui::Ui, id: &PaneId, alias: &String) -> egui_tiles::UiResponse {
+    fn ui(&mut self, ui: &mut egui::Ui, id: &PaneId, _alias: &String) -> egui_tiles::UiResponse {
         let color = match ui.theme() {
             egui::Theme::Dark => egui::epaint::Hsva::new(0.0, 0.0, 0.025, 1.0),
             egui::Theme::Light => egui::epaint::Hsva::new(0.0, 0.0, 1.0, 1.0),
