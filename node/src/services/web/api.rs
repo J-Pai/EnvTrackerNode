@@ -5,10 +5,15 @@ use std::time::Duration;
 use axum::BoxError;
 use axum::error_handling::HandleErrorLayer;
 use axum::extract::Query;
+use axum::http::HeaderValue;
+use axum::http::Method;
 use axum::http::StatusCode;
+use axum::http::header::AUTHORIZATION;
+use axum::http::header::CONTENT_TYPE;
 use axum::routing;
 use tower::ServiceBuilder;
 use tower::timeout::TimeoutLayer;
+use tower_http::cors::CorsLayer;
 
 use crate::config::ApiServerConfig;
 use crate::config::NodeClass;
@@ -43,6 +48,10 @@ impl Web {
         let mut router = self.router;
         let db = self.db.as_ref().unwrap().clone();
         let topic = topic.clone();
+        let cors_layer = CorsLayer::new()
+            .allow_methods([Method::GET])
+            .allow_origin("*".parse::<HeaderValue>().unwrap())
+            .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
 
         router = router
             .route(
@@ -84,7 +93,8 @@ impl Web {
                     .layer(TimeoutLayer::new(Duration::from_secs(
                         Web::DEFAULT_API_TIMEOUT_SECONDS,
                     ))),
-            );
+            )
+            .layer(cors_layer);
 
         self.router = router;
         Ok(self)

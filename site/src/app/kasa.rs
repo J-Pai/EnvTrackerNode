@@ -2,8 +2,6 @@
 //!
 //! Try to keep this as close as possible to node/src/services/kasa.rs
 
-use chrono::DateTime;
-use chrono::Local;
 use egui::Color32;
 use egui::Frame;
 use egui::Margin;
@@ -60,6 +58,9 @@ pub(super) struct Kasa {
 }
 
 impl Kasa {
+    const POLL_EVERY_SECONDS: f64 = 10.0;
+    const INITIAL_BATCH_SIZE: usize = 1000;
+
     pub(super) fn new(api_endpoint: &String) -> Self {
         Self {
             api_endpoint: api_endpoint.clone(),
@@ -139,7 +140,7 @@ impl EnvWidget for Kasa {
                 match api_client
                     .get(format!("{api_endpoint}"))
                     .query(&[
-                        ("limit", "1000"),
+                        ("limit", Kasa::INITIAL_BATCH_SIZE.to_string().as_str()),
                         ("id", &device_id),
                         ("order_by", "desc"),
                         ("column", "utc_ns"),
@@ -148,7 +149,6 @@ impl EnvWidget for Kasa {
                     .await
                 {
                     Ok(mut data) => {
-                        let url = data.url().clone();
                         data = match data.error_for_status() {
                             Ok(data) => data,
                             Err(err) => return Err(err.to_string()),
@@ -159,20 +159,19 @@ impl EnvWidget for Kasa {
                         let data = serde_json::from_str::<Vec<KasaChildInfo>>(&json)
                             .map_err(|e| e.to_string());
 
-                        if let Ok(data) = data.as_ref() {
-                            let first = data.get(0).unwrap();
-                            let dt = chrono::DateTime::from_timestamp_nanos(first.utc_ns);
-                            let local_dt: DateTime<Local> = DateTime::from(dt);
-
-                            log::info!("query {url} ... {local_dt:?}");
-                        }
+                        // Reference for getting timestamps.
+                        // if let Ok(data) = data.as_ref() {
+                        //     let first = data.get(0).unwrap();
+                        //     let dt = chrono::DateTime::from_timestamp_nanos(first.utc_ns);
+                        //     let local_dt: DateTime<Local> = DateTime::from(dt);
+                        // }
 
                         data
                     }
                     Err(e) => Err(e.to_string()),
                 }
             },
-            5.0,
+            Kasa::POLL_EVERY_SECONDS,
         );
 
         self.data.on_finished(|data| match data {
