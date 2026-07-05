@@ -1,5 +1,7 @@
 # Environment Tracker Node
 
+![demo](/wiki/demo_env.png)
+
 ## Environment Setup
 
 ```shell
