@@ -2,6 +2,9 @@
 //!
 //! Try to keep this as close as possible to node/src/services/kasa.rs
 
+use chrono::DateTime;
+use chrono::Local;
+use chrono::TimeZone;
 use egui::Color32;
 use egui::Frame;
 use egui::Margin;
@@ -128,11 +131,23 @@ impl EnvWidget for Kasa {
 
         let api_endpoint = self.api_endpoint.clone();
         let api_client = ClientBuilder::new(Client::new()).build();
+        let device_id = id.0.clone();
 
         self.data.request_every_sec(
             || async move {
-                match api_client.get(format!("{api_endpoint}")).send().await {
+                match api_client
+                    .get(format!("{api_endpoint}"))
+                    .query(&[
+                        ("limit", "10000"),
+                        ("id", &device_id),
+                        ("order_by", "desc"),
+                        ("column", "utc_ns"),
+                    ])
+                    .send()
+                    .await
+                {
                     Ok(mut data) => {
+                        let url = data.url().clone();
                         data = match data.error_for_status() {
                             Ok(data) => data,
                             Err(err) => return Err(err.to_string()),
@@ -143,7 +158,13 @@ impl EnvWidget for Kasa {
                         let data = serde_json::from_str::<Vec<KasaChildInfo>>(&json)
                             .map_err(|e| e.to_string());
 
-                        log::info!("query...");
+                        if let Ok(data) = data.as_ref() {
+                            let first = data.get(0).unwrap();
+                            let dt = chrono::DateTime::from_timestamp_nanos(first.utc_ns);
+                            let local_dt: DateTime<Local> = DateTime::from(dt);
+
+                            log::info!("query {url} ... {local_dt:?}");
+                        }
 
                         data
                     }
@@ -153,7 +174,25 @@ impl EnvWidget for Kasa {
             5.0,
         );
 
-        // BorrowPointsExample::default().show_plot(ui, &String::new(), false);
+        let mut current_power_mw = 0.0;
+        match self.data.read() {
+            Some(data) => match data {
+                Ok(data) => {
+                    current_power_mw = data.get(0).unwrap().emeter.power_mw as f64 / 1000.0;
+                    self.plot.update_points(
+                        data.iter()
+                            .rev()
+                            .map(|d| d.emeter.power_mw as f64 / 1000.0)
+                            .collect(),
+                    )
+                }
+                Err(e) => {
+                    log::error!("{e}");
+                }
+            },
+            None => {}
+        }
+
         egui::Panel::left(format!("data_panel_{}", id.0))
             .frame(Frame {
                 fill: Color32::from(color),
@@ -164,7 +203,8 @@ impl EnvWidget for Kasa {
             .max_size(200.0)
             .resizable(false)
             .show(ui, |ui| {
-                ui.label(format!("{}", alias));
+                ui.label(format!("POWER (Watts)"));
+                ui.label(format!("{current_power_mw:.3}"));
                 ui.separator();
                 let dragged = ui
                     .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
@@ -206,17 +246,22 @@ pub struct BorrowPointsExample {
 
 impl Default for BorrowPointsExample {
     fn default() -> Self {
-        let points: Vec<[f64; 2]> =
-            vec![[0.0, 1.0], [2.0, 3.0], [3.0, 2.0], [4.0, 5.0], [5.0, 9.0]];
-        let points = points.iter().map(|p| PlotPoint::new(p[0], p[1])).collect();
         Self {
-            points,
+            points: vec![],
             reset: true,
         }
     }
 }
 
 impl BorrowPointsExample {
+    pub fn update_points(&mut self, points: Vec<f64>) {
+        self.points = points
+            .iter()
+            .enumerate()
+            .map(|(i, p)| PlotPoint::new(i as f64, *p))
+            .collect();
+    }
+
     pub fn show_plot(&mut self, ui: &mut egui::Ui, id: &PaneId) -> Response {
         let mut plot = Plot::new(format!("plot-{}", id.0))
             .legend(Legend::default())
@@ -228,7 +273,11 @@ impl BorrowPointsExample {
         }
 
         plot.show(ui, |plot_ui| {
-            plot_ui.line(Line::new("curve", PlotPoints::Borrowed(&self.points)).name("curve"));
+            plot_ui.line(
+                Line::new("power_w", PlotPoints::Borrowed(&self.points))
+                    .name("power_w")
+                    .color(Color32::BLUE),
+            );
         })
         .response
     }
