@@ -99,6 +99,7 @@ impl eframe::App for EnvApp {
         ctx.plugin_or_default::<egui_async::EguiAsyncPlugin>();
         self.frame_history
             .on_new_frame(ctx.input(|i| i.time), frame.info().cpu_usage);
+
         if self.state.continuous {
             ctx.request_repaint();
         }

@@ -56,6 +56,7 @@ pub(super) struct Kasa {
     api_endpoint: String,
     data: Bind<Vec<KasaChildInfo>, String>,
     plot: BorrowPointsExample,
+    current_power_w: f64,
 }
 
 impl Kasa {
@@ -64,6 +65,7 @@ impl Kasa {
             api_endpoint: api_endpoint.clone(),
             data: Bind::new(true),
             plot: BorrowPointsExample::default(),
+            current_power_w: 0.0,
         }
     }
 
@@ -173,24 +175,20 @@ impl EnvWidget for Kasa {
             5.0,
         );
 
-        let mut current_power_mw = 0.0;
-        match self.data.read() {
-            Some(data) => match data {
-                Ok(data) => {
-                    current_power_mw = data.get(0).unwrap().emeter.power_mw as f64 / 1000.0;
-                    self.plot.update_points(
-                        data.iter()
-                            .rev()
-                            .map(|d| d.emeter.power_mw as f64 / 1000.0)
-                            .collect(),
-                    )
-                }
-                Err(e) => {
-                    log::error!("{e}");
-                }
-            },
-            None => {}
-        }
+        self.data.on_finished(|data| match data {
+            Ok(data) => {
+                self.current_power_w = data.get(0).unwrap().emeter.power_mw as f64 / 1000.0;
+                self.plot.update_points(
+                    data.iter()
+                        .rev()
+                        .map(|d| d.emeter.power_mw as f64 / 1000.0)
+                        .collect(),
+                )
+            }
+            Err(e) => {
+                log::error!("{e}");
+            }
+        });
 
         egui::Panel::left(format!("data_panel_{}", id.0))
             .frame(Frame {
@@ -204,7 +202,7 @@ impl EnvWidget for Kasa {
             .show(ui, |ui| {
                 ui.separator();
                 ui.label(format!("POWER (Watts)"));
-                ui.label(format!("{current_power_mw:.3}"));
+                ui.label(format!("{:.3}", self.current_power_w));
                 ui.separator();
                 let dragged = ui
                     .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
