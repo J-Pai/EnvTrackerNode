@@ -148,7 +148,7 @@ impl EnvWidget for Kasa {
                     Err(e) => Err(e.to_string()),
                 }
             },
-            10.0,
+            5.0,
         );
 
         // BorrowPointsExample::default().show_plot(ui, &String::new(), false);
