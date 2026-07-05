@@ -162,7 +162,7 @@ impl EnvWidget for Kasa {
             .max_size(200.0)
             .resizable(false)
             .show(ui, |ui| {
-                ui.label(format!("Pane {}", alias));
+                ui.label(format!("{}", alias));
                 ui.separator();
                 let dragged = ui
                     .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
@@ -190,7 +190,9 @@ impl EnvWidget for Kasa {
                         },
                         ..Frame::default()
                     })
-                    .show(ui, |ui| {});
+                    .show(ui, |ui| {
+                        BorrowPointsExample::default().show_plot(ui, id, false);
+                    });
             });
 
         drag
@@ -211,8 +213,8 @@ impl Default for BorrowPointsExample {
 }
 
 impl BorrowPointsExample {
-    pub fn show_plot(&self, ui: &mut egui::Ui, id: &String, reset: bool) -> Response {
-        let mut plot = Plot::new(format!("plot-{id}"))
+    pub fn show_plot(&self, ui: &mut egui::Ui, id: &PaneId, reset: bool) -> Response {
+        let mut plot = Plot::new(format!("plot-{}", id.0))
             .legend(Legend::default())
             .width(ui.available_width());
 
