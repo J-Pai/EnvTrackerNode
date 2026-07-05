@@ -156,17 +156,7 @@ impl EnvWidget for Kasa {
 
                         let json = data.text().await.map_err(|e| e.to_string())?;
 
-                        let data = serde_json::from_str::<Vec<KasaChildInfo>>(&json)
-                            .map_err(|e| e.to_string());
-
-                        // Reference for getting timestamps.
-                        // if let Ok(data) = data.as_ref() {
-                        //     let first = data.get(0).unwrap();
-                        //     let dt = chrono::DateTime::from_timestamp_nanos(first.utc_ns);
-                        //     let local_dt: DateTime<Local> = DateTime::from(dt);
-                        // }
-
-                        data
+                        serde_json::from_str::<Vec<KasaChildInfo>>(&json).map_err(|e| e.to_string())
                     }
                     Err(e) => Err(e.to_string()),
                 }
