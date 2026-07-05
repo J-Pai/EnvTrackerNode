@@ -23,7 +23,6 @@ mod tile;
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct State {
-    continuous: bool,
     tiles: egui_tiles::Tree<Pane>,
     pane_ids: HashSet<PaneId>,
 }
@@ -31,7 +30,6 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            continuous: false,
             tiles: EnvApp::new_tree(),
             pane_ids: HashSet::new(),
         }
@@ -41,6 +39,7 @@ impl Default for State {
 #[derive(Default)]
 pub struct EnvApp {
     state: State,
+    continuous: bool,
     control_panel: bool,
     frame_history: FrameHistory,
     tile_behavior: TileBehavior,
@@ -60,11 +59,13 @@ impl EnvApp {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
                 kasa_api_endpoint,
+                continuous: true,
                 ..Self::default()
             }
         } else {
             Self {
                 kasa_api_endpoint,
+                continuous: true,
                 ..Self::default()
             }
         };
@@ -139,7 +140,7 @@ impl eframe::App for EnvApp {
         self.frame_history
             .on_new_frame(ctx.input(|i| i.time), frame.info().cpu_usage);
 
-        if self.state.continuous {
+        if self.continuous {
             ctx.request_repaint();
         }
 

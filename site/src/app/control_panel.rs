@@ -25,7 +25,7 @@ impl EnvApp {
                     }
                     ui.separator();
                     self.frame_history.ui(ui);
-                    ui.checkbox(&mut self.state.continuous, "Run Mode - Continuous");
+                    ui.checkbox(&mut self.continuous, "Continuous");
                     ui.separator();
                 });
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
