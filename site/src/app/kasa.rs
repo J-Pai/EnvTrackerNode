@@ -129,7 +129,6 @@ impl EnvWidget for Kasa {
             egui::Theme::Dark => egui::epaint::Hsva::new(0.0, 0.0, 0.025, 1.0),
             egui::Theme::Light => egui::epaint::Hsva::new(0.0, 0.0, 1.0, 1.0),
         };
-        let mut drag = egui_tiles::UiResponse::None;
 
         let api_endpoint = self.api_endpoint.clone();
         let api_client = ClientBuilder::new(Client::new()).build();
@@ -185,23 +184,14 @@ impl EnvWidget for Kasa {
                 inner_margin: Margin::same(8),
                 ..Frame::default()
             })
-            .min_size(200.0)
-            .max_size(200.0)
+            .min_size(150.0)
+            .max_size(150.0)
             .resizable(false)
             .show(ui, |ui| {
                 ui.separator();
                 ui.label(format!("POWER (Watts)"));
                 ui.label(format!("{:.3}", self.current_power_w));
                 ui.separator();
-                let dragged = ui
-                    .allocate_rect(ui.max_rect(), egui::Sense::click_and_drag())
-                    .on_hover_cursor(egui::CursorIcon::Grab)
-                    .dragged();
-                if dragged {
-                    drag = egui_tiles::UiResponse::DragStarted;
-                } else {
-                    drag = egui_tiles::UiResponse::None;
-                }
             });
         egui::CentralPanel::no_frame()
             .frame(Frame {
@@ -222,7 +212,7 @@ impl EnvWidget for Kasa {
                     .show(ui, |ui| self.plot.show_plot(ui, id));
             });
 
-        drag
+        egui_tiles::UiResponse::None
     }
 }
 
