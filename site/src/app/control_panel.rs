@@ -8,6 +8,7 @@ use crate::EnvApp;
 impl EnvApp {
     pub(super) fn control_panel_ui(&mut self, ui: &mut egui::Ui) {
         let mut reset = false;
+        let mut reset_plots = false;
 
         egui::Panel::left("control_panel")
             .resizable(false)
@@ -20,9 +21,14 @@ impl EnvApp {
                         ui.heading("💻 Control Panel");
                     });
                     ui.separator();
-                    if ui.button("Reset Tiles").clicked() {
-                        reset = true;
-                    }
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
+                        if ui.button("Reset Tiles").clicked() {
+                            reset = true;
+                        }
+                        if ui.button("Reset Plots").clicked() {
+                            reset_plots = true;
+                        }
+                    });
                     ui.separator();
                     self.frame_history.ui(ui);
                     ui.checkbox(&mut self.continuous, "Continuous");
@@ -36,6 +42,10 @@ impl EnvApp {
 
         if reset {
             self.reset_tiles();
+        }
+
+        if reset_plots {
+            self.reset_plots();
         }
     }
 

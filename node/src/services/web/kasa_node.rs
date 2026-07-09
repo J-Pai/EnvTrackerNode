@@ -95,8 +95,9 @@ impl Web {
                                     query.size.unwrap_or(Self::DEFAULT_KASA_BATCH_SIZE + 1) as u64
                                         * Self::PER_BATCH_MILLISECONDS as u64,
                                 ),
-                                subscriber
-                                    .recv_batch(query.size.unwrap_or(Self::DEFAULT_KASA_BATCH_SIZE)),
+                                subscriber.recv_batch(
+                                    query.size.unwrap_or(Self::DEFAULT_KASA_BATCH_SIZE),
+                                ),
                             )
                             .await
                             {

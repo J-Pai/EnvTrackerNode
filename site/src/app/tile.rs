@@ -59,6 +59,15 @@ impl TileBehavior {
     pub(super) fn kasa_widgets_registered(&self) -> bool {
         self.kasa_widgets.is_some()
     }
+
+    #[expect(clippy::iter_over_hash_type)]
+    pub(super) fn reset_plots(&mut self) {
+        if let Some(kasa_widgets) = self.kasa_widgets.as_mut() {
+            for kasa in kasa_widgets.values_mut() {
+                kasa.reset_plot();
+            }
+        }
+    }
 }
 
 impl egui_tiles::Behavior<Pane> for TileBehavior {

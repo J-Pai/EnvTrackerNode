@@ -116,6 +116,10 @@ impl Kasa {
             None => vec![],
         }
     }
+
+    pub(super) fn reset_plot(&mut self) {
+        self.plot.reset = true;
+    }
 }
 
 impl EnvWidget for Kasa {

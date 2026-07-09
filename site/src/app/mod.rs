@@ -90,6 +90,10 @@ impl EnvApp {
         Kasa::request_device_ids(&mut self.kasa_device_ids, &self.kasa_api_endpoint);
     }
 
+    fn reset_plots(&mut self) {
+        self.tile_behavior.reset_plots();
+    }
+
     fn load_tiles(&mut self) {
         if !self.tile_behavior.kasa_widgets_registered() {
             let mut widgets = HashMap::<PaneId, Kasa>::new();
