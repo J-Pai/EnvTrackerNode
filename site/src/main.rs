@@ -1,5 +1,8 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {}
+
 #[cfg(target_arch = "wasm32")]
 fn main() {
     use eframe::wasm_bindgen::JsCast as _;
@@ -52,11 +55,11 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| {
+                Box::new(move |cc| {
                     Ok(Box::new(site::EnvApp::new(
                         cc,
-                        api_endpoint,
-                        kasa_api_endpoint,
+                        &api_endpoint,
+                        &kasa_api_endpoint,
                     )))
                 }),
             )

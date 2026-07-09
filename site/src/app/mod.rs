@@ -51,8 +51,8 @@ impl EnvApp {
     /// Called once before the first frame.
     pub fn new(
         cc: &eframe::CreationContext<'_>,
-        api_endpoint: String,
-        kasa_api_endpoint: String,
+        api_endpoint: &str,
+        kasa_api_endpoint: &str,
     ) -> Self {
         let kasa_api_endpoint = format!("{api_endpoint}/{kasa_api_endpoint}");
         let mut app = if let Some(storage) = cc.storage {
@@ -175,5 +175,5 @@ impl eframe::App for EnvApp {
 }
 
 trait EnvWidget {
-    fn ui(&mut self, ui: &mut egui::Ui, id: &PaneId, alias: &String) -> egui_tiles::UiResponse;
+    fn ui(&mut self, ui: &mut egui::Ui, id: &PaneId, alias: &str) -> egui_tiles::UiResponse;
 }

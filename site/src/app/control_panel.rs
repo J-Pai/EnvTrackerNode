@@ -7,7 +7,7 @@ use crate::EnvApp;
 
 impl EnvApp {
     pub(super) fn control_panel_ui(&mut self, ui: &mut egui::Ui) {
-        let mut reset: bool = false;
+        let mut reset = false;
 
         egui::Panel::left("control_panel")
             .resizable(false)

@@ -46,14 +46,9 @@ impl Pane {
     }
 }
 
+#[derive(Default)]
 pub(super) struct TileBehavior {
     kasa_widgets: Option<HashMap<PaneId, Kasa>>,
-}
-
-impl Default for TileBehavior {
-    fn default() -> Self {
-        Self { kasa_widgets: None }
-    }
 }
 
 impl TileBehavior {
@@ -96,10 +91,10 @@ impl egui_tiles::Behavior<Pane> for TileBehavior {
         tile_id: egui_tiles::TileId,
         view: &mut Pane,
     ) -> egui_tiles::UiResponse {
-        if let Some(kasa_widgets) = &mut self.kasa_widgets {
-            if let Some(widget) = kasa_widgets.get_mut(&view.id) {
-                return view.ui(ui, tile_id, Some(widget));
-            }
+        if let Some(kasa_widgets) = &mut self.kasa_widgets
+            && let Some(widget) = kasa_widgets.get_mut(&view.id)
+        {
+            return view.ui(ui, tile_id, Some(widget));
         }
         view.ui(ui, tile_id, None)
     }

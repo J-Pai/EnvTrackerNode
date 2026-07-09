@@ -61,9 +61,9 @@ impl Kasa {
     const POLL_EVERY_SECONDS: f64 = 10.0;
     const INITIAL_BATCH_SIZE: usize = 1000;
 
-    pub(super) fn new(api_endpoint: &String) -> Self {
+    pub(super) fn new(api_endpoint: &str) -> Self {
         Self {
-            api_endpoint: api_endpoint.clone(),
+            api_endpoint: api_endpoint.to_owned(),
             data: Bind::new(true),
             plot: BorrowPointsExample::default(),
             current_power_w: 0.0,
@@ -72,16 +72,16 @@ impl Kasa {
 
     pub(super) fn request_device_ids(
         devices: &mut Bind<Vec<(KasaDeviceChildId, KasaDeviceChildAlias)>, String>,
-        api_endpoint: &String,
+        api_endpoint: &str,
     ) {
-        let api_endpoint = api_endpoint.clone();
+        let api_endpoint = api_endpoint.to_owned();
         if devices.is_pending() {
             return;
         }
         devices.request(async move {
             let api_client = ClientBuilder::new(Client::new()).build();
             match api_client
-                .get(format!("{api_endpoint}"))
+                .get(api_endpoint)
                 .query(&[("distinct", ""), ("column", "id")])
                 .send()
                 .await
@@ -94,13 +94,8 @@ impl Kasa {
 
                     let json = data.text().await.map_err(|e| e.to_string())?;
 
-                    let data =
-                        serde_json::from_str::<Vec<(KasaDeviceChildId, KasaDeviceChildAlias)>>(
-                            &json,
-                        )
-                        .map_err(|e| e.to_string());
-
-                    data
+                    serde_json::from_str::<Vec<(KasaDeviceChildId, KasaDeviceChildAlias)>>(&json)
+                        .map_err(|e| e.to_string())
                 }
                 Err(e) => Err(e.to_string()),
             }
@@ -124,7 +119,7 @@ impl Kasa {
 }
 
 impl EnvWidget for Kasa {
-    fn ui(&mut self, ui: &mut egui::Ui, id: &PaneId, _alias: &String) -> egui_tiles::UiResponse {
+    fn ui(&mut self, ui: &mut egui::Ui, id: &PaneId, _alias: &str) -> egui_tiles::UiResponse {
         let color = match ui.theme() {
             egui::Theme::Dark => egui::epaint::Hsva::new(0.0, 0.0, 0.025, 1.0),
             egui::Theme::Light => egui::epaint::Hsva::new(0.0, 0.0, 1.0, 1.0),
@@ -137,9 +132,9 @@ impl EnvWidget for Kasa {
         self.data.request_every_sec(
             || async move {
                 match api_client
-                    .get(format!("{api_endpoint}"))
+                    .get(api_endpoint)
                     .query(&[
-                        ("limit", Kasa::INITIAL_BATCH_SIZE.to_string().as_str()),
+                        ("limit", Self::INITIAL_BATCH_SIZE.to_string().as_str()),
                         ("id", &device_id),
                         ("order_by", "desc"),
                         ("column", "utc_ns"),
@@ -160,18 +155,23 @@ impl EnvWidget for Kasa {
                     Err(e) => Err(e.to_string()),
                 }
             },
-            Kasa::POLL_EVERY_SECONDS,
+            Self::POLL_EVERY_SECONDS,
         );
 
         self.data.on_finished(|data| match data {
             Ok(data) => {
-                self.current_power_w = data.get(0).unwrap().emeter.power_mw as f64 / 1000.0;
-                self.plot.update_points(
-                    data.iter()
-                        .rev()
-                        .map(|d| d.emeter.power_mw as f64 / 1000.0)
-                        .collect(),
-                )
+                self.current_power_w = match data.first() {
+                    Some(d) => d.emeter.power_mw as f64 / 1000.0,
+                    None => 0.0,
+                };
+
+                let converted_data: Vec<f64> = data
+                    .iter()
+                    .rev()
+                    .map(|d| d.emeter.power_mw as f64 / 1000.0)
+                    .collect();
+
+                self.plot.update_points(&converted_data);
             }
             Err(e) => {
                 log::error!("{e}");
@@ -189,7 +189,7 @@ impl EnvWidget for Kasa {
             .resizable(false)
             .show(ui, |ui| {
                 ui.separator();
-                ui.label(format!("POWER (Watts)"));
+                ui.label("POWER (Watts)");
                 ui.label(format!("{:.3}", self.current_power_w));
                 ui.separator();
             });
@@ -231,7 +231,7 @@ impl Default for BorrowPointsExample {
 }
 
 impl BorrowPointsExample {
-    pub fn update_points(&mut self, points: Vec<f64>) {
+    pub fn update_points(&mut self, points: &[f64]) {
         self.points = points
             .iter()
             .enumerate()
