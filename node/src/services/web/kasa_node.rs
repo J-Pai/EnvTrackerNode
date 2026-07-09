@@ -30,7 +30,7 @@ struct KasaRouteQuery {
 
 impl Web {
     const DEFAULT_KASA_BATCH_SIZE: usize = 100;
-    const PER_BATCH_MILLISECONDS: usize = 100;
+    const PER_BATCH_MILLISECONDS: usize = 2;
     const DEFAULT_KASA_NODE_TIMEOUT_SECONDS: u64 = 10;
 
     pub(crate) async fn setup_kasa_route(

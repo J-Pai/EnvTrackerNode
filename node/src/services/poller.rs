@@ -72,7 +72,7 @@ impl Poller {
                         url = format!("{url}?size={size}");
                     }
 
-                    tracing::debug!("{} - Kasa Polling - {}", uuid, url);
+                    tracing::debug!("{uuid} - Kasa Polling - {url}");
 
                     if let Err(e) = db.try_write_lock().await {
                         tracing::warn!(
@@ -103,6 +103,7 @@ impl Poller {
                                         if data.is_empty() {
                                             break;
                                         }
+
                                         if let Err(e) = db.push_kasa_data(&topic, &data).await {
                                             tracing::warn!("Failed to write data: {:#?}", e);
                                         }
