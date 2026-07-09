@@ -133,7 +133,7 @@ impl DeviceQuery {
             None => base_query = format!("{base_query} LIMIT {}", Self::DEFAULT_LIMIT),
         };
 
-        return (base_query, args);
+        (base_query, args)
     }
 }
 

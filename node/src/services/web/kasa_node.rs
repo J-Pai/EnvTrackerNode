@@ -92,11 +92,7 @@ impl Web {
 
                             let msg = match timeout(
                                 Duration::from_millis(
-                                    query.size.unwrap_or(
-                                        (Web::DEFAULT_KASA_BATCH_SIZE)
-                                            / Web::DEFAULT_KASA_BATCH_SIZE
-                                            + 1,
-                                    ) as u64
+                                    query.size.unwrap_or(Web::DEFAULT_KASA_BATCH_SIZE + 1) as u64
                                         * Web::PER_BATCH_MILLISECONDS as u64,
                                 ),
                                 subscriber

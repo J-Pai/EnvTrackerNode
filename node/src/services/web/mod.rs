@@ -6,6 +6,7 @@ use crate::services::db::Db;
 use crate::services::poller::Poller;
 
 mod api;
+mod auth;
 mod frontend;
 mod kasa_node;
 

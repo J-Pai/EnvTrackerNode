@@ -18,6 +18,7 @@ pub(crate) struct ServerConfig {
 
 impl ServerConfig {
     pub(crate) fn new(path: PathBuf, edit_config: bool) -> Self {
+        #[allow(clippy::result_large_err)]
         let config = fs::read_to_string(&path).map_or_else(
             |e| {
                 println!(
@@ -75,9 +76,9 @@ impl ServerConfig {
         self.api_server.clone()
     }
 
-    pub(crate) fn override_frontend_base(&mut self, base: &String) {
+    pub(crate) fn override_frontend_base(&mut self, base: &str) {
         if let Some(frontend_config) = &mut self.frontend_server {
-            frontend_config.base = Some(base.clone());
+            frontend_config.base = Some(base.to_owned());
         }
     }
 }
@@ -92,6 +93,7 @@ impl Default for Ip {
     }
 }
 
+#[allow(clippy::to_string_trait_impl)]
 impl ToString for Ip {
     fn to_string(&self) -> String {
         self.0.clone()

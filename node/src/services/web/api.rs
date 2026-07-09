@@ -43,11 +43,11 @@ impl Web {
 
     async fn setup_kasa_api_route(
         mut self,
-        topic: &String,
+        topic: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let mut router = self.router;
         let db = self.db.as_ref().unwrap().clone();
-        let topic = topic.clone();
+        let topic = topic.to_owned();
         let cors_layer = CorsLayer::new()
             .allow_methods([Method::GET])
             .allow_origin("*".parse::<HeaderValue>().unwrap())
@@ -74,13 +74,13 @@ impl Web {
                                         query,
                                         e
                                     );
-                                    format!("[]")
+                                    "[]".to_string()
                                 }
                             }
                         }
                         Err(e) => {
                             tracing::warn!("Failed to query data ({:#?}): {:#?}", query, e);
-                            format!("[]")
+                            "[]".to_string()
                         }
                     }
                 }),

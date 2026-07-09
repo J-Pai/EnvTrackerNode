@@ -89,11 +89,7 @@ impl NodeConfigUi {
 
         node_editor_panel.add(label!("'Polling Endpoint:', x:0, y:6, w: 32"));
         let mut polling_endpoint = textfield!("caption='', x:32, y:6, w: 32");
-        let api = if let Some(api) = schedule.get_api().clone() {
-            api
-        } else {
-            String::new()
-        };
+        let api = schedule.get_api().clone().unwrap_or_default();
         polling_endpoint.set_text(&api);
         polling_endpoint.set_enabled(editor);
         let polling_endpoint = node_editor_panel.add(polling_endpoint);
@@ -404,10 +400,7 @@ impl ApiServerUi {
                         if batch_size.is_empty() {
                             None
                         } else {
-                            match usize::from_str_radix(batch_size, 10) {
-                                Ok(size) => Some(size),
-                                Err(_) => return None,
-                            }
+                            batch_size.parse::<usize>().ok()
                         }
                     } else {
                         return None;
@@ -503,18 +496,13 @@ impl ApiServerUi {
                             .to_string()),
                         username: String::new(),
                         password: String::new(),
-                        batch_size: match usize::from_str_radix(
-                            &window
-                                .control(self.node_editor_panel.batch_size)
-                                .unwrap()
-                                .text()
-                                .trim()
-                                .to_string(),
-                            10,
-                        ) {
-                            Ok(v) => Some(v),
-                            Err(_) => None,
-                        },
+                        batch_size: window
+                            .control(self.node_editor_panel.batch_size)
+                            .unwrap()
+                            .text()
+                            .trim()
+                            .parse::<usize>()
+                            .ok(),
                     },
                     PollingConfig {
                         schedule: window
@@ -570,18 +558,13 @@ impl ApiServerUi {
                             .to_string()),
                         username: String::new(),
                         password: String::new(),
-                        batch_size: match usize::from_str_radix(
-                            &window
-                                .control(self.node_editor_panel.batch_size)
-                                .unwrap()
-                                .text()
-                                .trim()
-                                .to_string(),
-                            10,
-                        ) {
-                            Ok(v) => Some(v),
-                            Err(_) => None,
-                        },
+                        batch_size: window
+                            .control(self.node_editor_panel.batch_size)
+                            .unwrap()
+                            .text()
+                            .trim()
+                            .parse::<usize>()
+                            .ok(),
                     },
                     PollingConfig {
                         schedule: window

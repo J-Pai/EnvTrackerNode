@@ -194,7 +194,7 @@ impl Web {
             self.watcher.replace(watcher);
         }
 
-        let base = config.get_base().unwrap_or(String::new());
+        let base = config.get_base().unwrap_or_default();
         let api_server_ip = config.get_api_server_ip().to_string();
         let kasa_api = config.get_kasa_api().to_string();
 

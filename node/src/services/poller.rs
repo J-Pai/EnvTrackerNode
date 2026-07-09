@@ -36,10 +36,7 @@ impl Poller {
             let node = node.clone();
 
             if let NodeClass::KasaDevice(topic, device_config, polling) = node {
-                let route = match polling.clone().get_api() {
-                    Some(endpoint) => endpoint,
-                    None => String::new(),
-                };
+                let route = polling.clone().get_api().unwrap_or_default();
 
                 poller = poller
                     .add_kasa_job(route, topic, device_config, polling)

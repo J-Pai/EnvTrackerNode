@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     if args.no_base {
-        config.override_frontend_base(&String::new());
+        config.override_frontend_base("");
     }
 
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
