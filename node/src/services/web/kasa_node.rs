@@ -71,62 +71,56 @@ impl Web {
             };
 
             let topic = devices.get_topic(&device_id)?.clone();
-
             let subscribers = kasa_subscribers.clone();
-            router = router
-                .route(
-                    &endpoint,
-                    routing::get(move |Query(query): Query<KasaRouteQuery>| {
-                        let kasa_subscribers = subscribers.clone();
 
-                        async move {
-                            let kasa_subscribers = kasa_subscribers.read().await;
-                            let subscriber = if let Some(subscriber) = kasa_subscribers.get(&topic)
-                            {
-                                subscriber.read().await
-                            } else {
-                                return "[]".to_string();
-                            };
+            let handler = move |Query(query): Query<KasaRouteQuery>| {
+                let kasa_subscribers = subscribers.clone();
 
-                            tracing::debug!("Query: {:?}", query);
+                async move {
+                    let kasa_subscribers = kasa_subscribers.read().await;
+                    let subscriber = if let Some(subscriber) = kasa_subscribers.get(&topic) {
+                        subscriber.read().await
+                    } else {
+                        return "[]".to_string();
+                    };
 
-                            let msg = match timeout(
-                                Duration::from_millis(
-                                    query.size.unwrap_or(Self::DEFAULT_KASA_BATCH_SIZE + 1) as u64
-                                        * Self::PER_BATCH_MILLISECONDS as u64,
-                                ),
-                                subscriber.recv_batch(
-                                    query.size.unwrap_or(Self::DEFAULT_KASA_BATCH_SIZE),
-                                ),
-                            )
-                            .await
-                            {
-                                Ok(result) => result.unwrap(),
-                                Err(_) => {
-                                    return "[]".to_string();
-                                }
-                            };
+                    tracing::debug!("Query: {:?}", query);
 
-                            let mut output: Vec<String> = Vec::new();
-
-                            for m in msg.iter() {
-                                let json = m.deserialize::<Value>().unwrap();
-                                output.push(serde_json::to_string(&json).unwrap());
-                            }
-
-                            format!("[{}]", output.join(","))
+                    let msg = match timeout(
+                        Duration::from_millis(
+                            query.size.unwrap_or(Self::DEFAULT_KASA_BATCH_SIZE + 1) as u64
+                                * Self::PER_BATCH_MILLISECONDS as u64,
+                        ),
+                        subscriber.recv_batch(query.size.unwrap_or(Self::DEFAULT_KASA_BATCH_SIZE)),
+                    )
+                    .await
+                    {
+                        Ok(result) => result.unwrap(),
+                        Err(_) => {
+                            return "[]".to_string();
                         }
-                    }),
-                )
-                .layer(
-                    ServiceBuilder::new()
-                        .layer(HandleErrorLayer::new(|_: BoxError| async {
-                            StatusCode::REQUEST_TIMEOUT
-                        }))
-                        .layer(TimeoutLayer::new(Duration::from_secs(
-                            Web::DEFAULT_KASA_NODE_TIMEOUT_SECONDS,
-                        ))),
-                );
+                    };
+
+                    let mut output: Vec<String> = Vec::new();
+
+                    for m in msg.iter() {
+                        let json = m.deserialize::<Value>().unwrap();
+                        output.push(serde_json::to_string(&json).unwrap());
+                    }
+
+                    format!("[{}]", output.join(","))
+                }
+            };
+
+            router = router.route(&endpoint, routing::get(handler)).layer(
+                ServiceBuilder::new()
+                    .layer(HandleErrorLayer::new(|_: BoxError| async {
+                        StatusCode::REQUEST_TIMEOUT
+                    }))
+                    .layer(TimeoutLayer::new(Duration::from_secs(
+                        Web::DEFAULT_KASA_NODE_TIMEOUT_SECONDS,
+                    ))),
+            );
         }
 
         self.router = router;

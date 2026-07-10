@@ -53,38 +53,34 @@ impl Web {
             .allow_origin("*".parse::<HeaderValue>().unwrap())
             .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
 
-        router = router
-            .route(
-                &format!("/api/kasa/{topic}"),
-                routing::get(move |Query(query): Query<DeviceQuery>| async move {
-                    match db.query_kasa_data(&topic, &query).await {
-                        Ok(data) => {
-                            tracing::debug!("Query complete: {:#?}", query);
+        let handler_topic = topic.clone();
+        let handler = |Query(query): Query<DeviceQuery>| async move {
+            match db.query_kasa_data(&handler_topic, &query).await {
+                Ok(data) => {
+                    tracing::debug!("Query complete: {:#?}", query);
 
-                            let data = match data {
-                                QueryResult::KasaDeviceInfo(data) => serde_json::to_string(&data),
-                                QueryResult::Distinct(data) => serde_json::to_string(&data),
-                            };
+                    let data = match data {
+                        QueryResult::KasaDeviceInfo(data) => serde_json::to_string(&data),
+                        QueryResult::Distinct(data) => serde_json::to_string(&data),
+                    };
 
-                            match data {
-                                Ok(data) => data,
-                                Err(e) => {
-                                    tracing::warn!(
-                                        "Failed to serialize data ({:#?}): {:#?}",
-                                        query,
-                                        e
-                                    );
-                                    "[]".to_string()
-                                }
-                            }
-                        }
+                    match data {
+                        Ok(data) => data,
                         Err(e) => {
-                            tracing::warn!("Failed to query data ({:#?}): {:#?}", query, e);
+                            tracing::warn!("Failed to serialize data ({:#?}): {:#?}", query, e);
                             "[]".to_string()
                         }
                     }
-                }),
-            )
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to query data ({:#?}): {:#?}", query, e);
+                    "[]".to_string()
+                }
+            }
+        };
+
+        router = router
+            .route(&format!("/api/kasa/{topic}"), routing::get(handler))
             .layer(
                 ServiceBuilder::new()
                     .layer(HandleErrorLayer::new(|_: BoxError| async {
