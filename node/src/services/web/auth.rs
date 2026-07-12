@@ -60,6 +60,9 @@ impl Web {
         let mut key: [u8; 64] = [0u8; 64];
         rand::fill(&mut key);
 
+        // Example target:
+        // http://localhost:3000/auth?redirect=/userinfo
+
         let config = OAuthConfigurationBuilder::default()
             .with_authorization_endpoint(&client_secret.auth_uri)
             .with_token_endpoint(&client_secret.token_uri)
@@ -69,7 +72,7 @@ impl Web {
             .with_private_cookie_key(&String::from_utf8_lossy(&key))
             .with_scopes(vec!["openid", "email", "profile"])
             .with_code_challenge_method(CodeChallengeMethod::S256)
-            .with_post_logout_redirect_uri("/userinfo")
+            .with_post_logout_redirect_uri("/")
             .with_session_max_age(30)
             .with_token_max_age(300)
             .with_base_path("/auth")
