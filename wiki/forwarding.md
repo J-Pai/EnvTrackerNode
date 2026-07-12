@@ -1,15 +1,48 @@
 # Forwarding Content
 
-We insert a `x-real-base` header field so the static content web server
-can overwrite the base html file with the correct redirects.
-
 See [PiKVM](pikvm.md) for more information on reverse proxies.
+
+## TLS Certificate Location
+
+```shell
+/etc/pki/nginx/server.crt
+
+-r--r--r--.  1 root nginx 623 Jul 12 22:52 server.crt
+
+/etc/pki/nginx/private/server.key
+
+-r--r-----. 1 root nginx 302 Jul 12 22:52 private/server.key
+```
+
+## SELinux
+
+```shell
+sudo grep "denied" /var/log/audit/audit.log
+
+audit2allow -M local << _EOF_
+(All audit denied lines)
+_EOF_
+
+sudo semodule -i local.pp
+```
+
+May require more then 1 line for this.
 
 ## Reverse Proxy
 
 For the proxy_pass address, prefer an IP address.
 
 ```shell
+    server {
+        listen       443 ssl http2;
+        listen       [::]:443 ssl http2;
+        server_name  _;
+
+        ssl_certificate "/etc/pki/nginx/server.crt";
+        ssl_certificate_key "/etc/pki/nginx/private/server.key";
+        ssl_ciphers PROFILE=SYSTEM;
+        ssl_prefer_server_ciphers on;
+
         location /env {
             rewrite ^/env$ / break;
             rewrite ^/env\?(.*)$ ?$1 break;
@@ -18,7 +51,6 @@ For the proxy_pass address, prefer an IP address.
 
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Real-Base /env;
             proxy_set_header X-Scheme $scheme;
             proxy_set_header X-Forwarded-Proto $scheme;
             proxy_set_header X-Forwarded-Port $server_port;
@@ -40,4 +72,5 @@ For the proxy_pass address, prefer an IP address.
             client_max_body_size 0;
             proxy_request_buffering off;
         }
+    }
 ```
