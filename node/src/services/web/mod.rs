@@ -1,7 +1,6 @@
 //! Sets up the web services.
 
 use axum::Router;
-use tower_sessions::MemoryStore;
 
 use crate::services::db::Db;
 use crate::services::poller::Poller;
@@ -14,7 +13,6 @@ mod kasa_node;
 pub(crate) struct Web {
     router: Router,
     db: Option<Db>,
-    session_store: MemoryStore,
     #[cfg(debug_assertions)]
     watcher: Option<notify::RecommendedWatcher>,
 }
@@ -24,7 +22,6 @@ impl Web {
         Self {
             router: Router::new(),
             db,
-            session_store: MemoryStore::default(),
             #[cfg(debug_assertions)]
             watcher: None,
         }

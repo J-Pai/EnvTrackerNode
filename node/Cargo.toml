@@ -7,7 +7,7 @@ default-run = "node"
 [dependencies]
 appcui = { version = "0.4.11", optional = true }
 axum = { version = "0.8.9", features = ["macros"] }
-axum-oidc = "0.6.0"
+axum-oidc-client = "0.7.0"
 chrono = "0.4.44"
 clap = { version = "4.6.1", features = ["derive"] }
 config = "0.15.22"

@@ -1,41 +1,92 @@
 //! Authentication handlers.
 
+use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use axum::extract::Query;
-use axum::http::Uri;
 use axum::response::IntoResponse;
 use axum::routing;
-use axum_oidc::EmptyAdditionalClaims;
-use axum_oidc::OidcClaims;
-use axum_oidc::OidcClient;
+use axum_oidc_client::auth::{AuthenticationLayer, CodeChallengeMethod};
+use axum_oidc_client::auth_builder::OAuthConfigurationBuilder;
+use axum_oidc_client::auth_cache::AuthCache;
+use axum_oidc_client::auth_session::AuthSession;
+use axum_oidc_client::cache::TwoTierAuthCache;
+use axum_oidc_client::cache::config::TwoTierCacheConfig;
+use axum_oidc_client::logout::handle_default_logout::DefaultLogoutHandler;
 
 use crate::services::web::Web;
 
-#[derive(serde::Deserialize, Clone, Debug)]
-struct SampleQuery {
-    flag: Option<bool>,
+#[derive(Default, serde::Deserialize)]
+#[allow(unused)]
+struct ClientJsonWeb {
+    client_id: String,
+    project_id: String,
+    auth_uri: String,
+    token_uri: String,
+    auth_provider_x509_cert_url: String,
+    client_secret: String,
+}
+
+#[derive(Default, serde::Deserialize)]
+struct ClientJson {
+    web: ClientJsonWeb,
 }
 
 impl Web {
-    async fn random_path_handler(
-        claims: Result<OidcClaims<EmptyAdditionalClaims>, axum_oidc::error::ExtractorError>,
-        Query(query): Query<SampleQuery>,
-    ) -> impl IntoResponse {
-        if let Ok(claims) = claims {
-            format!("Hello World {query:#?}")
-        } else {
-            format!("Goodbye World {query:#?}")
-        }
+    async fn userinfo_handler(session: AuthSession) -> impl IntoResponse {
+        let expires = session
+            .expires
+            .map(|e| e.to_string())
+            .unwrap_or_else(|| "(no expiry)".to_string());
+        format!("Hello World: expires {}", expires)
+    }
+
+    fn parse_client_json(
+        oauth2_client_json: &PathBuf,
+    ) -> Result<ClientJsonWeb, Box<dyn std::error::Error>> {
+        let json_str = fs::read_to_string(oauth2_client_json)?;
+        let json = serde_json::from_str(&json_str)?;
+        let json = serde_json::from_value::<ClientJson>(json)?;
+        Ok(json.web)
     }
 
     pub(crate) async fn setup_auth(
         mut self,
         oauth2_client_json: &PathBuf,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        let client_secret = Self::parse_client_json(oauth2_client_json)?;
         let mut router = self.router;
 
-        router = router.route("/random_path", routing::get(Self::random_path_handler));
+        let mut key: [u8; 64] = [0u8; 64];
+        rand::fill(&mut key);
+
+        let config = OAuthConfigurationBuilder::default()
+            .with_authorization_endpoint(&client_secret.auth_uri)
+            .with_token_endpoint(&client_secret.token_uri)
+            .with_client_id(&client_secret.client_id)
+            .with_client_secret(&client_secret.client_secret)
+            .with_redirect_uri("http://localhost:3000/auth/callback")
+            .with_private_cookie_key(&String::from_utf8_lossy(&key))
+            .with_scopes(vec!["openid", "email", "profile"])
+            .with_code_challenge_method(CodeChallengeMethod::S256)
+            .with_post_logout_redirect_uri("/userinfo")
+            .with_session_max_age(30)
+            .with_token_max_age(300)
+            .with_base_path("/auth")
+            .build()?;
+
+        let cache: Arc<dyn AuthCache + Send + Sync> =
+            Arc::new(TwoTierAuthCache::new(None, TwoTierCacheConfig::default())?);
+
+        let logout_handler = Arc::new(DefaultLogoutHandler);
+
+        router = router
+            .route("/userinfo", routing::get(Self::userinfo_handler))
+            .layer(AuthenticationLayer::new(
+                Arc::new(config),
+                cache,
+                logout_handler,
+            ));
 
         self.router = router;
         Ok(self)
