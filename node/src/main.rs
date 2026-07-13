@@ -35,9 +35,6 @@ struct Args {
     /// Override the base defined in config.toml.
     #[arg(short, long)]
     no_base: bool,
-    /// OAuth2 Client JSON.
-    #[arg(short, long)]
-    oauth2_client_json: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -107,10 +104,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::info!("[Service] API Backend");
         poller = poller.setup_node_polling(&config).await?;
         web = web.setup_api_route(&config).await?;
-    }
 
-    if let Some(oauth2_client_json) = args.oauth2_client_json {
-        web = web.setup_auth(&oauth2_client_json).await?;
+        if let Some(oauth2) = config.get_oauth2_config() {
+            web = web.setup_auth(&oauth2).await?;
+        }
     }
 
     web.start(poller).await?;

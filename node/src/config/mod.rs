@@ -144,6 +144,25 @@ impl PollingConfig {
     }
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct OAuth2Config {
+    /// Path to the client secret JSON. This can be obtained directly from
+    /// GCP when creating a new client in the OAuth2 setup page.
+    client_secret_json: String,
+    /// OAuth2 callback/redirect base URI.
+    redirect_uri_base: String,
+}
+
+impl OAuth2Config {
+    pub(crate) fn get_client_json(&self) -> PathBuf {
+        PathBuf::from(self.client_secret_json.clone())
+    }
+
+    pub(crate) fn get_redirect_uri_base(&self) -> String {
+        self.redirect_uri_base.clone()
+    }
+}
+
 /// API and Database server configuration.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ApiServerConfig {
@@ -151,6 +170,8 @@ pub(crate) struct ApiServerConfig {
     nodes: Vec<NodeClass>,
     /// Path to database file (SQLite).
     db: String,
+    /// OAuth2 Configuration.
+    oauth2: Option<OAuth2Config>,
 }
 
 impl ApiServerConfig {
@@ -160,6 +181,10 @@ impl ApiServerConfig {
 
     pub(crate) fn get_nodes(&self) -> &Vec<NodeClass> {
         &self.nodes
+    }
+
+    pub(crate) fn get_oauth2_config(&self) -> Option<OAuth2Config> {
+        self.oauth2.clone()
     }
 }
 

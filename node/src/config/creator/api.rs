@@ -422,7 +422,11 @@ impl ApiServerUi {
                 };
             }
 
-            return Some(ApiServerConfig { db, nodes });
+            return Some(ApiServerConfig {
+                db,
+                nodes,
+                oauth2: None,
+            });
         }
 
         None

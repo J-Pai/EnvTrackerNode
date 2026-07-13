@@ -14,11 +14,12 @@ use axum_oidc_client::cache::TwoTierAuthCache;
 use axum_oidc_client::cache::config::TwoTierCacheConfig;
 use axum_oidc_client::logout::handle_default_logout::DefaultLogoutHandler;
 
+use crate::config::OAuth2Config;
 use crate::services::web::Web;
 
 #[derive(Default, serde::Deserialize)]
 #[allow(unused)]
-struct ClientJsonWeb {
+pub(crate) struct ClientJsonWeb {
     client_id: String,
     project_id: String,
     auth_uri: String,
@@ -52,9 +53,9 @@ impl Web {
 
     pub(crate) async fn setup_auth(
         mut self,
-        oauth2_client_json: &PathBuf,
+        oauth2_config: &OAuth2Config,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let client_secret = Self::parse_client_json(oauth2_client_json)?;
+        let client_secret = Self::parse_client_json(&oauth2_config.get_client_json())?;
         let mut router = self.router;
 
         let mut key: [u8; 64] = [0u8; 64];
@@ -68,7 +69,9 @@ impl Web {
             .with_token_endpoint(&client_secret.token_uri)
             .with_client_id(&client_secret.client_id)
             .with_client_secret(&client_secret.client_secret)
-            .with_redirect_uri("http://localhost:3000/auth/callback")
+            .with_redirect_uri(
+                &format!("{}/auth/callback", &oauth2_config.get_redirect_uri_base()).to_string(),
+            )
             .with_private_cookie_key(&String::from_utf8_lossy(&key))
             .with_scopes(vec!["openid", "email", "profile"])
             .with_code_challenge_method(CodeChallengeMethod::S256)
