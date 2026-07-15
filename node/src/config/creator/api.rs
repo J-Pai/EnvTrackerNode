@@ -8,6 +8,7 @@ use crate::config::ApiServerConfig;
 use crate::config::Ip;
 use crate::config::KasaDeviceConfig;
 use crate::config::NodeClass;
+use crate::config::OAuth2Config;
 use crate::config::PollingConfig;
 use crate::config::ServerConfig;
 use crate::config::creator::CreatorWindow;
@@ -155,6 +156,8 @@ pub(super) struct ApiServerUi {
     enable: Handle<CheckBox>,
     save_button: Handle<Button>,
     db_field: Handle<TextField>,
+    client_secret_json_field: Handle<TextField>,
+    redirect_uri_base_field: Handle<TextField>,
     node_editor_panel: NodeConfigUi,
     node_panel: Handle<Panel>,
     update_node_button: Handle<Button>,
@@ -178,13 +181,19 @@ impl ApiServerUi {
         let label = label!("'Database Path:', x:1, y:2, w: 14");
         form_panel.add(label);
         let db = form_panel.add(textfield!("caption='sqlite.db', x:32, y:2, w:32"));
+        let label = label!("'OAuth2 Client Secret JSON:', x:1, y:4, w: 32");
+        form_panel.add(label);
+        let client_secret_json = form_panel.add(textfield!("x:32, y:4, w:32"));
+        let label = label!("'OAuth2 Redirect URI Base:', x:1, y:6, w: 32");
+        form_panel.add(label);
+        let redirect_uri_base = form_panel.add(textfield!("x:32, y:6, w:32"));
 
         let mut node_editor_panel = NodeConfigUi::new(
             NodeClass::default(),
             &mut form_panel,
             true,
             String::new(),
-            4,
+            8,
             0,
         );
 
@@ -201,6 +210,8 @@ impl ApiServerUi {
             enable,
             save_button: save,
             db_field: db,
+            client_secret_json_field: client_secret_json,
+            redirect_uri_base_field: redirect_uri_base,
             node_editor_panel,
             node_panel,
             update_node_button: update_node,
@@ -362,6 +373,22 @@ impl ApiServerUi {
                 return None;
             };
 
+            let oauth2_config = if let Some(client_secret_json_field) =
+                window.control(self.client_secret_json_field)
+                && let Some(redirect_uri_base_field) = window.control(self.redirect_uri_base_field)
+            {
+                let json = client_secret_json_field.text().trim().to_string();
+                let redirect = redirect_uri_base_field.text().trim().to_string();
+
+                if !json.is_empty() && !redirect.is_empty() {
+                    Some((json, redirect))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
             let mut nodes: Vec<NodeClass> = vec![];
 
             for (_, config) in self.node_configs.iter() {
@@ -425,7 +452,13 @@ impl ApiServerUi {
             return Some(ApiServerConfig {
                 db,
                 nodes,
-                oauth2: None,
+                oauth2: match oauth2_config {
+                    Some((json, redirect)) => Some(OAuth2Config {
+                        client_secret_json: json,
+                        redirect_uri_base: redirect,
+                    }),
+                    None => None,
+                },
             });
         }
 
@@ -445,6 +478,19 @@ impl ApiServerUi {
 
         if let Some(db) = window.control_mut(self.db_field) {
             db.set_text(&config.get_db());
+        }
+
+        if let Some(oauth2) = config.get_oauth2_config()
+            && let Some(client_secret_json_field) =
+                window.control_mut(self.client_secret_json_field)
+        {
+            client_secret_json_field.set_text(oauth2.get_client_json().to_str().unwrap());
+        }
+
+        if let Some(oauth2) = config.get_oauth2_config()
+            && let Some(redirect_uri_base_field) = window.control_mut(self.redirect_uri_base_field)
+        {
+            redirect_uri_base_field.set_text(&oauth2.get_redirect_uri_base());
         }
 
         for node in config.nodes {
