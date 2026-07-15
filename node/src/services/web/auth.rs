@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use axum::response::IntoResponse;
+use axum::response::{Html, IntoResponse};
 use axum::routing;
 use axum_oidc_client::auth::{AuthenticationLayer, CodeChallengeMethod};
 use axum_oidc_client::auth_builder::OAuthConfigurationBuilder;
@@ -12,9 +12,10 @@ use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::auth_session::AuthSession;
 use axum_oidc_client::cache::TwoTierAuthCache;
 use axum_oidc_client::cache::config::TwoTierCacheConfig;
+use axum_oidc_client::extractors::OptionalAuthSession;
 use axum_oidc_client::logout::handle_default_logout::DefaultLogoutHandler;
 
-use crate::config::OAuth2Config;
+use crate::config::{FrontendServerConfig, OAuth2Config};
 use crate::services::web::Web;
 
 #[derive(Default, serde::Deserialize)]
@@ -54,6 +55,7 @@ impl Web {
     pub(crate) async fn setup_auth(
         mut self,
         oauth2_config: &OAuth2Config,
+        frontend_config: Option<FrontendServerConfig>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let client_secret = Self::parse_client_json(&oauth2_config.get_client_json())?;
         let mut router = self.router;
@@ -85,9 +87,33 @@ impl Web {
             Arc::new(TwoTierAuthCache::new(None, TwoTierCacheConfig::default())?);
 
         let logout_handler = Arc::new(DefaultLogoutHandler);
+        let base_redirect = oauth2_config.get_redirect_uri_base();
+
+        let base = if let Some(frontend_config) = frontend_config
+            && let Some(base) = frontend_config.get_base()
+        {
+            base
+        } else {
+            String::new()
+        };
 
         router = router
             .route("/userinfo", routing::get(Self::userinfo_handler))
+            .route(
+                "/google_home/login",
+                routing::get(
+                    move |OptionalAuthSession(session): OptionalAuthSession| async move {
+                        tracing::debug!("Hello World");
+                        match session {
+                            Some(_) => Html(format!("Hello World from Google Home!")),
+                            None => Html(format!(
+                                "<a href='{base_redirect}/auth?redirect={}/google_home/login'>GOOGLE LOGIN</a>",
+                                base
+                            )),
+                        }
+                    },
+                ),
+            )
             .layer(AuthenticationLayer::new(
                 Arc::new(config),
                 cache,

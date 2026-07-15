@@ -100,13 +100,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         web = web.setup_frontend_route(&config).await?;
     }
 
-    if let Some(config) = config.get_api_config() {
+    if let Some(api_config) = config.get_api_config() {
         tracing::info!("[Service] API Backend");
-        poller = poller.setup_node_polling(&config).await?;
-        web = web.setup_api_route(&config).await?;
+        poller = poller.setup_node_polling(&api_config).await?;
+        web = web.setup_api_route(&api_config).await?;
 
-        if let Some(oauth2) = config.get_oauth2_config() {
-            web = web.setup_auth(&oauth2).await?;
+        if let Some(oauth2) = api_config.get_oauth2_config() {
+            web = web
+                .setup_auth(&oauth2, config.get_frontend_config())
+                .await?;
         }
     }
 
