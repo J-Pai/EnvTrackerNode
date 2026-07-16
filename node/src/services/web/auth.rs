@@ -35,14 +35,6 @@ struct ClientJson {
 }
 
 impl Web {
-    async fn userinfo_handler(session: AuthSession) -> impl IntoResponse {
-        let expires = session
-            .expires
-            .map(|e| e.to_string())
-            .unwrap_or_else(|| "(no expiry)".to_string());
-        format!("Hello World: expires {}", expires)
-    }
-
     fn parse_client_json(
         oauth2_client_json: &PathBuf,
     ) -> Result<ClientJsonWeb, Box<dyn std::error::Error>> {
@@ -97,22 +89,42 @@ impl Web {
             String::new()
         };
 
+        let google_home_link = move |session: AuthSession| async move {};
+
+        let google_home_login = move |OptionalAuthSession(session): OptionalAuthSession| async move {
+            tracing::debug!("Hello World");
+            match session {
+                Some(session) => {
+                    let expires = session
+                        .expires
+                        .map(|e| e.to_string())
+                        .unwrap_or_else(|| "(no expiry)".to_string());
+                    Html(format!(
+                        "\
+                    Hello World for Google Home: expires {expires} \
+                    <a href='{}/google_home/link'>Authorize Link</a> \
+                ",
+                        base
+                    ))
+                }
+                None => Html(format!(
+                    "<a href='{base_redirect}/auth?redirect={}/google_home/login'>GOOGLE LOGIN</a>",
+                    base
+                )),
+            }
+        };
+
+        let google_home_fulfillment = move |_session: AuthSession| async move {
+            tracing::debug!("Handling fulfillment");
+            "{}"
+        };
+
         router = router
-            .route("/userinfo", routing::get(Self::userinfo_handler))
+            .route("/google_home/link", routing::get(google_home_link))
+            .route("/google_home/login", routing::get(google_home_login))
             .route(
-                "/google_home/login",
-                routing::get(
-                    move |OptionalAuthSession(session): OptionalAuthSession| async move {
-                        tracing::debug!("Hello World");
-                        match session {
-                            Some(_) => Html(format!("Hello World from Google Home!")),
-                            None => Html(format!(
-                                "<a href='{base_redirect}/auth?redirect={}/google_home/login'>GOOGLE LOGIN</a>",
-                                base
-                            )),
-                        }
-                    },
-                ),
+                "/google_home/fulfillment",
+                routing::post(google_home_fulfillment),
             )
             .layer(AuthenticationLayer::new(
                 Arc::new(config),
