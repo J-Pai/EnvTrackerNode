@@ -1,5 +1,9 @@
 //! Manages db interactions for specific devices.
 
+use axum_oidc_client::auth_cache::AuthCache;
+use axum_oidc_client::auth_session::AuthSession;
+use axum_oidc_client::errors::Error;
+use futures_util::future::BoxFuture;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
@@ -315,5 +319,59 @@ impl Db {
         } else {
             Ok(QueryResult::KasaDeviceInfo(data))
         }
+    }
+}
+
+impl AuthCache for Db {
+    fn get_code_verifier(
+        &self,
+        challenge_state: &str,
+    ) -> BoxFuture<'_, Result<Option<String>, axum_oidc_client::errors::Error>> {
+        Box::pin(async move { Ok(Some("".to_string())) })
+    }
+
+    fn set_code_verifier(
+        &self,
+        challenge_state: &str,
+        code_verifier: &str,
+    ) -> BoxFuture<'_, Result<(), axum_oidc_client::errors::Error>> {
+        Box::pin(async move { Ok(()) })
+    }
+
+    fn invalidate_code_verifier(
+        &self,
+        challenge_state: &str,
+    ) -> BoxFuture<'_, Result<(), axum_oidc_client::errors::Error>> {
+        Box::pin(async move { Ok(()) })
+    }
+
+    fn get_auth_session(
+        &self,
+        id: &str,
+    ) -> BoxFuture<
+        '_,
+        Result<
+            Option<axum_oidc_client::auth_session::AuthSession>,
+            axum_oidc_client::errors::Error,
+        >,
+    > {
+        Box::pin(async move {
+            Ok(Some(
+                serde_json::from_str::<AuthSession>(&"")
+                    .map_err(|e| Error::CacheError(e.to_string()))?,
+            ))
+        })
+    }
+
+    fn set_auth_session(&self, id: &str, session: AuthSession) -> BoxFuture<'_, Result<(), Error>> {
+        Box::pin(async move { Ok(()) })
+    }
+
+    fn invalidate_auth_session(&self, id: &str) -> BoxFuture<'_, Result<(), Error>> {
+        Box::pin(async move { Ok(()) })
+    }
+
+    fn extend_auth_session(&self, session_id: &str, ttl: i64) -> BoxFuture<'_, Result<(), Error>> {
+        Box::pin(async move { Ok(()) })
     }
 }

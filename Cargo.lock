@@ -3858,6 +3858,7 @@ dependencies = [
  "clap",
  "config",
  "cron",
+ "futures-util",
  "hex",
  "http-body-util",
  "kasa-core",
