@@ -50,9 +50,7 @@ impl Web {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let client_secret = Self::parse_client_json(&oauth2_config.get_client_json())?;
         let mut router = self.router;
-
-        let mut key: [u8; 64] = [0u8; 64];
-        rand::fill(&mut key);
+        let key = oauth2_config.get_cookie_secret_key();
 
         // Example target:
         // http://localhost:3000/auth?redirect=/userinfo
@@ -65,7 +63,16 @@ impl Web {
             .with_redirect_uri(
                 &format!("{}/auth/callback", &oauth2_config.get_redirect_uri_base()).to_string(),
             )
-            .with_private_cookie_key(&String::from_utf8_lossy(&key))
+            .with_private_cookie_key(
+                // SAFETY: This key will be a non-compliant utf-8 string.
+                // That said, this is a randomly generated 64 byte key which
+                // gets converted back down to a Vec<u8> by the underlying
+                // library. Unfortunately, no actual way to pass in a raw
+                // Vec<u8> so something like this must occur. This value
+                // will not be converted back to a String so this operation
+                // should be safe.
+                unsafe { str::from_utf8_unchecked(&key) },
+            )
             .with_scopes(vec!["openid", "email", "profile"])
             .with_code_challenge_method(CodeChallengeMethod::S256)
             .with_post_logout_redirect_uri("/")

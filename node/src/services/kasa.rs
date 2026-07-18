@@ -136,9 +136,16 @@ impl KasaDevice {
         self,
         config: &KasaDeviceConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let transport_config = DeviceConfig::new(config.get_ip()).with_credentials(
-            Credentials::new(config.get_username(), config.get_password()),
-        );
+        let transport_config = DeviceConfig::new(
+            config
+                .get_uri()
+                .host_str()
+                .ok_or_else(|| NodeError::new("No host on node config URI."))?,
+        )
+        .with_credentials(Credentials::new(
+            config.get_username(),
+            config.get_password(),
+        ));
 
         {
             let mut transport_lock = self.transport.lock().await;

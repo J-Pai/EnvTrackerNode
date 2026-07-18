@@ -3854,12 +3854,14 @@ dependencies = [
  "appcui",
  "axum",
  "axum-oidc-client",
+ "base64",
  "chrono",
  "clap",
  "config",
  "cron",
  "futures-util",
  "hex",
+ "http",
  "http-body-util",
  "kasa-core",
  "notify",
@@ -3880,6 +3882,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "turso",
+ "url",
 ]
 
 [[package]]
@@ -5944,10 +5947,12 @@ dependencies = [
  "egui-async",
  "egui_plot",
  "egui_tiles",
+ "http",
  "log",
  "reqwest-middleware",
  "serde",
  "serde_json",
+ "url",
  "wasm-bindgen-futures",
  "web-sys",
 ]
@@ -7075,6 +7080,7 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
+ "serde_derive",
 ]
 
 [[package]]

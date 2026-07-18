@@ -3,9 +3,11 @@
 use std::collections::HashMap;
 
 use appcui::prelude::*;
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
+use url::Url;
 
 use crate::config::ApiServerConfig;
-use crate::config::Ip;
 use crate::config::KasaDeviceConfig;
 use crate::config::NodeClass;
 use crate::config::OAuth2Config;
@@ -20,7 +22,7 @@ pub(super) struct NodeConfigUi {
     dropdown: Option<Handle<DropDownList<NodeClass>>>,
     panel: Handle<Panel>,
     name: Handle<TextField>,
-    ip: Handle<TextField>,
+    uri: Handle<TextField>,
     polling_schedule: Handle<TextField>,
     polling_endpoint: Handle<TextField>,
     batch_size: Handle<TextField>,
@@ -65,22 +67,22 @@ impl NodeConfigUi {
         };
 
         let checkbox = if editor {
-            let name_label = label!("'Node Name:', x:0, y:0, w:32");
+            let name_label = label!("'Node Name:', x:0, y:0, w:48");
             node_editor_panel.add(name_label);
             None
         } else {
-            let checkbox = checkbox!("'Node Name:', x:0, y:0, w:32");
+            let checkbox = checkbox!("'Node Name:', x:0, y:0, w:48");
             Some(node_editor_panel.add(checkbox))
         };
         let mut name = textfield!("caption='node_name', x:32, y:0, w: 32");
         name.set_text(&id);
         name.set_enabled(editor);
         let name = node_editor_panel.add(name);
-        node_editor_panel.add(label!("'IP:', x:0, y:2, w: 32"));
-        let mut ip = textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32");
-        ip.set_text(&device_config.get_ip());
-        ip.set_enabled(editor);
-        let ip = node_editor_panel.add(ip);
+        node_editor_panel.add(label!("'Node URI:', x:0, y:2, w: 32"));
+        let mut uri = textfield!("caption='http://0.0.0.0:3000', x:32, y:2, w: 32");
+        uri.set_text(&device_config.get_uri().as_str());
+        uri.set_enabled(editor);
+        let uri = node_editor_panel.add(uri);
 
         node_editor_panel.add(label!("'Polling Schedule:', x:0, y:4, w: 32"));
         let mut polling_schedule = textfield!("caption='0 * * * * *', x:32, y:4, w: 32");
@@ -96,7 +98,7 @@ impl NodeConfigUi {
         let polling_endpoint = node_editor_panel.add(polling_endpoint);
 
         node_editor_panel.add(label!("'Batch Size:', x:0, y:8, w: 32"));
-        let mut batch_size = textfield!("caption='0.0.0.0:3000', x:32, y:8, w: 32");
+        let mut batch_size = textfield!("x:32, y:8, w: 32");
         let size = if let Some(batch_size) = device_config.get_batch_size() {
             format!("{batch_size}").to_string()
         } else {
@@ -143,7 +145,7 @@ impl NodeConfigUi {
             dropdown,
             panel: node_editor_panel,
             name,
-            ip,
+            uri,
             polling_schedule,
             polling_endpoint,
             batch_size,
@@ -158,6 +160,7 @@ pub(super) struct ApiServerUi {
     db_field: Handle<TextField>,
     client_secret_json_field: Handle<TextField>,
     redirect_uri_base_field: Handle<TextField>,
+    cookie_secret_key_field: Handle<TextField>,
     node_editor_panel: NodeConfigUi,
     node_panel: Handle<Panel>,
     update_node_button: Handle<Button>,
@@ -174,26 +177,35 @@ impl ApiServerUi {
     pub(crate) fn new(tabs: &mut Tab, index: u32) -> Self {
         let mut form_panel = Panel::new("", layout!("x:0, y:0, w: 50%, h: 100%"));
 
-        let enable = checkbox!("'Enable Service', x:1, y:0, w:32");
+        let enable = checkbox!("'Enable Service', x:1, y:0, w:48");
         let enable = form_panel.add(enable);
-        let save = button!("'Save', x:32, y:0, w:32");
+        let save = button!("'Save', x:32, y:0, w:48");
         let save = form_panel.add(save);
         let label = label!("'Database Path:', x:1, y:2, w: 14");
         form_panel.add(label);
-        let db = form_panel.add(textfield!("caption='sqlite.db', x:32, y:2, w:32"));
-        let label = label!("'OAuth2 Client Secret JSON:', x:1, y:4, w: 32");
-        form_panel.add(label);
-        let client_secret_json = form_panel.add(textfield!("x:32, y:4, w:32"));
-        let label = label!("'OAuth2 Redirect URI Base:', x:1, y:6, w: 32");
-        form_panel.add(label);
-        let redirect_uri_base = form_panel.add(textfield!("x:32, y:6, w:32"));
+        let db = form_panel.add(textfield!("caption='sqlite.db', x:32, y:2, w:48"));
+
+        let mut oauth2_editor_panel = Panel::new(
+            "OAuth2 Config",
+            LayoutBuilder::new().x(0).y(4).width(1.0).height(7).build(),
+        );
+        let label = label!("'Client Secret JSON:', x:1, y:0, w: 32");
+        oauth2_editor_panel.add(label);
+        let client_secret_json = oauth2_editor_panel.add(textfield!("x:32, y:0, w:48"));
+        let label = label!("'Redirect URI Base:', x:1, y:2, w: 32");
+        oauth2_editor_panel.add(label);
+        let redirect_uri_base = oauth2_editor_panel.add(textfield!("x:32, y:2, w:48"));
+        let label = label!("'Cookie Secret Key:', x:1, y:4, w: 32");
+        oauth2_editor_panel.add(label);
+        let cookie_secret_key = oauth2_editor_panel.add(textfield!("x:32, y:4, w:48"));
+        form_panel.add(oauth2_editor_panel);
 
         let mut node_editor_panel = NodeConfigUi::new(
             NodeClass::default(),
             &mut form_panel,
             true,
             String::new(),
-            8,
+            11,
             0,
         );
 
@@ -212,6 +224,7 @@ impl ApiServerUi {
             db_field: db,
             client_secret_json_field: client_secret_json,
             redirect_uri_base_field: redirect_uri_base,
+            cookie_secret_key_field: cookie_secret_key,
             node_editor_panel,
             node_panel,
             update_node_button: update_node,
@@ -282,8 +295,8 @@ impl ApiServerUi {
                 {
                     let name = window.control_mut(config.name).unwrap();
                     name.set_text(id);
-                    let ip = window.control_mut(config.ip).unwrap();
-                    ip.set_text(&device_config.get_ip());
+                    let uri = window.control_mut(config.uri).unwrap();
+                    uri.set_text(device_config.get_uri().as_str());
                     let polling_schedule = window.control_mut(config.polling_schedule).unwrap();
                     polling_schedule.set_text(&schedule.schedule);
                     let polling_endpoint = window.control_mut(config.polling_endpoint).unwrap();
@@ -321,9 +334,14 @@ impl ApiServerUi {
                     let editor_name = window.control_mut(self.node_editor_panel.name).unwrap();
                     editor_name.set_text(&name);
 
-                    let ip = window.control(config.ip).unwrap().text().trim().to_string();
-                    let editor_ip = window.control_mut(self.node_editor_panel.ip).unwrap();
-                    editor_ip.set_text(&ip);
+                    let uri = window
+                        .control(config.uri)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_uri = window.control_mut(self.node_editor_panel.uri).unwrap();
+                    editor_uri.set_text(&uri);
 
                     let polling_schedule = window
                         .control(config.polling_schedule)
@@ -376,12 +394,19 @@ impl ApiServerUi {
             let oauth2_config = if let Some(client_secret_json_field) =
                 window.control(self.client_secret_json_field)
                 && let Some(redirect_uri_base_field) = window.control(self.redirect_uri_base_field)
+                && let Some(cookie_secret_key_field) = window.control(self.cookie_secret_key_field)
             {
                 let json = client_secret_json_field.text().trim().to_string();
                 let redirect = redirect_uri_base_field.text().trim().to_string();
+                let cookie = cookie_secret_key_field.text().trim().to_string();
 
                 if !json.is_empty() && !redirect.is_empty() {
-                    Some((json, redirect))
+                    let cookie = if cookie.is_empty() {
+                        None
+                    } else {
+                        Some(cookie)
+                    };
+                    Some((json, redirect, cookie))
                 } else {
                     None
                 }
@@ -398,8 +423,8 @@ impl ApiServerUi {
                     } else {
                         return None;
                     };
-                    let ip = if let Some(ip) = window.control(config.ip) {
-                        Ip(ip.text().to_string())
+                    let uri = if let Some(uri) = window.control(config.uri) {
+                        Url::parse(uri.text().trim()).unwrap()
                     } else {
                         return None;
                     };
@@ -437,7 +462,7 @@ impl ApiServerUi {
                     nodes.push(NodeClass::KasaDevice(
                         name,
                         KasaDeviceConfig {
-                            ip,
+                            uri,
                             username: String::new(),
                             password: String::new(),
                             batch_size,
@@ -453,9 +478,10 @@ impl ApiServerUi {
                 db,
                 nodes,
                 oauth2: match oauth2_config {
-                    Some((json, redirect)) => Some(OAuth2Config {
+                    Some((json, redirect, cookie)) => Some(OAuth2Config {
                         client_secret_json: json,
                         redirect_uri_base: redirect,
+                        cookie_secret_key: cookie,
                     }),
                     None => None,
                 },
@@ -491,6 +517,15 @@ impl ApiServerUi {
             && let Some(redirect_uri_base_field) = window.control_mut(self.redirect_uri_base_field)
         {
             redirect_uri_base_field.set_text(&oauth2.get_redirect_uri_base());
+        }
+
+        if let Some(oauth2) = config.get_oauth2_config()
+            && let Some(cookie_secret_key_field) = window.control_mut(self.cookie_secret_key_field)
+        {
+            let base64 = oauth2.get_cookie_secret_key();
+            let base64_str = BASE64_STANDARD.encode(base64);
+
+            cookie_secret_key_field.set_text(&base64_str);
         }
 
         for node in config.nodes {
@@ -538,12 +573,14 @@ impl ApiServerUi {
                         .trim()
                         .to_string(),
                     KasaDeviceConfig {
-                        ip: Ip(window
-                            .control(self.node_editor_panel.ip)
-                            .unwrap()
-                            .text()
-                            .trim()
-                            .to_string()),
+                        uri: Url::parse(
+                            window
+                                .control(self.node_editor_panel.uri)
+                                .unwrap()
+                                .text()
+                                .trim(),
+                        )
+                        .unwrap(),
                         username: String::new(),
                         password: String::new(),
                         batch_size: window
@@ -600,12 +637,14 @@ impl ApiServerUi {
                         .trim()
                         .to_string(),
                     KasaDeviceConfig {
-                        ip: Ip(window
-                            .control(self.node_editor_panel.ip)
-                            .unwrap()
-                            .text()
-                            .trim()
-                            .to_string()),
+                        uri: Url::parse(
+                            window
+                                .control(self.node_editor_panel.uri)
+                                .unwrap()
+                                .text()
+                                .trim(),
+                        )
+                        .unwrap(),
                         username: String::new(),
                         password: String::new(),
                         batch_size: window

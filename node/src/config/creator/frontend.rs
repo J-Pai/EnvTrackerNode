@@ -1,16 +1,16 @@
 //! Handles the configuration of the Frontend server.
 
 use appcui::prelude::*;
+use url::Url;
 
 use crate::config::FrontendServerConfig;
-use crate::config::Ip;
 use crate::config::ServerConfig;
 use crate::config::creator::CreatorWindow;
 
 pub(super) struct FrontendServerUi {
     enable: Handle<CheckBox>,
     save_button: Handle<Button>,
-    ip_field: Handle<TextField>,
+    uri_field: Handle<TextField>,
     kasa_api_field: Handle<TextField>,
     base_field: Handle<TextField>,
 }
@@ -24,13 +24,13 @@ impl FrontendServerUi {
         let save = button!("'Save', x:32, y:0, w:32");
         let save = form_panel.add(save);
 
-        form_panel.add(label!("'API Server IP:', x:0, y:2, w: 32"));
-        let ip = textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32");
-        let ip = form_panel.add(ip);
+        form_panel.add(label!("'API Server Base URI:', x:0, y:2, w: 32"));
+        let uri = textfield!("caption='http://0.0.0.0:3000', x:32, y:2, w: 32");
+        let uri = form_panel.add(uri);
         form_panel.add(label!("'Kasa API Endpoint:', x:0, y:4, w: 32"));
         let kasa_api = textfield!("caption='/kasa', x:32, y:4, w: 32");
         let kasa_api = form_panel.add(kasa_api);
-        form_panel.add(label!("'Base:', x:0, y:6, w: 32"));
+        form_panel.add(label!("'Frontend Base Path:', x:0, y:6, w: 32"));
         let base = textfield!("caption='', x:32, y:6, w: 32");
         let base = form_panel.add(base);
 
@@ -39,7 +39,7 @@ impl FrontendServerUi {
         Self {
             enable,
             save_button: save,
-            ip_field: ip,
+            uri_field: uri,
             kasa_api_field: kasa_api,
             base_field: base,
         }
@@ -49,8 +49,8 @@ impl FrontendServerUi {
         if let Some(enabled) = window.control(self.enable)
             && enabled.is_checked()
         {
-            let api_server_ip = if let Some(ip) = window.control(self.ip_field) {
-                Ip(ip.text().to_string())
+            let api_server_uri = if let Some(ip) = window.control(self.uri_field) {
+                Url::parse(ip.text().trim()).unwrap()
             } else {
                 return None;
             };
@@ -74,7 +74,7 @@ impl FrontendServerUi {
             };
 
             return Some(FrontendServerConfig {
-                api_server_ip,
+                api_server_uri,
                 kasa_api,
                 base,
             });
@@ -94,8 +94,8 @@ impl FrontendServerUi {
             return;
         };
 
-        if let Some(ip) = window.control_mut(self.ip_field) {
-            ip.set_text(&config.get_api_server_ip().0);
+        if let Some(uri) = window.control_mut(self.uri_field) {
+            uri.set_text(config.get_api_server_uri().as_str());
         }
 
         if let Some(kasa_api) = window.control_mut(self.kasa_api_field) {

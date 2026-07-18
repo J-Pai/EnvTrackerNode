@@ -5,6 +5,10 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::exit;
 
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
+use url::Url;
+
 #[cfg(feature = "tui")]
 mod creator;
 
@@ -83,23 +87,6 @@ impl ServerConfig {
     }
 }
 
-/// IP address + port.
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Ip(String);
-
-impl Default for Ip {
-    fn default() -> Self {
-        Self(String::from("0.0.0.0:3000"))
-    }
-}
-
-#[allow(clippy::to_string_trait_impl)]
-impl ToString for Ip {
-    fn to_string(&self) -> String {
-        self.0.clone()
-    }
-}
-
 /// Polling configuration. How often and where to ping.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct PollingConfig {
@@ -151,6 +138,14 @@ pub(crate) struct OAuth2Config {
     client_secret_json: String,
     /// OAuth2 callback/redirect base URI.
     redirect_uri_base: String,
+    /// OAuth2 base64 cookie encryption key.
+    ///
+    /// Can be generated using the following command:
+    ///
+    /// ```shell
+    /// openssl rand -base64 64
+    /// ```
+    cookie_secret_key: Option<String>,
 }
 
 impl OAuth2Config {
@@ -160,6 +155,19 @@ impl OAuth2Config {
 
     pub(crate) fn get_redirect_uri_base(&self) -> String {
         self.redirect_uri_base.clone()
+    }
+
+    pub(crate) fn get_cookie_secret_key(&self) -> Vec<u8> {
+        let Some(cookie_secret_key) = &self.cookie_secret_key else {
+            return vec![];
+        };
+
+        BASE64_STANDARD
+            .decode(&cookie_secret_key)
+            .unwrap_or_else(|e| {
+                tracing::warn!("Invalid cookie secret key: {e}");
+                vec![]
+            })
     }
 }
 
@@ -192,7 +200,7 @@ impl ApiServerConfig {
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct FrontendServerConfig {
     /// API server for data.
-    api_server_ip: Ip,
+    api_server_uri: Url,
     /// Kasa API endpoint.
     kasa_api: String,
     /// Offset base URL.
@@ -200,8 +208,8 @@ pub(crate) struct FrontendServerConfig {
 }
 
 impl FrontendServerConfig {
-    pub(crate) fn get_api_server_ip(&self) -> Ip {
-        self.api_server_ip.clone()
+    pub(crate) fn get_api_server_uri(&self) -> Url {
+        self.api_server_uri.clone()
     }
 
     pub(crate) fn get_kasa_api(&self) -> String {
@@ -216,15 +224,15 @@ impl FrontendServerConfig {
 // Kasa device configuration.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct KasaDeviceConfig {
-    ip: Ip,
+    uri: Url,
     username: String,
     password: String,
     batch_size: Option<usize>,
 }
 
 impl KasaDeviceConfig {
-    pub(crate) fn get_ip(&self) -> String {
-        self.ip.0.clone()
+    pub(crate) fn get_uri(&self) -> Url {
+        self.uri.clone()
     }
 
     pub(crate) fn get_username(&self) -> String {
@@ -243,7 +251,7 @@ impl KasaDeviceConfig {
 impl Default for KasaDeviceConfig {
     fn default() -> Self {
         Self {
-            ip: Ip(String::from("0.0.0.0:3001")),
+            uri: Url::parse("http://192.168.0.1").unwrap(),
             username: String::from("username@email.com"),
             password: String::from("somepassword"),
             batch_size: None,

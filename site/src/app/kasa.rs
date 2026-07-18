@@ -16,6 +16,7 @@ use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
 use serde::Deserialize;
 use serde::Serialize;
+use url::Url;
 
 use crate::app::EnvWidget;
 use crate::app::PaneId;
@@ -51,7 +52,7 @@ pub(super) struct KasaChildInfo {
 }
 
 pub(super) struct Kasa {
-    api_endpoint: String,
+    api_uri: Url,
     data: Bind<Vec<KasaChildInfo>, String>,
     plot: BorrowPointsExample,
     current_power_w: f64,
@@ -61,9 +62,9 @@ impl Kasa {
     const POLL_EVERY_SECONDS: f64 = 10.0;
     const INITIAL_BATCH_SIZE: usize = 1000;
 
-    pub(super) fn new(api_endpoint: &str) -> Self {
+    pub(super) fn new(api_uri: &Url) -> Self {
         Self {
-            api_endpoint: api_endpoint.to_owned(),
+            api_uri: api_uri.to_owned(),
             data: Bind::new(true),
             plot: BorrowPointsExample::default(),
             current_power_w: 0.0,
@@ -72,16 +73,17 @@ impl Kasa {
 
     pub(super) fn request_device_ids(
         devices: &mut Bind<Vec<(KasaDeviceChildId, KasaDeviceChildAlias)>, String>,
-        api_endpoint: &str,
+        api_uri: &Url,
     ) {
-        let api_endpoint = api_endpoint.to_owned();
+        let api_uri = api_uri.to_owned();
         if devices.is_pending() {
             return;
         }
+
         devices.request(async move {
             let api_client = ClientBuilder::new(Client::new()).build();
             match api_client
-                .get(api_endpoint)
+                .get(api_uri)
                 .query(&[("distinct", ""), ("column", "id")])
                 .send()
                 .await
@@ -129,14 +131,14 @@ impl EnvWidget for Kasa {
             egui::Theme::Light => egui::epaint::Hsva::new(0.0, 0.0, 1.0, 1.0),
         };
 
-        let api_endpoint = self.api_endpoint.clone();
+        let api_uri = self.api_uri.clone();
         let api_client = ClientBuilder::new(Client::new()).build();
         let device_id = id.0.clone();
 
         self.data.request_every_sec(
             || async move {
                 match api_client
-                    .get(api_endpoint)
+                    .get(api_uri)
                     .query(&[
                         ("limit", Self::INITIAL_BATCH_SIZE.to_string().as_str()),
                         ("id", &device_id),

@@ -61,15 +61,16 @@ impl Poller {
             Box::pin({
                 let topic = topic.clone();
                 let device_config = device_config.clone();
-                let route = route.clone();
                 let mut db = db.clone();
                 let node_client = node_client.clone();
+                let route = route.clone();
+
                 async move {
                     let mut sample_count = 0;
-                    let mut url = format!("http://{}{}", device_config.get_ip(), route);
+                    let mut url = device_config.get_uri().join(route.as_str()).unwrap();
 
                     if let Some(size) = device_config.get_batch_size() {
-                        url = format!("{url}?size={size}");
+                        url.set_query(Some(format!("size={size}").as_str()));
                     }
 
                     tracing::debug!("{uuid} - Kasa Polling - {url}");
@@ -86,7 +87,7 @@ impl Poller {
                     loop {
                         sample_count += 1;
 
-                        match node_client.get(&url).send().await {
+                        match node_client.get(url.clone()).send().await {
                             Ok(mut data) => {
                                 data = match data.error_for_status() {
                                     Err(err) => {
@@ -116,7 +117,7 @@ impl Poller {
                             Err(e) => {
                                 tracing::warn!(
                                     "Issue with: {}{} - {:#?}",
-                                    device_config.get_ip(),
+                                    device_config.get_uri(),
                                     route,
                                     e
                                 );
@@ -125,13 +126,7 @@ impl Poller {
                         }
                     }
 
-                    tracing::debug!(
-                        "{} - Kasa Requested {}x {}{}",
-                        uuid,
-                        sample_count,
-                        device_config.get_ip(),
-                        route
-                    );
+                    tracing::debug!("{} - Kasa Requested {}x {}", uuid, sample_count, url);
                 }
             })
         })?;

@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use appcui::prelude::*;
+use url::Url;
 
-use crate::config::Ip;
 use crate::config::KasaDeviceConfig;
 use crate::config::Node;
 use crate::config::NodeClass;
@@ -19,7 +19,7 @@ struct NodeDeviceConfigUi {
     dropdown: Option<Handle<DropDownList<NodeClass>>>,
     panel: Handle<Panel>,
     name: Handle<TextField>,
-    ip: Handle<TextField>,
+    uri: Handle<TextField>,
     username: Handle<TextField>,
     password: Handle<TextField>,
     polling_schedule: Handle<TextField>,
@@ -76,11 +76,11 @@ impl NodeDeviceConfigUi {
         name.set_text(if id.is_empty() { "node_name" } else { &id });
         name.set_enabled(editor);
         let name = node_panel.add(name);
-        node_panel.add(label!("'IP:', x:0, y:2, w: 32"));
-        let mut ip = textfield!("caption='0.0.0.0:3000', x:32, y:2, w: 32");
-        ip.set_text(&config.get_ip());
-        ip.set_enabled(editor);
-        let ip = node_panel.add(ip);
+        node_panel.add(label!("'URI:', x:0, y:2, w: 32"));
+        let mut uri = textfield!("caption='http://0.0.0.0:3000', x:32, y:2, w: 32");
+        uri.set_text(config.get_uri().as_str());
+        uri.set_enabled(editor);
+        let uri = node_panel.add(uri);
 
         node_panel.add(label!("'Username:', x:0, y:4, w: 32"));
         let mut username = textfield!("caption='username', x:32, y:4, w: 32");
@@ -143,7 +143,7 @@ impl NodeDeviceConfigUi {
             dropdown,
             panel: panel.add(node_panel),
             name,
-            ip,
+            uri,
             username,
             password,
             polling_schedule,
@@ -296,8 +296,8 @@ impl NodeUi {
                 {
                     let name = window.control_mut(config.name).unwrap();
                     name.set_text(id);
-                    let ip = window.control_mut(config.ip).unwrap();
-                    ip.set_text(&device_config.get_ip());
+                    let uri = window.control_mut(config.uri).unwrap();
+                    uri.set_text(device_config.get_uri().as_str());
                     let username = window.control_mut(config.username).unwrap();
                     username.set_text(&device_config.get_username());
                     let password = window.control_mut(config.password).unwrap();
@@ -333,9 +333,14 @@ impl NodeUi {
                     let editor_name = window.control_mut(self.node_editor_panel.name).unwrap();
                     editor_name.set_text(&name);
 
-                    let ip = window.control(config.ip).unwrap().text().trim().to_string();
-                    let editor_ip = window.control_mut(self.node_editor_panel.ip).unwrap();
-                    editor_ip.set_text(&ip);
+                    let uri = window
+                        .control(config.uri)
+                        .unwrap()
+                        .text()
+                        .trim()
+                        .to_string();
+                    let editor_uri = window.control_mut(self.node_editor_panel.uri).unwrap();
+                    editor_uri.set_text(&uri);
 
                     let username = window
                         .control(config.username)
@@ -398,8 +403,8 @@ impl NodeUi {
                         } else {
                             return None;
                         };
-                        let ip = if let Some(ip) = window.control(config.ip) {
-                            Ip(ip.text().to_string())
+                        let uri = if let Some(uri) = window.control(config.uri) {
+                            Url::parse(uri.text().trim()).unwrap()
                         } else {
                             return None;
                         };
@@ -433,7 +438,7 @@ impl NodeUi {
                         nodes.push(NodeClass::KasaDevice(
                             name,
                             KasaDeviceConfig {
-                                ip,
+                                uri,
                                 username,
                                 password,
                                 batch_size: None,
@@ -503,11 +508,10 @@ impl NodeUi {
                                 .text()
                                 .to_string(),
                             KasaDeviceConfig {
-                                ip: Ip(window
-                                    .control(self.node_editor_panel.ip)
-                                    .unwrap()
-                                    .text()
-                                    .to_string()),
+                                uri: Url::parse(
+                                    window.control(self.node_editor_panel.uri).unwrap().text(),
+                                )
+                                .unwrap(),
                                 username: window
                                     .control(self.node_editor_panel.username)
                                     .unwrap()
@@ -564,11 +568,14 @@ impl NodeUi {
                                 .text()
                                 .to_string(),
                             KasaDeviceConfig {
-                                ip: Ip(window
-                                    .control(self.node_editor_panel.ip)
-                                    .unwrap()
-                                    .text()
-                                    .to_string()),
+                                uri: Url::parse(
+                                    window
+                                        .control(self.node_editor_panel.uri)
+                                        .unwrap()
+                                        .text()
+                                        .trim(),
+                                )
+                                .unwrap(),
                                 username: window
                                     .control(self.node_editor_panel.username)
                                     .unwrap()

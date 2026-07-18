@@ -6,6 +6,7 @@ fn main() {}
 #[cfg(target_arch = "wasm32")]
 fn main() {
     use eframe::wasm_bindgen::JsCast as _;
+    use url::Url;
 
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
@@ -30,38 +31,30 @@ fn main() {
             .dyn_into::<web_sys::HtmlBaseElement>()
             .expect("api is not a HtmlLinkElement")
             .href();
+        let _base = Url::parse(&base).unwrap();
 
-        let api_endpoint = document
+        let api_uri = document
             .get_element_by_id("api")
             .expect("Failed to find api")
             .dyn_into::<web_sys::HtmlLinkElement>()
             .expect("api is not a HtmlLinkElement")
             .href();
+        let api_uri = Url::parse(&api_uri).unwrap();
 
-        let kasa_api_endpoint = document
+        let kasa_api_uri = document
             .get_element_by_id("kasa_api")
             .expect("Failed to find kasa_api")
             .dyn_into::<web_sys::HtmlLinkElement>()
             .expect("kasas_api is not a HtmlLinkElement")
             .href();
-
-        let kasa_api_endpoint = if let Some(stripped) = kasa_api_endpoint.strip_prefix(&base) {
-            String::from(stripped)
-        } else {
-            kasa_api_endpoint
-        };
+        let kasa_api_uri = Url::parse(&kasa_api_uri).unwrap();
+        let kasa_api_uri_path = kasa_api_uri.path().to_string();
 
         let start_result = eframe::WebRunner::new()
             .start(
                 canvas,
                 web_options,
-                Box::new(move |cc| {
-                    Ok(Box::new(site::EnvApp::new(
-                        cc,
-                        &api_endpoint,
-                        &kasa_api_endpoint,
-                    )))
-                }),
+                Box::new(move |cc| Ok(Box::new(site::EnvApp::new(cc, api_uri, kasa_api_uri_path)))),
             )
             .await;
 

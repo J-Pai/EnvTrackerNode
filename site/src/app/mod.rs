@@ -7,6 +7,7 @@ use egui_async::Bind;
 use egui_tiles::Tree;
 use fps::FrameHistory;
 use tile::TileBehavior;
+use url::Url;
 
 use crate::app::kasa::Kasa;
 use crate::app::kasa::KasaDeviceChildAlias;
@@ -36,41 +37,58 @@ impl Default for State {
     }
 }
 
-#[derive(Default)]
 pub struct EnvApp {
     state: State,
     continuous: bool,
     control_panel: bool,
     frame_history: FrameHistory,
     tile_behavior: TileBehavior,
-    kasa_api_endpoint: String,
+    kasa_api_uri: Url,
     kasa_device_ids: Bind<Vec<(KasaDeviceChildId, KasaDeviceChildAlias)>, String>,
+}
+
+impl Default for EnvApp {
+    fn default() -> Self {
+        Self {
+            state: Default::default(),
+            continuous: Default::default(),
+            control_panel: Default::default(),
+            frame_history: Default::default(),
+            tile_behavior: Default::default(),
+            kasa_api_uri: Url::parse("http://0.0.0.0/deadbeef").unwrap(),
+            kasa_device_ids: Default::default(),
+        }
+    }
 }
 
 impl EnvApp {
     /// Called once before the first frame.
-    pub fn new(
-        cc: &eframe::CreationContext<'_>,
-        api_endpoint: &str,
-        kasa_api_endpoint: &str,
-    ) -> Self {
-        let kasa_api_endpoint = format!("{api_endpoint}/{kasa_api_endpoint}");
+    pub fn new(cc: &eframe::CreationContext<'_>, api_uri: Url, kasa_api_uri_path: String) -> Self {
+        let kasa_api_uri = api_uri
+            .join("api/")
+            .unwrap()
+            .join(
+                &kasa_api_uri_path
+                    .strip_prefix("/")
+                    .unwrap_or(&kasa_api_uri_path),
+            )
+            .unwrap();
         let mut app = if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
-                kasa_api_endpoint,
+                kasa_api_uri,
                 continuous: true,
                 ..Self::default()
             }
         } else {
             Self {
-                kasa_api_endpoint,
+                kasa_api_uri,
                 continuous: true,
                 ..Self::default()
             }
         };
 
-        Kasa::request_device_ids(&mut app.kasa_device_ids, &app.kasa_api_endpoint);
+        Kasa::request_device_ids(&mut app.kasa_device_ids, &app.kasa_api_uri);
 
         app
     }
@@ -87,7 +105,7 @@ impl EnvApp {
         self.state.tiles = Self::new_tree();
         self.state.pane_ids.clear();
         self.tile_behavior = TileBehavior::default();
-        Kasa::request_device_ids(&mut self.kasa_device_ids, &self.kasa_api_endpoint);
+        Kasa::request_device_ids(&mut self.kasa_device_ids, &self.kasa_api_uri);
     }
 
     fn reset_plots(&mut self) {
@@ -123,7 +141,7 @@ impl EnvApp {
                         }
                     }
 
-                    widgets.insert(id.clone(), Kasa::new(&self.kasa_api_endpoint));
+                    widgets.insert(id.clone(), Kasa::new(&self.kasa_api_uri));
                     self.state.pane_ids.insert(id);
                 }
 

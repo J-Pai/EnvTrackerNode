@@ -17,6 +17,7 @@ use tokio::io::AsyncReadExt;
 use tower::Layer;
 use tower::Service;
 use tower_http::services::ServeDir;
+use url::Url;
 
 use super::Web;
 
@@ -24,7 +25,7 @@ use super::Web;
 pub struct UpdateBaseUriHtmlService<S> {
     inner: S,
     base: String,
-    api_server_ip: String,
+    api_server_uri: Url,
     kasa_api: String,
 }
 
@@ -47,7 +48,7 @@ where
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
         let response_future = self.inner.call(request);
         let base = self.base.clone();
-        let api_server_ip = self.api_server_ip.clone();
+        let api_server_uri = self.api_server_uri.clone().join("api").unwrap();
         let kasa_api = self.kasa_api.clone();
 
         Box::pin(async move {
@@ -95,7 +96,7 @@ where
             // `<link id="api" href="/{api_server_ip}/"` if base if provided.
             let content = content.replace(
                 "<link id=\"api\" href=\"",
-                format!("<link id=\"api\" href=\"{api_server_ip}").as_str(),
+                format!("<link id=\"api\" href=\"{api_server_uri}").as_str(),
             );
 
             // Replaces
@@ -140,7 +141,7 @@ where
 #[derive(Clone)]
 pub struct UpdateBaseUrilHtmlLayer {
     base: String,
-    api_server_ip: String,
+    api_server_uri: Url,
     kasa_api: String,
 }
 
@@ -151,7 +152,7 @@ impl<S> Layer<S> for UpdateBaseUrilHtmlLayer {
         UpdateBaseUriHtmlService {
             inner,
             base: self.base.clone(),
-            api_server_ip: self.api_server_ip.clone(),
+            api_server_uri: self.api_server_uri.clone(),
             kasa_api: self.kasa_api.clone(),
         }
     }
@@ -195,12 +196,12 @@ impl Web {
         }
 
         let base = config.get_base().unwrap_or_default();
-        let api_server_ip = config.get_api_server_ip().to_string();
+        let api_server_uri = config.get_api_server_uri();
         let kasa_api = config.get_kasa_api().to_string();
 
         self.router = router.layer(UpdateBaseUrilHtmlLayer {
             base,
-            api_server_ip,
+            api_server_uri,
             kasa_api,
         });
 
