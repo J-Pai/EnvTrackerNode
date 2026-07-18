@@ -4,14 +4,13 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use axum::response::{Html, IntoResponse};
+use axum::response::Html;
 use axum::routing;
-use axum_oidc_client::auth::{AuthenticationLayer, CodeChallengeMethod};
+use axum_oidc_client::auth::AuthenticationLayer;
+use axum_oidc_client::auth::CodeChallengeMethod;
 use axum_oidc_client::auth_builder::OAuthConfigurationBuilder;
 use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::auth_session::AuthSession;
-use axum_oidc_client::cache::TwoTierAuthCache;
-use axum_oidc_client::cache::config::TwoTierCacheConfig;
 use axum_oidc_client::extractors::OptionalAuthSession;
 use axum_oidc_client::logout::handle_default_logout::DefaultLogoutHandler;
 
@@ -75,8 +74,7 @@ impl Web {
             .with_base_path("/auth")
             .build()?;
 
-        let cache: Arc<dyn AuthCache + Send + Sync> =
-            Arc::new(TwoTierAuthCache::new(None, TwoTierCacheConfig::default())?);
+        let cache: Arc<dyn AuthCache + Send + Sync> = Arc::new(self.db.as_ref().unwrap().clone());
 
         let logout_handler = Arc::new(DefaultLogoutHandler);
         let base_redirect = oauth2_config.get_redirect_uri_base();
@@ -89,10 +87,9 @@ impl Web {
             String::new()
         };
 
-        let google_home_link = move |session: AuthSession| async move {};
+        let google_home_link = move |_session: AuthSession| async move {};
 
         let google_home_login = move |OptionalAuthSession(session): OptionalAuthSession| async move {
-            tracing::debug!("Hello World");
             match session {
                 Some(session) => {
                     let expires = session
@@ -100,10 +97,11 @@ impl Web {
                         .map(|e| e.to_string())
                         .unwrap_or_else(|| "(no expiry)".to_string());
                     Html(format!(
-                        "\
-                    Hello World for Google Home: expires {expires} \
-                    <a href='{}/google_home/link'>Authorize Link</a> \
-                ",
+                        r#"
+                            Hello World for Google Home: expires {expires}
+                            <br />
+                            <a href='{}/google_home/link'>Authorize Link</a>
+                        "#,
                         base
                     ))
                 }
