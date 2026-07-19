@@ -1,9 +1,5 @@
 //! Manages db interactions for specific devices.
 
-use axum_oidc_client::auth_cache::AuthCache;
-use axum_oidc_client::auth_session::AuthSession;
-use axum_oidc_client::errors::Error;
-use futures_util::future::BoxFuture;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::sync::OwnedMutexGuard;
@@ -191,8 +187,6 @@ impl Db {
             }
         }
 
-        db = db.create_auth_table().await?;
-
         Ok(db)
     }
 
@@ -325,7 +319,7 @@ impl Db {
         }
     }
 
-    pub(crate) async fn create_auth_table(self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) async fn create_auth_table(&self) -> Result<(), Box<dyn std::error::Error>> {
         {
             let db = self.db.read().await;
             let conn = db.connect()?;
@@ -350,7 +344,7 @@ impl Db {
             .await?;
         }
 
-        Ok(self)
+        Ok(())
     }
 
     fn now_timestamp() -> i64 {

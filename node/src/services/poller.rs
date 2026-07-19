@@ -136,10 +136,6 @@ impl Poller {
         Ok(self)
     }
 
-    async fn add_cleanup_job(self) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(self)
-    }
-
     pub(crate) async fn start(self) -> Result<(), Box<dyn std::error::Error>> {
         let scheduler = self.scheduler.write().await;
         scheduler.start().await?;

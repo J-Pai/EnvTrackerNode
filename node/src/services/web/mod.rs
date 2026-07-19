@@ -2,17 +2,18 @@
 
 use axum::Router;
 
+use crate::services::auth::Auth;
 use crate::services::db::Db;
 use crate::services::poller::Poller;
 
 mod api;
-mod auth;
 mod frontend;
 mod kasa_node;
 
 pub(crate) struct Web {
     router: Router,
     db: Option<Db>,
+    auth: Option<Auth>,
     #[cfg(debug_assertions)]
     watcher: Option<notify::RecommendedWatcher>,
 }
@@ -22,6 +23,7 @@ impl Web {
         Self {
             router: Router::new(),
             db,
+            auth: None,
             #[cfg(debug_assertions)]
             watcher: None,
         }
@@ -33,5 +35,14 @@ impl Web {
         tracing::info!("listening on {}", listener.local_addr().unwrap());
         axum::serve(listener, self.router).await?;
         Ok(())
+    }
+
+    pub(crate) fn setup_auth_router(
+        mut self,
+        mut auth: Auth,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        self.router = auth.setup_auth_router(self.router)?;
+        self.auth = Some(auth);
+        Ok(self)
     }
 }

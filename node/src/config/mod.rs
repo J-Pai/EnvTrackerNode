@@ -137,7 +137,7 @@ pub(crate) struct OAuth2Config {
     /// GCP when creating a new client in the OAuth2 setup page.
     client_secret_json: String,
     /// OAuth2 callback/redirect base URI.
-    redirect_uri_base: String,
+    redirect_uri_base: Url,
     /// OAuth2 base64 cookie encryption key.
     ///
     /// Can be generated using the following command:
@@ -153,7 +153,7 @@ impl OAuth2Config {
         PathBuf::from(self.client_secret_json.clone())
     }
 
-    pub(crate) fn get_redirect_uri_base(&self) -> String {
+    pub(crate) fn get_redirect_uri_base(&self) -> Url {
         self.redirect_uri_base.clone()
     }
 

@@ -1,5 +1,12 @@
 //! AuthCache implementation for Db.
 
+use axum_oidc_client::auth_cache::AuthCache;
+use axum_oidc_client::auth_session::AuthSession;
+use axum_oidc_client::errors::Error;
+use futures_util::future::BoxFuture;
+
+use crate::services::db::Db;
+
 impl AuthCache for Db {
     fn get_code_verifier(
         &self,

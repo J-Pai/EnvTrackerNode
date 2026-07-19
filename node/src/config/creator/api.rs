@@ -406,7 +406,7 @@ impl ApiServerUi {
                     } else {
                         Some(cookie)
                     };
-                    Some((json, redirect, cookie))
+                    Some((json, Url::parse(&redirect).unwrap(), cookie))
                 } else {
                     None
                 }
@@ -513,7 +513,7 @@ impl ApiServerUi {
         if let Some(oauth2) = config.get_oauth2_config()
             && let Some(redirect_uri_base_field) = window.control_mut(self.redirect_uri_base_field)
         {
-            redirect_uri_base_field.set_text(&oauth2.get_redirect_uri_base());
+            redirect_uri_base_field.set_text(oauth2.get_redirect_uri_base().as_str());
         }
 
         if let Some(oauth2) = config.get_oauth2_config()

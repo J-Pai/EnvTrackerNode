@@ -25,14 +25,14 @@ use super::Web;
 impl Web {
     const DEFAULT_API_TIMEOUT_SECONDS: u64 = 10;
 
-    pub(crate) async fn setup_api_route(
+    pub(crate) fn setup_api_route(
         self,
         config: &ApiServerConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let mut web = self;
         for node in config.get_nodes() {
             web = match node {
-                NodeClass::KasaDevice(topic, _, _) => web.setup_kasa_api_route(topic).await?,
+                NodeClass::KasaDevice(topic, _, _) => web.setup_kasa_api_route(topic)?,
 
                 NodeClass::Unknown => continue,
             };
@@ -41,10 +41,7 @@ impl Web {
         Ok(web)
     }
 
-    async fn setup_kasa_api_route(
-        mut self,
-        topic: &str,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    fn setup_kasa_api_route(mut self, topic: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let mut router = self.router;
         let db = self.db.as_ref().unwrap().clone();
         let topic = topic.to_owned();

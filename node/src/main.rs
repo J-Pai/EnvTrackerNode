@@ -14,6 +14,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::config::NodeClass;
+use crate::services::auth::Auth;
 use crate::services::db::Db;
 use crate::services::kasa::Kasa;
 use crate::services::poller::Poller;
@@ -88,7 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut web = Web::new(db.clone());
-    let mut poller = Poller::new(scheduler, db);
+    let mut poller = Poller::new(scheduler, db.clone());
 
     if let Some(mut kasa) = kasa {
         tracing::info!("[Service] Kasa Node");
@@ -103,13 +104,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(api_config) = config.get_api_config() {
         tracing::info!("[Service] API Backend");
         poller = poller.setup_node_polling(&api_config).await?;
-        web = web.setup_api_route(&api_config).await?;
+        web = web.setup_api_route(&api_config)?;
 
         if let Some(oauth2) = api_config.get_oauth2_config() {
             tracing::info!("[Service] Authed API Backend");
-            web = web
-                .setup_auth(&oauth2, config.get_frontend_config())
-                .await?;
+            web = web.setup_auth_router(
+                Auth::new(&oauth2, db.clone().expect("Auth requires a DB.")).await?,
+            )?;
         }
     }
 
