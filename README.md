@@ -30,3 +30,4 @@ cross build --target aarch64-unknown-linux-musl
 - [forwarding](/wiki/forwarding.md)
 - [utc / local](/wiki/utc_local_datetime.md)
 - [oauth2](/wiki/oauth2.md)
+- [rpi](/wiki/rpi.md)
