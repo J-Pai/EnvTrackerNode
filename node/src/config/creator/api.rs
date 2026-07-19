@@ -61,7 +61,7 @@ impl NodeConfigUi {
                 // Unknown is currently an unlikely configuration, as such, defaulting to Kasa
                 // Device. Once other node types arrive this will be adjusted.
                 String::from("node_name"),
-                KasaDeviceConfig::default(),
+                Box::new(KasaDeviceConfig::default()),
                 PollingConfig::default(),
             ),
         };
@@ -80,7 +80,7 @@ impl NodeConfigUi {
         let name = node_editor_panel.add(name);
         node_editor_panel.add(label!("'Node URI:', x:0, y:2, w: 32"));
         let mut uri = textfield!("caption='http://0.0.0.0:3000', x:32, y:2, w: 32");
-        uri.set_text(&device_config.get_uri().as_str());
+        uri.set_text(device_config.get_uri().as_str());
         uri.set_enabled(editor);
         let uri = node_editor_panel.add(uri);
 
@@ -115,7 +115,7 @@ impl NodeConfigUi {
             );
             db.add(NodeClass::KasaDevice(
                 String::new(),
-                KasaDeviceConfig::default(),
+                Box::default(),
                 PollingConfig::default(),
             ));
             db.add(NodeClass::Unknown);
@@ -461,12 +461,12 @@ impl ApiServerUi {
                     // Assuming everything is just a Kasa Device for now.
                     nodes.push(NodeClass::KasaDevice(
                         name,
-                        KasaDeviceConfig {
+                        Box::new(KasaDeviceConfig {
                             uri,
                             username: String::new(),
                             password: String::new(),
                             batch_size,
-                        },
+                        }),
                         polling_schedule,
                     ));
                 } else {
@@ -477,14 +477,11 @@ impl ApiServerUi {
             return Some(ApiServerConfig {
                 db,
                 nodes,
-                oauth2: match oauth2_config {
-                    Some((json, redirect, cookie)) => Some(OAuth2Config {
-                        client_secret_json: json,
-                        redirect_uri_base: redirect,
-                        cookie_secret_key: cookie,
-                    }),
-                    None => None,
-                },
+                oauth2: oauth2_config.map(|(json, redirect, cookie)| OAuth2Config {
+                    client_secret_json: json,
+                    redirect_uri_base: redirect,
+                    cookie_secret_key: cookie,
+                }),
             });
         }
 
@@ -572,7 +569,7 @@ impl ApiServerUi {
                         .text()
                         .trim()
                         .to_string(),
-                    KasaDeviceConfig {
+                    Box::new(KasaDeviceConfig {
                         uri: Url::parse(
                             window
                                 .control(self.node_editor_panel.uri)
@@ -590,7 +587,7 @@ impl ApiServerUi {
                             .trim()
                             .parse::<usize>()
                             .ok(),
-                    },
+                    }),
                     PollingConfig {
                         schedule: window
                             .control(self.node_editor_panel.polling_schedule)
@@ -636,7 +633,7 @@ impl ApiServerUi {
                         .text()
                         .trim()
                         .to_string(),
-                    KasaDeviceConfig {
+                    Box::new(KasaDeviceConfig {
                         uri: Url::parse(
                             window
                                 .control(self.node_editor_panel.uri)
@@ -654,7 +651,7 @@ impl ApiServerUi {
                             .trim()
                             .parse::<usize>()
                             .ok(),
-                    },
+                    }),
                     PollingConfig {
                         schedule: window
                             .control(self.node_editor_panel.polling_schedule)

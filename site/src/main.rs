@@ -54,7 +54,13 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(move |cc| Ok(Box::new(site::EnvApp::new(cc, api_uri, kasa_api_uri_path)))),
+                Box::new(move |cc| {
+                    Ok(Box::new(site::EnvApp::new(
+                        cc,
+                        &api_uri,
+                        &kasa_api_uri_path,
+                    )))
+                }),
             )
             .await;
 

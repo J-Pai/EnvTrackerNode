@@ -39,7 +39,7 @@ impl Poller {
                 let route = polling.clone().get_api().unwrap_or_default();
 
                 poller = poller
-                    .add_kasa_job(route, topic, device_config, polling)
+                    .add_kasa_job(route, topic, *device_config, polling)
                     .await?;
             }
         }

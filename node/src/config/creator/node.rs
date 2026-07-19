@@ -118,7 +118,7 @@ impl NodeDeviceConfigUi {
             );
             db.add(NodeClass::KasaDevice(
                 String::new(),
-                KasaDeviceConfig::default(),
+                Box::default(),
                 PollingConfig::default(),
             ));
             db.add(NodeClass::Unknown);
@@ -437,12 +437,12 @@ impl NodeUi {
                         };
                         nodes.push(NodeClass::KasaDevice(
                             name,
-                            KasaDeviceConfig {
+                            Box::new(KasaDeviceConfig {
                                 uri,
                                 username,
                                 password,
                                 batch_size: None,
-                            },
+                            }),
                             polling_schedule,
                         ));
                     } else {
@@ -507,7 +507,7 @@ impl NodeUi {
                                 .unwrap()
                                 .text()
                                 .to_string(),
-                            KasaDeviceConfig {
+                            Box::new(KasaDeviceConfig {
                                 uri: Url::parse(
                                     window.control(self.node_editor_panel.uri).unwrap().text(),
                                 )
@@ -523,7 +523,7 @@ impl NodeUi {
                                     .text()
                                     .to_string(),
                                 batch_size: None,
-                            },
+                            }),
                             PollingConfig {
                                 schedule: window
                                     .control(self.node_editor_panel.polling_schedule)
@@ -567,7 +567,7 @@ impl NodeUi {
                                 .unwrap()
                                 .text()
                                 .to_string(),
-                            KasaDeviceConfig {
+                            Box::new(KasaDeviceConfig {
                                 uri: Url::parse(
                                     window
                                         .control(self.node_editor_panel.uri)
@@ -587,7 +587,7 @@ impl NodeUi {
                                     .text()
                                     .to_string(),
                                 batch_size: None,
-                            },
+                            }),
                             PollingConfig {
                                 schedule: window
                                     .control(self.node_editor_panel.polling_schedule)

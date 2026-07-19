@@ -163,7 +163,7 @@ impl OAuth2Config {
         };
 
         BASE64_STANDARD
-            .decode(&cookie_secret_key)
+            .decode(cookie_secret_key)
             .unwrap_or_else(|e| {
                 tracing::warn!("Invalid cookie secret key: {e}");
                 vec![]
@@ -264,7 +264,7 @@ impl Default for KasaDeviceConfig {
 pub(crate) enum NodeClass {
     /// Kasa Device.
     /// Specific to the HS300 model for now.
-    KasaDevice(String, KasaDeviceConfig, PollingConfig),
+    KasaDevice(String, Box<KasaDeviceConfig>, PollingConfig),
     /// Unknown device type.
     #[default]
     Unknown,

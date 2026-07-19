@@ -55,7 +55,7 @@ impl Default for EnvApp {
             control_panel: Default::default(),
             frame_history: Default::default(),
             tile_behavior: Default::default(),
-            kasa_api_uri: Url::parse("http://0.0.0.0/deadbeef").unwrap(),
+            kasa_api_uri: Url::parse("http://0.0.0.0/deadbeef").expect("INVALID kasa_api_uri"),
             kasa_device_ids: Default::default(),
         }
     }
@@ -63,16 +63,16 @@ impl Default for EnvApp {
 
 impl EnvApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, api_uri: Url, kasa_api_uri_path: String) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, api_uri: &Url, kasa_api_uri_path: &str) -> Self {
         let kasa_api_uri = api_uri
             .join("api/")
-            .unwrap()
+            .unwrap_or_else(|e| panic!("INVALID {api_uri}/api {e}"))
             .join(
-                &kasa_api_uri_path
+                kasa_api_uri_path
                     .strip_prefix("/")
-                    .unwrap_or(&kasa_api_uri_path),
+                    .unwrap_or(kasa_api_uri_path),
             )
-            .unwrap();
+            .unwrap_or_else(|e| panic!("INVALID {api_uri} /api {kasa_api_uri_path} {e}"));
         let mut app = if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
