@@ -100,6 +100,7 @@ impl Auth {
             .with_code_challenge_method(CodeChallengeMethod::S256)
             .with_post_logout_redirect_uri(logout_redirect)
             .with_session_max_age(60 * 25 * 365)
+            .with_token_max_age(300)
             .with_base_path("/auth");
         config.private_cookie_key = Some(Key::from(&self.cookie_secret_key));
         let config = config.build()?;
