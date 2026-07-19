@@ -53,6 +53,13 @@ impl Web {
         let client_secret = Self::parse_client_json(&oauth2_config.get_client_json())?;
         let mut router = self.router;
         let key = oauth2_config.get_cookie_secret_key();
+        let base = if let Some(frontend_config) = frontend_config
+            && let Some(base) = frontend_config.get_base()
+        {
+            base
+        } else {
+            String::new()
+        };
 
         // Example target:
         // http://localhost:3000/auth?redirect=/userinfo
@@ -67,7 +74,7 @@ impl Web {
             )
             .with_scopes(vec!["openid", "email", "profile"])
             .with_code_challenge_method(CodeChallengeMethod::S256)
-            .with_post_logout_redirect_uri("/")
+            .with_post_logout_redirect_uri(&format!("{base}/google_home/login"))
             .with_session_max_age(30)
             .with_token_max_age(300)
             .with_base_path("/auth");
@@ -80,14 +87,6 @@ impl Web {
 
         let logout_handler = Arc::new(DefaultLogoutHandler);
         let base_redirect = oauth2_config.get_redirect_uri_base();
-
-        let base = if let Some(frontend_config) = frontend_config
-            && let Some(base) = frontend_config.get_base()
-        {
-            base
-        } else {
-            String::new()
-        };
 
         let google_home_link = move |_session: AuthSession| async move {};
 
@@ -102,9 +101,10 @@ impl Web {
                         r#"
                             Hello World for Google Home: expires {expires}
                             <br />
-                            <a href='{}/google_home/link'>Authorize Link</a>
+                            <a href='{base}/google_home/link'>Authorize Link</a>
+                            <br />
+                            <a href='{base}/auth/logout'>Logout</a>
                         "#,
-                        base
                     ))
                 }
                 None => Html(format!(
