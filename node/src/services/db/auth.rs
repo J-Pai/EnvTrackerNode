@@ -1,11 +1,105 @@
 //! AuthCache implementation for Db.
 
+use std::{sync::Arc, time::Duration};
+
 use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::auth_session::AuthSession;
 use axum_oidc_client::errors::Error;
 use futures_util::future::BoxFuture;
+use tokio::sync::RwLock;
+use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::services::db::Db;
+
+impl Db {
+    pub(crate) async fn create_auth_table(&self) -> Result<(), Box<dyn std::error::Error>> {
+        {
+            let db = self.db.read().await;
+            let conn = db.connect()?;
+            conn.execute(
+                r#"
+                CREATE TABLE IF NOT EXISTS oidc_cache (
+                    cache_key   TEXT    NOT NULL PRIMARY KEY,
+                    cache_value TEXT    NOT NULL,
+                    expires_at  INTEGER NOT NULL
+                );
+                "#,
+                (),
+            )
+            .await?;
+            conn.execute(
+                r#"
+                CREATE INDEX IF NOT EXISTS idx_oidc_cache_expires
+                    ON oidc_cache (expires_at);
+                "#,
+                (),
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) async fn add_auth_table_cleanup_job(
+        &self,
+        scheduler: Arc<RwLock<JobScheduler>>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        const CLEANUP_BATCH_SIZE: i64 = 1000;
+        let write_conn = self.write_conn.clone();
+
+        // At 30 seconds past the minute, every 5 minutes
+        let job = Job::new_async("30 */5 * * * *", move |_uuid, _l| {
+            Box::pin({
+                let write_conn = write_conn.clone();
+                async move {
+                    let write_conn = write_conn.lock().await;
+                    let now = Self::now_timestamp();
+
+                    match write_conn
+                        .execute(
+                            r#"
+                            DELETE FROM oidc_cache
+                            WHERE cache_key IN (
+                                SELECT cache_key FROM oidc_cache
+                                WHERE expires_at < ?1
+                                LIMIT ?2
+                            )
+                            "#,
+                            (now, CLEANUP_BATCH_SIZE),
+                        )
+                        .await
+                    {
+                        Ok(c) => tracing::debug!("Auth table cleanup complete: {c}"),
+                        Err(e) => tracing::warn!("Issue with Auth Table cleanup: {e}"),
+                    }
+                }
+            })
+        })?;
+
+        scheduler.read().await.add(job).await?;
+
+        Ok(())
+    }
+
+    fn now_timestamp() -> i64 {
+        chrono::Utc::now().timestamp()
+    }
+
+    #[inline]
+    fn cv_key(challenge_state: &str) -> String {
+        format!("cv:{challenge_state}")
+    }
+
+    #[inline]
+    fn expires_at(ttl_sec: i64) -> i64 {
+        Self::now_timestamp() + ttl_sec
+    }
+
+    #[inline]
+    fn session_key(session_id: &str) -> String {
+        format!("session:{session_id}")
+    }
+}
 
 impl AuthCache for Db {
     fn get_code_verifier(
@@ -190,9 +284,14 @@ impl AuthCache for Db {
         })
     }
 
-    fn extend_auth_session(&self, session_id: &str, ttl: i64) -> BoxFuture<'_, Result<(), Error>> {
+    fn extend_auth_session(
+        &self,
+        session_id: &str,
+        ttl_minutes: i64,
+    ) -> BoxFuture<'_, Result<(), Error>> {
         let key = Self::session_key(session_id);
-        let new_expires_at = Self::expires_at(ttl);
+        let new_expires_at =
+            Self::expires_at(Duration::from_mins(ttl_minutes as u64).as_secs() as i64);
 
         Box::pin(async move {
             let write_conn = self.write_conn.lock().await;

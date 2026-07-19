@@ -89,7 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut web = Web::new(db.clone());
-    let mut poller = Poller::new(scheduler, db.clone());
+    let mut poller = Poller::new(scheduler.clone(), db.clone());
 
     if let Some(mut kasa) = kasa {
         tracing::info!("[Service] Kasa Node");
@@ -109,7 +109,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(oauth2) = api_config.get_oauth2_config() {
             tracing::info!("[Service] Authed API Backend");
             web = web.setup_auth_router(
-                Auth::new(&oauth2, db.clone().expect("Auth requires a DB.")).await?,
+                Auth::new(
+                    &oauth2,
+                    db.clone().expect("Auth requires a DB."),
+                    scheduler.clone(),
+                )
+                .await?,
             )?;
         }
     }

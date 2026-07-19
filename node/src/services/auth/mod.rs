@@ -3,19 +3,25 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
+use axum::Router;
 use axum::response::Html;
-use axum::{Router, routing};
-use axum_oidc_client::auth::{AuthenticationLayer, CodeChallengeMethod};
+use axum::routing;
+use axum_oidc_client::auth::AuthenticationLayer;
+use axum_oidc_client::auth::CodeChallengeMethod;
 use axum_oidc_client::auth_builder::OAuthConfigurationBuilder;
 use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::auth_session::AuthSession;
 use axum_oidc_client::extractors::OptionalAuthSession;
-use axum_oidc_client::jwt::{
-    Algorithm, DecodingKey, Validation, decode_jwt, decode_jwt_unverified,
-};
+use axum_oidc_client::jwt::Algorithm;
+use axum_oidc_client::jwt::DecodingKey;
+use axum_oidc_client::jwt::Validation;
+use axum_oidc_client::jwt::decode_jwt;
+use axum_oidc_client::jwt::decode_jwt_unverified;
 use axum_oidc_client::logout::handle_default_logout::DefaultLogoutHandler;
+use tokio::sync::RwLock;
+use tokio_cron_scheduler::JobScheduler;
 use tower_sessions::cookie::Key;
 use url::Url;
 
@@ -50,10 +56,12 @@ impl Auth {
     pub(crate) async fn new(
         oauth2_config: &OAuth2Config,
         db: Db,
+        scheduler: Arc<RwLock<JobScheduler>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let client_json = Self::parse_client_json(&oauth2_config.get_client_json())?;
         let certs = RwLock::new(HashMap::new());
         db.create_auth_table().await?;
+        db.add_auth_table_cleanup_job(scheduler).await?;
         Ok(Self {
             db,
             _certs: certs,
@@ -89,7 +97,7 @@ impl Auth {
             .with_scopes(vec!["openid", "email", "profile"])
             .with_code_challenge_method(CodeChallengeMethod::S256)
             .with_post_logout_redirect_uri(logout_redirect)
-            .with_session_max_age(60 * 25 * 365)
+            .with_session_max_age(60 * 24 * 365)
             .with_token_max_age(300)
             .with_base_path("/auth");
         config.private_cookie_key = Some(Key::from(&self.cookie_secret_key));
