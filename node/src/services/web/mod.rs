@@ -37,11 +37,11 @@ impl Web {
         Ok(())
     }
 
-    pub(crate) fn setup_auth_router(
+    pub(crate) async fn setup_auth_router(
         mut self,
         mut auth: Auth,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        self.router = auth.setup_auth_router(self.router)?;
+        self.router = auth.setup_auth_router(self.router).await?;
         self.auth = Some(auth);
         Ok(self)
     }
