@@ -106,6 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         web = web.setup_api_route(&api_config).await?;
 
         if let Some(oauth2) = api_config.get_oauth2_config() {
+            tracing::info!("[Service] Authed API Backend");
             web = web
                 .setup_auth(&oauth2, config.get_frontend_config())
                 .await?;

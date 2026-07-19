@@ -13,8 +13,10 @@ use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::auth_session::AuthSession;
 use axum_oidc_client::extractors::OptionalAuthSession;
 use axum_oidc_client::logout::handle_default_logout::DefaultLogoutHandler;
+use tower_sessions::cookie::Key;
 
-use crate::config::{FrontendServerConfig, OAuth2Config};
+use crate::config::FrontendServerConfig;
+use crate::config::OAuth2Config;
 use crate::services::web::Web;
 
 #[derive(Default, serde::Deserialize)]
@@ -55,7 +57,7 @@ impl Web {
         // Example target:
         // http://localhost:3000/auth?redirect=/userinfo
 
-        let config = OAuthConfigurationBuilder::default()
+        let mut config = OAuthConfigurationBuilder::default()
             .with_authorization_endpoint(&client_secret.auth_uri)
             .with_token_endpoint(&client_secret.token_uri)
             .with_client_id(&client_secret.client_id)
@@ -63,23 +65,16 @@ impl Web {
             .with_redirect_uri(
                 &format!("{}/auth/callback", &oauth2_config.get_redirect_uri_base()).to_string(),
             )
-            .with_private_cookie_key(
-                // SAFETY: This key will be a non-compliant utf-8 string.
-                // That said, this is a randomly generated 64 byte key which
-                // gets converted back down to a Vec<u8> by the underlying
-                // library. Unfortunately, no actual way to pass in a raw
-                // Vec<u8> so something like this must occur. This value
-                // will not be converted back to a String so this operation
-                // should be safe.
-                unsafe { str::from_utf8_unchecked(&key) },
-            )
             .with_scopes(vec!["openid", "email", "profile"])
             .with_code_challenge_method(CodeChallengeMethod::S256)
             .with_post_logout_redirect_uri("/")
             .with_session_max_age(30)
             .with_token_max_age(300)
-            .with_base_path("/auth")
-            .build()?;
+            .with_base_path("/auth");
+
+        config.private_cookie_key = Some(Key::from(&key[..64]));
+
+        let config = config.build()?;
 
         let cache: Arc<dyn AuthCache + Send + Sync> = Arc::new(self.db.as_ref().unwrap().clone());
 
