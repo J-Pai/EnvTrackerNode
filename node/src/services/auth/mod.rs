@@ -77,17 +77,7 @@ impl Auth {
         mut router: Router,
     ) -> Result<Router, Box<dyn std::error::Error>> {
         let base = self.redirect_uri_base.clone();
-
-        let base_path = if base.path().ends_with("/") {
-            base.path().to_string()
-        } else {
-            let base = base.clone();
-            let mut base_path = String::from(base.clone().path());
-            base_path.push('/');
-            base_path
-        };
-        let base = base.join(&base_path).unwrap();
-
+        let base_path = base.path().to_string().clone();
         let logout_uri = base.join("google_home/login").unwrap();
         let logout_redirect = logout_uri.path();
         let mut config = OAuthConfigurationBuilder::default()

@@ -119,12 +119,12 @@ where
                 //
                 // Replaces wasm script block.
                 content
-                    .replace("href=\"/", format!("href=\"{base}/").as_str())
+                    .replace("href=\"/", format!("href=\"{base}").as_str())
                     .replace(
                         "<script data-event-stream=\"/_tower-livereload",
-                        format!("<<script data-event-stream=\"{}/_tower-livereload", base).as_str(),
+                        format!("<<script data-event-stream=\"{base}_tower-livereload").as_str(),
                     )
-                    .replace("'/", format!("'{}/", base).as_str())
+                    .replace("'/", format!("'{base}").as_str())
             } else {
                 content
             };

@@ -65,12 +65,9 @@ impl EnvApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>, api_uri: &Url, kasa_api_uri_path: &str) -> Self {
         let kasa_api_uri = api_uri
-            .join(
-                kasa_api_uri_path
-                    .strip_prefix("/")
-                    .unwrap_or(kasa_api_uri_path),
-            )
+            .join(kasa_api_uri_path)
             .unwrap_or_else(|e| panic!("INVALID {api_uri} {kasa_api_uri_path} {e}"));
+
         let mut app = if let Some(storage) = cc.storage {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
