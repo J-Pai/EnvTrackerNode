@@ -48,7 +48,7 @@ where
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
         let response_future = self.inner.call(request);
         let base = self.base.clone();
-        let api_server_uri = self.api_server_uri.clone().join("api").unwrap();
+        let api_server_uri = self.api_server_uri.clone();
         let kasa_api = self.kasa_api.clone();
 
         Box::pin(async move {
