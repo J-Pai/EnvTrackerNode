@@ -77,15 +77,28 @@ impl Auth {
         mut router: Router,
     ) -> Result<Router, Box<dyn std::error::Error>> {
         let base = self.redirect_uri_base.clone();
+
+        let base_path = if base.path().ends_with("/") {
+            base.path().to_string()
+        } else {
+            let base = base.clone();
+            let mut base_path = String::from(base.clone().path());
+            base_path.push('/');
+            base_path
+        };
+        let base = base.join(&base_path).unwrap();
+
+        let logout_uri = base.join("google_home/login").unwrap();
+        let logout_redirect = logout_uri.path();
         let mut config = OAuthConfigurationBuilder::default()
             .with_authorization_endpoint(&self.client_json.auth_uri)
             .with_token_endpoint(&self.client_json.token_uri)
             .with_client_id(&self.client_json.client_id)
             .with_client_secret(&self.client_json.client_secret)
-            .with_redirect_uri(&format!("{}/auth/callback", &base))
+            .with_redirect_uri(base.join("auth/callback").unwrap().as_str())
             .with_scopes(vec!["openid", "email", "profile"])
             .with_code_challenge_method(CodeChallengeMethod::S256)
-            .with_post_logout_redirect_uri(&format!("{base}/google_home/login"))
+            .with_post_logout_redirect_uri(logout_redirect)
             .with_session_max_age(60 * 25 * 365)
             .with_base_path("/auth");
         config.private_cookie_key = Some(Key::from(&self.cookie_secret_key));
@@ -123,15 +136,14 @@ impl Auth {
                         r#"
                             Hello World for Google Home: expires {expires}
                             <br />
-                            <a href='{base}/google_home/link'>Authorize Link</a>
+                            <a href='{base}google_home/link'>Authorize Link</a>
                             <br />
-                            <a href='{base}/auth/logout'>Logout</a>
+                            <a href='{base}auth/logout'>Logout</a>
                         "#,
                     ))
                 }
                 None => Html(format!(
-                    "<a href='{base}/auth?redirect={}/google_home/login'>GOOGLE LOGIN</a>",
-                    base
+                    "<a href='{base}auth?redirect={base_path}google_home/login'>GOOGLE LOGIN</a>",
                 )),
             }
         };
