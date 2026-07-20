@@ -29,6 +29,7 @@ use tower_sessions::cookie::Key;
 use url::Url;
 
 use crate::config::OAuth2Config;
+use crate::error::NodeError;
 use crate::services::db::Db;
 
 #[derive(Default, serde::Deserialize)]
@@ -67,7 +68,7 @@ impl Auth {
         db.add_auth_table_cleanup_job(scheduler).await?;
         Ok(Self {
             db,
-            certs: certs,
+            certs,
             client_json,
             redirect_uri_base: oauth2_config.get_redirect_uri_base(),
             cookie_secret_key: oauth2_config.get_cookie_secret_key(),
@@ -103,6 +104,25 @@ impl Auth {
         Ok(())
     }
 
+    async fn validate_session(
+        certs: Arc<RwLock<HashMap<String, DecodingKey>>>,
+        session: &AuthSession,
+        audience: &[String],
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let token_data = decode_jwt_unverified(&session.id_token)?;
+
+        let mut validation = Validation::new(Algorithm::RS256);
+        validation.set_audience(audience);
+
+        let token_data = decode_jwt(
+            &session.id_token,
+            certs.read().await.get(&token_data.0.kid.unwrap()).unwrap(),
+            &validation,
+        )?;
+
+        Ok(token_data.claims.email.ok_or(NodeError::new("No email."))?)
+    }
+
     pub(crate) async fn setup_auth_router(
         &mut self,
         mut router: Router,
@@ -127,6 +147,7 @@ impl Auth {
         config.private_cookie_key = Some(Key::from(&self.cookie_secret_key));
         let config = config.build()?;
         let certs = self.certs.clone();
+        let client_id = self.client_json.client_id.clone();
 
         let logout_handler = Arc::new(DefaultLogoutHandler);
 
@@ -139,33 +160,22 @@ impl Auth {
                         .map(|e| e.to_string())
                         .unwrap_or_else(|| "(no expiry)".to_string());
 
-                    let token_data = decode_jwt_unverified(&session.id_token)
-                        .map_err(|e| tracing::error!("JWT Error: {e} - {}", session.id_token))
-                        .unwrap();
-
-                    let mut validation = Validation::new(Algorithm::RS256);
-                    validation.set_audience(&[
-                        "42441590702-te8vdhfdd8s3ft960ct6ksle7hp25jtj.apps.googleusercontent.com",
-                    ]);
-
-                    let token_data = decode_jwt(
-                        &session.id_token,
-                        certs.read().await.get(&token_data.0.kid.unwrap()).unwrap(),
-                        &validation,
-                    )
-                    .map_err(|e| tracing::error!("JWT Error: {e} - {}", session.id_token));
-
-                    if token_data.is_err() {
+                    let Ok(email) = Self::validate_session(certs, &session, &[client_id])
+                        .await
+                        .map_err(|e| {
+                            tracing::error!("JWT validation failed: {e} - {}", session.id_token)
+                        })
+                    else {
                         return (StatusCode::UNAUTHORIZED, Html("Unauthorized".to_string()));
-                    }
+                    };
 
-                    tracing::info!("JWT data verified {:#?}", token_data);
+                    tracing::info!("JWT data verified {:#?}", email);
 
                     (
                         StatusCode::OK,
                         Html(format!(
                             r#"
-                            Hello World for Google Home: expires {expires}
+                            Hello World for Google Home ({email}): expires {expires}
                             <br />
                             <a href='{base}google_home/link'>Authorize Link</a>
                             <br />
