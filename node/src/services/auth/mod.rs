@@ -5,6 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use axum::Form;
 use axum::Router;
 use axum::extract::OriginalUri;
 use axum::extract::Query;
@@ -26,10 +27,8 @@ use axum_oidc_client::jwt::decode_jwt_unverified;
 use axum_oidc_client::logout::handle_default_logout::DefaultLogoutHandler;
 use http::StatusCode;
 use http::Uri;
-use http::header;
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
-use reqwest_middleware::reqwest::redirect;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::JobScheduler;
 use tower_sessions::cookie::Key;
@@ -290,25 +289,18 @@ impl Auth {
         };
 
         let base = self.redirect_uri_base.clone();
-        let google_home_token = move |OriginalUri(uri): OriginalUri| async move {
-            let (decoded_query, encoded_query) = Self::stringify_query(&uri);
-
-            tracing::info!("TOKEN ENDPOINT {decoded_query}\n{encoded_query}");
+        let google_home_token = move |Form(params): Form<OAuth2TokenRequest>| async move {
+            tracing::info!("TOKEN ENDPOINT\n{params:#?}");
 
             Redirect::to(format!("{base}google_home").as_str()).into_response()
         };
 
-        let base = self.redirect_uri_base.clone();
         let certs = self.certs.clone();
         let client_id = self.client_json.client_id.clone();
         let google_home_client_json = self.google_home_client_json.clone();
         let db = self.db.clone();
         let google_home_callback =
-            move |session: AuthSession,
-                  Query(query): Query<OAuth2CallbackRequest>,
-                  OriginalUri(uri): OriginalUri| async move {
-                let (decoded_query, encoded_query) = Self::stringify_query(&uri);
-
+            move |session: AuthSession, Query(query): Query<OAuth2CallbackRequest>| async move {
                 let Ok(_) = Self::validate_session(certs, &session, &[client_id])
                     .await
                     .map_err(|e| {
@@ -445,7 +437,7 @@ impl Auth {
 
         router = router
             .route("/google_home/link", routing::get(google_home_link))
-            .route("/google_home/token", routing::get(google_home_token))
+            .route("/google_home/token", routing::post(google_home_token))
             .route("/google_home/callback", routing::get(google_home_callback))
             .route("/google_home", routing::get(google_home_login))
             .route(
