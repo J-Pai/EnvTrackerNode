@@ -136,6 +136,9 @@ pub(crate) struct OAuth2Config {
     /// Path to the client secret JSON. This can be obtained directly from
     /// GCP when creating a new client in the OAuth2 setup page.
     client_secret_json: String,
+    /// Path to the Google Home client secret JSON. This can be obtained
+    /// directly from GCP when creating a new client in the OAuth2 setup page.
+    google_home_client_secret_json: Option<String>,
     /// OAuth2 callback/redirect base URI.
     redirect_uri_base: Url,
     /// OAuth2 base64 cookie encryption key.
@@ -151,6 +154,14 @@ pub(crate) struct OAuth2Config {
 impl OAuth2Config {
     pub(crate) fn get_client_json(&self) -> PathBuf {
         PathBuf::from(self.client_secret_json.clone())
+    }
+
+    pub(crate) fn get_google_home_client_json(&self) -> Option<PathBuf> {
+        if let Some(json) = self.google_home_client_secret_json.clone() {
+            Some(PathBuf::from(json))
+        } else {
+            None
+        }
     }
 
     pub(crate) fn get_redirect_uri_base(&self) -> Url {

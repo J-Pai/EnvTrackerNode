@@ -25,8 +25,11 @@ use axum_oidc_client::jwt::decode_jwt;
 use axum_oidc_client::jwt::decode_jwt_unverified;
 use axum_oidc_client::logout::handle_default_logout::DefaultLogoutHandler;
 use http::StatusCode;
+use http::Uri;
+use http::header;
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
+use reqwest_middleware::reqwest::redirect;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::JobScheduler;
 use tower_sessions::cookie::Key;
@@ -36,7 +39,7 @@ use crate::config::OAuth2Config;
 use crate::error::NodeError;
 use crate::services::db::Db;
 
-#[derive(Default, serde::Deserialize)]
+#[derive(Clone, Default, serde::Deserialize)]
 #[allow(unused)]
 pub(crate) struct ClientJsonWeb {
     client_id: String,
@@ -56,6 +59,7 @@ pub(crate) struct Auth {
     db: Db,
     certs: Arc<RwLock<HashMap<String, DecodingKey>>>,
     client_json: ClientJsonWeb,
+    google_home_client_json: ClientJsonWeb,
     redirect_uri_base: Url,
     cookie_secret_key: Vec<u8>,
 }
@@ -79,6 +83,15 @@ struct OAuth2TokenRequest {
     refresh_token: Option<String>,
 }
 
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct OAuth2CallbackRequest {
+    code: String,
+    iss: String,
+    state: String,
+    scope: String,
+    prompt: String,
+}
+
 impl Auth {
     pub(crate) async fn new(
         oauth2_config: &OAuth2Config,
@@ -86,6 +99,11 @@ impl Auth {
         scheduler: Arc<RwLock<JobScheduler>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let client_json = Self::parse_client_json(&oauth2_config.get_client_json())?;
+        let google_home_client_json = Self::parse_client_json(
+            &oauth2_config
+                .get_google_home_client_json()
+                .expect("Need google home client json."),
+        )?;
         let certs = Arc::new(RwLock::new(HashMap::new()));
         db.create_auth_table().await?;
         db.add_auth_table_cleanup_job(scheduler).await?;
@@ -93,6 +111,7 @@ impl Auth {
             db,
             certs,
             client_json,
+            google_home_client_json,
             redirect_uri_base: oauth2_config.get_redirect_uri_base(),
             cookie_secret_key: oauth2_config.get_cookie_secret_key(),
         })
@@ -146,6 +165,18 @@ impl Auth {
         Ok(token_data.claims.email.ok_or(NodeError::new("No email."))?)
     }
 
+    fn stringify_query(uri: &Uri) -> (String, String) {
+        if let Some(query) = uri.query() {
+            let decoded_query = format!("?{query}");
+            (
+                decoded_query.clone(),
+                urlencoding::encode(&decoded_query).to_string(),
+            )
+        } else {
+            (String::new(), String::new())
+        }
+    }
+
     pub(crate) async fn setup_auth_router(
         &mut self,
         mut router: Router,
@@ -173,7 +204,11 @@ impl Auth {
         let base = self.redirect_uri_base.clone();
         let certs = self.certs.clone();
         let client_id = self.client_json.client_id.clone();
-        let google_home_link = move |session: AuthSession| async move {
+        let google_home_client_json = self.google_home_client_json.clone();
+        let db = self.db.clone();
+        let google_home_link = move |session: AuthSession,
+                                     Query(query): Query<OAuth2AuthRequest>,
+                                     OriginalUri(uri): OriginalUri| async move {
             let Ok(_) = Self::validate_session(certs, &session, &[client_id])
                 .await
                 .map_err(|e| tracing::error!("JWT validation failed: {e} - {}", session.id_token))
@@ -181,14 +216,99 @@ impl Auth {
                 return StatusCode::UNAUTHORIZED.into_response();
             };
 
+            let (decoded_query, encoded_query) = Self::stringify_query(&uri);
+
+            tracing::info!("{decoded_query}\n{encoded_query}\n{query:#?}");
+
+            let client_id = if let Some(client_id) = query.client_id.clone()
+                && client_id == google_home_client_json.client_id
+            {
+                client_id
+            } else {
+                return (
+                    StatusCode::OK,
+                    Html(format!(
+                        r#"
+                        <pre><code>{query:#?}</code></pre>
+                        "#,
+                    )),
+                )
+                    .into_response();
+            };
+
+            let redirect_uri = if let Some(redirect_uri) = query.redirect_uri
+                && let Ok(redirect_uri) = Url::parse(&redirect_uri)
+                && redirect_uri.path() == format!("/r/{}", google_home_client_json.project_id)
+                && let Some(host) = redirect_uri.host_str()
+                && (host == "oauth-redirect.googleusercontent.com"
+                    || host == "oauth-redirect-sandbox.googleusercontent.com")
+            {
+                redirect_uri
+            } else {
+                return StatusCode::UNAUTHORIZED.into_response();
+            };
+
+            let state = if let Some(state) = query.state {
+                state
+            } else {
+                return StatusCode::UNAUTHORIZED.into_response();
+            };
+
+            let Ok(mut auth_uri) = Url::parse(&google_home_client_json.auth_uri) else {
+                return StatusCode::UNAUTHORIZED.into_response();
+            };
+            auth_uri
+                .query_pairs_mut()
+                .append_pair("client_id", &client_id);
+            auth_uri.query_pairs_mut().append_pair(
+                "redirect_uri",
+                base.join("google_home/callback").unwrap().as_str(),
+            );
+            auth_uri.query_pairs_mut().append_pair("state", &state);
+            auth_uri
+                .query_pairs_mut()
+                .append_pair("response_type", "code");
+            auth_uri
+                .query_pairs_mut()
+                .append_pair("scope", "openid email profile");
+
+            if let Err(e) = db
+                .set_code_verifier(
+                    &state,
+                    &format!(
+                        "{}|{redirect_uri}|{}",
+                        &session.access_token, google_home_client_json.project_id
+                    ),
+                )
+                .await
+            {
+                tracing::error!("Issue storing Google Home code verifier {e}");
+                return StatusCode::UNAUTHORIZED.into_response();
+            }
+
+            Redirect::to(auth_uri.as_str()).into_response()
+        };
+
+        let base = self.redirect_uri_base.clone();
+        let google_home_token = move |OriginalUri(uri): OriginalUri| async move {
+            let (decoded_query, encoded_query) = Self::stringify_query(&uri);
+
+            tracing::info!("TOKEN ENDPOINT {decoded_query}\n{encoded_query}");
+
             Redirect::to(format!("{base}google_home").as_str()).into_response()
         };
 
         let base = self.redirect_uri_base.clone();
         let certs = self.certs.clone();
         let client_id = self.client_json.client_id.clone();
-        let google_home_token =
-            move |session: AuthSession, Query(query): Query<OAuth2AuthRequest>| async move {
+        let google_home_client_json = self.google_home_client_json.clone();
+        let db = self.db.clone();
+        let google_home_callback =
+            move |session: AuthSession,
+                  Query(query): Query<OAuth2CallbackRequest>,
+                  OriginalUri(uri): OriginalUri| async move {
+                let (decoded_query, encoded_query) = Self::stringify_query(&uri);
+
                 let Ok(_) = Self::validate_session(certs, &session, &[client_id])
                     .await
                     .map_err(|e| {
@@ -198,7 +318,65 @@ impl Auth {
                     return StatusCode::UNAUTHORIZED.into_response();
                 };
 
-                Redirect::to(format!("{base}google_home").as_str()).into_response()
+                if query.iss != "https://accounts.google.com" {
+                    tracing::error!("Incorrect issuer: {query:#?}");
+                    return StatusCode::UNAUTHORIZED.into_response();
+                }
+
+                if query.prompt != "none" {
+                    tracing::error!("Incorrect prompt: {query:#?}");
+                    return StatusCode::UNAUTHORIZED.into_response();
+                }
+
+                let mut redirect_uri =
+                    if let Ok(Some(code_verifier)) = db.get_code_verifier(&query.state).await {
+                        if code_verifier == "REDIRECTED" {
+                            tracing::error!("Code is already redirected: {query:#?}");
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+
+                        let mut parts = code_verifier.split("|");
+                        let access_token = parts.next();
+                        let redirect_uri = parts.next();
+                        let project_id = parts.next();
+
+                        if let Some(access_token) = access_token
+                            && access_token != session.access_token
+                        {
+                            tracing::error!("Unmatched state / access_token: {query:#?}");
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        if let Some(project_id) = project_id
+                            && project_id != google_home_client_json.project_id
+                        {
+                            tracing::error!("Unmatched state / project_id: {query:#?}");
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+
+                        if let Err(e) = db.set_code_verifier(&query.state, "REDIRECTED").await {
+                            tracing::error!("Failed to update state: {query:#?} {e}");
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+
+                        if let Some(redirect_uri) = redirect_uri {
+                            Url::parse(redirect_uri).unwrap()
+                        } else {
+                            tracing::error!("Unmatched state / redirect_uri: {query:#?}");
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                    } else {
+                        tracing::error!("Unknown state: {query:#?}");
+                        return StatusCode::UNAUTHORIZED.into_response();
+                    };
+
+                redirect_uri
+                    .query_pairs_mut()
+                    .append_pair("code", &query.code);
+                redirect_uri
+                    .query_pairs_mut()
+                    .append_pair("state", &query.state);
+
+                Redirect::to(redirect_uri.as_str()).into_response()
             };
 
         let base = self.redirect_uri_base.clone();
@@ -209,15 +387,7 @@ impl Auth {
             move |OptionalAuthSession(session): OptionalAuthSession,
                   Query(query): Query<OAuth2AuthRequest>,
                   OriginalUri(uri): OriginalUri| async move {
-                let (decoded_query, encoded_query) = if let Some(query) = uri.query() {
-                    let decoded_query = format!("?{query}");
-                    (
-                        decoded_query.clone(),
-                        urlencoding::encode(&decoded_query).to_string(),
-                    )
-                } else {
-                    (String::new(), String::new())
-                };
+                let (decoded_query, encoded_query) = Self::stringify_query(&uri);
                 match session {
                     Some(session) => {
                         let expires = session
@@ -274,6 +444,7 @@ impl Auth {
         router = router
             .route("/google_home/link", routing::get(google_home_link))
             .route("/google_home/token", routing::get(google_home_token))
+            .route("/google_home/callback", routing::get(google_home_callback))
             .route("/google_home", routing::get(google_home_login))
             .route(
                 "/google_home/fulfillment",

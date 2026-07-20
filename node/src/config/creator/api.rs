@@ -479,6 +479,7 @@ impl ApiServerUi {
                 nodes,
                 oauth2: oauth2_config.map(|(json, redirect, cookie)| OAuth2Config {
                     client_secret_json: json,
+                    google_home_client_secret_json: None,
                     redirect_uri_base: redirect,
                     cookie_secret_key: cookie,
                 }),
