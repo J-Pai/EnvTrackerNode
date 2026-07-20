@@ -376,6 +376,8 @@ impl Auth {
                     .query_pairs_mut()
                     .append_pair("state", &query.state);
 
+                tracing::info!("Redirecting: {redirect_uri}");
+
                 Redirect::to(redirect_uri.as_str()).into_response()
             };
 
