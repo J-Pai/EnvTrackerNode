@@ -3883,6 +3883,7 @@ dependencies = [
  "tracing-subscriber",
  "turso",
  "url",
+ "urlencoding",
 ]
 
 [[package]]

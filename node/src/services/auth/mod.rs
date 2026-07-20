@@ -6,7 +6,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::Router;
+use axum::extract::OriginalUri;
+use axum::extract::Query;
 use axum::response::Html;
+use axum::response::IntoResponse;
+use axum::response::Redirect;
 use axum::routing;
 use axum_oidc_client::auth::AuthenticationLayer;
 use axum_oidc_client::auth::CodeChallengeMethod;
@@ -54,6 +58,25 @@ pub(crate) struct Auth {
     client_json: ClientJsonWeb,
     redirect_uri_base: Url,
     cookie_secret_key: Vec<u8>,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct OAuth2AuthRequest {
+    client_id: Option<String>,
+    redirect_uri: Option<String>,
+    state: Option<String>,
+    scope: Option<String>,
+    response_type: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct OAuth2TokenRequest {
+    client_id: Option<String>,
+    client_secret: Option<String>,
+    grant_type: Option<String>,
+    code: Option<String>,
+    redirect_uri: Option<String>,
+    refresh_token: Option<String>,
 }
 
 impl Auth {
@@ -129,8 +152,7 @@ impl Auth {
     ) -> Result<Router, Box<dyn std::error::Error>> {
         self.update_google_certs().await?;
         let base = self.redirect_uri_base.clone();
-        let base_path = base.path().to_string().clone();
-        let logout_uri = base.join("google_home/login").unwrap();
+        let logout_uri = base.join("google_home").unwrap();
         let logout_redirect = logout_uri.path();
         let mut config = OAuthConfigurationBuilder::default()
             .with_authorization_endpoint(&self.client_json.auth_uri)
@@ -146,52 +168,102 @@ impl Auth {
             .with_base_path("/auth");
         config.private_cookie_key = Some(Key::from(&self.cookie_secret_key));
         let config = config.build()?;
-        let certs = self.certs.clone();
-        let client_id = self.client_json.client_id.clone();
-
         let logout_handler = Arc::new(DefaultLogoutHandler);
 
-        let google_home_link = move |_session: AuthSession| async move {};
-        let google_home_login = move |OptionalAuthSession(session): OptionalAuthSession| async move {
-            match session {
-                Some(session) => {
-                    let expires = session
-                        .expires
-                        .map(|e| e.to_string())
-                        .unwrap_or_else(|| "(no expiry)".to_string());
+        let base = self.redirect_uri_base.clone();
+        let certs = self.certs.clone();
+        let client_id = self.client_json.client_id.clone();
+        let google_home_link = move |session: AuthSession| async move {
+            let Ok(_) = Self::validate_session(certs, &session, &[client_id])
+                .await
+                .map_err(|e| tracing::error!("JWT validation failed: {e} - {}", session.id_token))
+            else {
+                return StatusCode::UNAUTHORIZED.into_response();
+            };
 
-                    let Ok(email) = Self::validate_session(certs, &session, &[client_id])
-                        .await
-                        .map_err(|e| {
-                            tracing::error!("JWT validation failed: {e} - {}", session.id_token)
-                        })
-                    else {
-                        return (StatusCode::UNAUTHORIZED, Html("Unauthorized".to_string()));
-                    };
+            Redirect::to(format!("{base}google_home").as_str()).into_response()
+        };
 
-                    tracing::info!("JWT data verified {:#?}", email);
+        let base = self.redirect_uri_base.clone();
+        let certs = self.certs.clone();
+        let client_id = self.client_json.client_id.clone();
+        let google_home_token =
+            move |session: AuthSession, Query(query): Query<OAuth2AuthRequest>| async move {
+                let Ok(_) = Self::validate_session(certs, &session, &[client_id])
+                    .await
+                    .map_err(|e| {
+                        tracing::error!("JWT validation failed: {e} - {}", session.id_token)
+                    })
+                else {
+                    return StatusCode::UNAUTHORIZED.into_response();
+                };
 
+                Redirect::to(format!("{base}google_home").as_str()).into_response()
+            };
+
+        let base = self.redirect_uri_base.clone();
+        let base_path = base.path().to_string().clone();
+        let certs = self.certs.clone();
+        let client_id = self.client_json.client_id.clone();
+        let google_home_login =
+            move |OptionalAuthSession(session): OptionalAuthSession,
+                  Query(query): Query<OAuth2AuthRequest>,
+                  OriginalUri(uri): OriginalUri| async move {
+                let (decoded_query, encoded_query) = if let Some(query) = uri.query() {
+                    let decoded_query = format!("?{query}");
                     (
+                        decoded_query.clone(),
+                        urlencoding::encode(&decoded_query).to_string(),
+                    )
+                } else {
+                    (String::new(), String::new())
+                };
+                match session {
+                    Some(session) => {
+                        let expires = session
+                            .expires
+                            .map(|e| e.to_string())
+                            .unwrap_or_else(|| "(no expiry)".to_string());
+
+                        let Ok(email) = Self::validate_session(certs, &session, &[client_id])
+                            .await
+                            .map_err(|e| {
+                                tracing::error!("JWT validation failed: {e} - {}", session.id_token)
+                            })
+                        else {
+                            return (StatusCode::UNAUTHORIZED, Html("Unauthorized".to_string()))
+                                .into_response();
+                        };
+
+                        tracing::info!("JWT data verified {email:#?}");
+
+                        (
+                            StatusCode::OK,
+                            Html(format!(
+                                r#"
+                                Hello World for Google Home ({email}): expires {expires}
+                                <br />
+                                <a href='{base}google_home/link{decoded_query}'>Authorize Link</a>
+                                <br />
+                                <a href='{base}auth/logout'>Logout</a>
+                                <br />
+                                <pre><code>{query:#?}</code></pre>
+                                "#,
+                            )),
+                        )
+                            .into_response()
+                    }
+                    None => {
+                        (
                         StatusCode::OK,
                         Html(format!(
-                            r#"
-                            Hello World for Google Home ({email}): expires {expires}
-                            <br />
-                            <a href='{base}google_home/link'>Authorize Link</a>
-                            <br />
-                            <a href='{base}auth/logout'>Logout</a>
-                        "#,
+                            "<a href='{base}auth?redirect={base_path}google_home{encoded_query}'>GOOGLE LOGIN</a>",
                         )),
                     )
+                    }
+                        .into_response(),
                 }
-                None => (
-                    StatusCode::OK,
-                    Html(format!(
-                        "<a href='{base}auth?redirect={base_path}google_home/login'>GOOGLE LOGIN</a>",
-                    )),
-                ),
-            }
-        };
+            };
         let google_home_fulfillment = move |_session: AuthSession| async move {
             tracing::debug!("Handling fulfillment");
             "{}"
@@ -201,7 +273,8 @@ impl Auth {
 
         router = router
             .route("/google_home/link", routing::get(google_home_link))
-            .route("/google_home/login", routing::get(google_home_login))
+            .route("/google_home/token", routing::get(google_home_token))
+            .route("/google_home", routing::get(google_home_login))
             .route(
                 "/google_home/fulfillment",
                 routing::post(google_home_fulfillment),
