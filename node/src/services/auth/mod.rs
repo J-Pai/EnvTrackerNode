@@ -9,8 +9,6 @@ use axum::Form;
 use axum::Router;
 use axum::extract::OriginalUri;
 use axum::extract::Query;
-use axum::response::IntoResponse;
-use axum::response::Redirect;
 use axum::routing;
 use axum_oidc_client::auth::AuthenticationLayer;
 use axum_oidc_client::auth::CodeChallengeMethod;

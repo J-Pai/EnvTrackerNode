@@ -10,6 +10,7 @@ use axum::http::Method;
 use axum::http::StatusCode;
 use axum::http::header::AUTHORIZATION;
 use axum::http::header::CONTENT_TYPE;
+use axum::response::IntoResponse;
 use axum::routing;
 use tower::ServiceBuilder;
 use tower::timeout::TimeoutLayer;
@@ -17,6 +18,7 @@ use tower_http::cors::CorsLayer;
 
 use crate::config::ApiServerConfig;
 use crate::config::NodeClass;
+use crate::services::db::Db;
 use crate::services::db::DeviceQuery;
 use crate::services::db::QueryResult;
 
@@ -41,43 +43,55 @@ impl Web {
         Ok(web)
     }
 
+    async fn setup_kasa_api_handler(
+        Query(query): Query<DeviceQuery>,
+        db: Db,
+        handler_topic: String,
+    ) -> impl IntoResponse {
+        match db.query_kasa_data(&handler_topic, &query).await {
+            Ok(data) => {
+                tracing::debug!("Query complete: {:#?}", query);
+
+                let data = match data {
+                    QueryResult::KasaDeviceInfo(data) => serde_json::to_string(&data),
+                    QueryResult::Distinct(data) => serde_json::to_string(&data),
+                };
+
+                match data {
+                    Ok(data) => data,
+                    Err(e) => {
+                        tracing::warn!("Failed to serialize data ({:#?}): {:#?}", query, e);
+                        "[]".to_string()
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to query data ({:#?}): {:#?}", query, e);
+                "[]".to_string()
+            }
+        }
+    }
+
     fn setup_kasa_api_route(mut self, topic: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let mut router = self.router;
-        let db = self.db.as_ref().unwrap().clone();
         let topic = topic.to_owned();
         let cors_layer = CorsLayer::new()
             .allow_methods([Method::GET])
             .allow_origin("*".parse::<HeaderValue>().unwrap())
             .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
 
-        let handler_topic = topic.clone();
-        let handler = |Query(query): Query<DeviceQuery>| async move {
-            match db.query_kasa_data(&handler_topic, &query).await {
-                Ok(data) => {
-                    tracing::debug!("Query complete: {:#?}", query);
-
-                    let data = match data {
-                        QueryResult::KasaDeviceInfo(data) => serde_json::to_string(&data),
-                        QueryResult::Distinct(data) => serde_json::to_string(&data),
-                    };
-
-                    match data {
-                        Ok(data) => data,
-                        Err(e) => {
-                            tracing::warn!("Failed to serialize data ({:#?}): {:#?}", query, e);
-                            "[]".to_string()
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to query data ({:#?}): {:#?}", query, e);
-                    "[]".to_string()
-                }
-            }
-        };
-
         router = router
-            .route(&format!("/api/kasa/{topic}"), routing::get(handler))
+            .route(
+                &format!("/api/kasa/{topic}"),
+                routing::get({
+                    let db = self.db.as_ref().unwrap().clone();
+                    let handler_topic = topic.clone();
+
+                    |query: Query<DeviceQuery>| {
+                        Self::setup_kasa_api_handler(query, db, handler_topic)
+                    }
+                }),
+            )
             .layer(
                 ServiceBuilder::new()
                     .layer(HandleErrorLayer::new(|_: BoxError| async {
