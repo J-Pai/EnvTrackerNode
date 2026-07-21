@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use reqwest_middleware::ClientBuilder;
+use reqwest_middleware::ClientWithMiddleware;
 use reqwest_middleware::reqwest::Client;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::Job;
@@ -47,6 +48,73 @@ impl Poller {
         Ok(poller)
     }
 
+    async fn kasa_polling_job(
+        device_config: KasaDeviceConfig,
+        node_client: ClientWithMiddleware,
+        uuid: String,
+        topic: String,
+        mut db: Db,
+        route: String,
+    ) {
+        let mut sample_count = 0;
+        let mut url = device_config.get_uri().join(route.as_str()).unwrap();
+
+        if let Some(size) = device_config.get_batch_size() {
+            url.set_query(Some(format!("size={size}").as_str()));
+        }
+
+        tracing::debug!("{uuid} - Kasa Polling - {url}");
+
+        if let Err(e) = db.try_write_lock().await {
+            tracing::warn!("{} - Kasa Polling action already happening: {:#?}", uuid, e);
+            return;
+        }
+
+        loop {
+            sample_count += 1;
+
+            match node_client.get(url.clone()).send().await {
+                Ok(mut data) => {
+                    data = match data.error_for_status() {
+                        Err(err) => {
+                            tracing::warn!("Received status code: {:#?}", err);
+                            break;
+                        }
+                        Ok(data) => data,
+                    };
+
+                    let json = data.text().await.unwrap_or("[]".to_string());
+
+                    match serde_json::from_str::<Vec<Vec<KasaChildInfo>>>(&json) {
+                        Ok(data) => {
+                            if data.is_empty() {
+                                break;
+                            }
+
+                            if let Err(e) = db.push_kasa_data(&topic, &data).await {
+                                tracing::warn!("Failed to write data: {:#?}", e);
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("Error parsing data {:#?}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Issue with: {}{} - {:#?}",
+                        device_config.get_uri(),
+                        route,
+                        e
+                    );
+                    break;
+                }
+            }
+        }
+
+        tracing::debug!("{} - Kasa Requested {}x {}", uuid, sample_count, url);
+    }
+
     async fn add_kasa_job(
         self,
         route: String,
@@ -61,72 +129,20 @@ impl Poller {
             Box::pin({
                 let topic = topic.clone();
                 let device_config = device_config.clone();
-                let mut db = db.clone();
+                let db = db.clone();
                 let node_client = node_client.clone();
                 let route = route.clone();
 
                 async move {
-                    let mut sample_count = 0;
-                    let mut url = device_config.get_uri().join(route.as_str()).unwrap();
-
-                    if let Some(size) = device_config.get_batch_size() {
-                        url.set_query(Some(format!("size={size}").as_str()));
-                    }
-
-                    tracing::debug!("{uuid} - Kasa Polling - {url}");
-
-                    if let Err(e) = db.try_write_lock().await {
-                        tracing::warn!(
-                            "{} - Kasa Polling action already happening: {:#?}",
-                            uuid,
-                            e
-                        );
-                        return;
-                    }
-
-                    loop {
-                        sample_count += 1;
-
-                        match node_client.get(url.clone()).send().await {
-                            Ok(mut data) => {
-                                data = match data.error_for_status() {
-                                    Err(err) => {
-                                        tracing::warn!("Received status code: {:#?}", err);
-                                        break;
-                                    }
-                                    Ok(data) => data,
-                                };
-
-                                let json = data.text().await.unwrap_or("[]".to_string());
-
-                                match serde_json::from_str::<Vec<Vec<KasaChildInfo>>>(&json) {
-                                    Ok(data) => {
-                                        if data.is_empty() {
-                                            break;
-                                        }
-
-                                        if let Err(e) = db.push_kasa_data(&topic, &data).await {
-                                            tracing::warn!("Failed to write data: {:#?}", e);
-                                        }
-                                    }
-                                    Err(e) => {
-                                        tracing::warn!("Error parsing data {:#?}", e);
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                tracing::warn!(
-                                    "Issue with: {}{} - {:#?}",
-                                    device_config.get_uri(),
-                                    route,
-                                    e
-                                );
-                                break;
-                            }
-                        }
-                    }
-
-                    tracing::debug!("{} - Kasa Requested {}x {}", uuid, sample_count, url);
+                    Self::kasa_polling_job(
+                        device_config,
+                        node_client,
+                        uuid.to_string(),
+                        topic,
+                        db,
+                        route,
+                    )
+                    .await;
                 }
             })
         })?;
