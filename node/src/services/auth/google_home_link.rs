@@ -66,7 +66,7 @@ impl Auth {
                 .into_response();
         };
 
-        let redirect_uri = if let Some(redirect_uri) = query.redirect_uri
+        let redirect_uri = if let Some(redirect_uri) = &query.redirect_uri
             && let Ok(redirect_uri) = Url::parse(&redirect_uri)
             && redirect_uri.path() == format!("/r/{}", google_home_client_json.project_id)
             && let Some(host) = redirect_uri.host_str()
@@ -75,12 +75,14 @@ impl Auth {
         {
             redirect_uri
         } else {
+            tracing::error!("Incorrect redirect {query:#?}");
             return StatusCode::UNAUTHORIZED.into_response();
         };
 
         let state = if let Some(state) = query.state {
             state
         } else {
+            tracing::error!("No state {query:#?}");
             return StatusCode::UNAUTHORIZED.into_response();
         };
 
@@ -115,6 +117,8 @@ impl Auth {
             tracing::error!("Issue storing Google Home code verifier {e}");
             return StatusCode::UNAUTHORIZED.into_response();
         }
+
+        tracing::info!("{auth_uri}");
 
         Redirect::to(auth_uri.as_str()).into_response()
     }

@@ -9,11 +9,11 @@ use crate::services::auth::Auth;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub(super) struct OAuth2TokenRequest {
-    client_id: Option<String>,
-    client_secret: Option<String>,
-    grant_type: Option<String>,
+    client_id: String,
+    client_secret: String,
+    grant_type: String,
     code: Option<String>,
-    redirect_uri: Option<String>,
+    redirect_uri: String,
     refresh_token: Option<String>,
 }
 
@@ -23,6 +23,8 @@ impl Auth {
         base: Url,
     ) -> impl IntoResponse {
         tracing::info!("TOKEN ENDPOINT\n{params:#?}");
+
+
 
         Redirect::to(format!("{base}google_home").as_str()).into_response()
     }

@@ -42,6 +42,8 @@ impl Auth {
             return StatusCode::UNAUTHORIZED.into_response();
         };
 
+        tracing::info!("Callback Received: {query:#?}");
+
         if query.iss != "https://accounts.google.com" {
             tracing::error!("Incorrect issuer: {query:#?}");
             return StatusCode::UNAUTHORIZED.into_response();
@@ -54,7 +56,7 @@ impl Auth {
 
         let mut redirect_uri =
             if let Ok(Some(code_verifier)) = db.get_code_verifier(&query.state).await {
-                if code_verifier == "REDIRECTED" {
+                if code_verifier.starts_with("CALLBACK_RECEIVED") {
                     tracing::error!("Code is already redirected: {query:#?}");
                     return StatusCode::UNAUTHORIZED.into_response();
                 }
@@ -77,7 +79,10 @@ impl Auth {
                     return StatusCode::UNAUTHORIZED.into_response();
                 }
 
-                if let Err(e) = db.set_code_verifier(&query.state, "REDIRECTED").await {
+                if let Err(e) = db
+                    .set_code_verifier(&query.state, &format!("CALLBACK_RECEIVED:{}", query.code))
+                    .await
+                {
                     tracing::error!("Failed to update state: {query:#?} {e}");
                     return StatusCode::UNAUTHORIZED.into_response();
                 }
