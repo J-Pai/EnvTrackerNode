@@ -46,57 +46,57 @@ impl Auth {
 
         if query.iss != "https://accounts.google.com" {
             tracing::error!("Incorrect issuer: {query:#?}");
-            return StatusCode::UNAUTHORIZED.into_response();
+            return StatusCode::BAD_REQUEST.into_response();
         }
 
         if query.prompt != "none" {
             tracing::error!("Incorrect prompt: {query:#?}");
-            return StatusCode::UNAUTHORIZED.into_response();
+            return StatusCode::BAD_REQUEST.into_response();
         }
 
-        let mut redirect_uri =
-            if let Ok(Some(code_verifier)) = db.get_code_verifier(&query.state).await {
-                if code_verifier.starts_with("CALLBACK_RECEIVED") {
-                    tracing::error!("Code is already redirected: {query:#?}");
-                    return StatusCode::UNAUTHORIZED.into_response();
-                }
+        let mut redirect_uri = if let Ok(Some(code_verifier)) =
+            db.get_code_verifier(&query.state).await
+        {
+            let mut parts = code_verifier.split("|");
+            let access_token = parts.next();
+            let redirect_uri = parts.next();
+            let project_id = parts.next();
 
-                let mut parts = code_verifier.split("|");
-                let access_token = parts.next();
-                let redirect_uri = parts.next();
-                let project_id = parts.next();
+            if let Some(access_token) = access_token
+                && access_token != session.access_token
+            {
+                tracing::error!("Unmatched state / access_token: {query:#?}");
+                return StatusCode::BAD_REQUEST.into_response();
+            }
+            if let Some(project_id) = project_id
+                && project_id != google_home_client_json.project_id
+            {
+                tracing::error!("Unmatched state / project_id: {query:#?}");
+                return StatusCode::BAD_REQUEST.into_response();
+            }
 
-                if let Some(access_token) = access_token
-                    && access_token != session.access_token
-                {
-                    tracing::error!("Unmatched state / access_token: {query:#?}");
-                    return StatusCode::UNAUTHORIZED.into_response();
-                }
-                if let Some(project_id) = project_id
-                    && project_id != google_home_client_json.project_id
-                {
-                    tracing::error!("Unmatched state / project_id: {query:#?}");
-                    return StatusCode::UNAUTHORIZED.into_response();
-                }
+            if let Err(e) = db.invalidate_code_verifier(&query.state).await {
+                tracing::error!("Failed to update state: {query:#?} {e}");
+                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            }
 
+            if let Some(redirect_uri) = redirect_uri {
                 if let Err(e) = db
-                    .set_code_verifier(&query.state, &format!("CALLBACK_RECEIVED:{}", query.code))
+                    .set_code_verifier(&query.code, &format!("CALLBACK_RECEIVED|{redirect_uri}"))
                     .await
                 {
-                    tracing::error!("Failed to update state: {query:#?} {e}");
-                    return StatusCode::UNAUTHORIZED.into_response();
+                    tracing::error!("Failed to add code: {query:#?} {e}");
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                 }
-
-                if let Some(redirect_uri) = redirect_uri {
-                    Url::parse(redirect_uri).unwrap()
-                } else {
-                    tracing::error!("Unmatched state / redirect_uri: {query:#?}");
-                    return StatusCode::UNAUTHORIZED.into_response();
-                }
+                Url::parse(redirect_uri).unwrap()
             } else {
-                tracing::error!("Unknown state: {query:#?}");
-                return StatusCode::UNAUTHORIZED.into_response();
-            };
+                tracing::error!("Unmatched state / redirect_uri: {query:#?}");
+                return StatusCode::BAD_REQUEST.into_response();
+            }
+        } else {
+            tracing::error!("Unknown state: {query:#?}");
+            return StatusCode::BAD_REQUEST.into_response();
+        };
 
         redirect_uri
             .query_pairs_mut()

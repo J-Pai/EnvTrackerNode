@@ -205,9 +205,13 @@ impl Auth {
             .route(
                 "/google_home/token",
                 routing::post({
+                    let db = self.db.clone();
                     let base = self.redirect_uri_base.clone();
+                    let google_home_client_json = self.google_home_client_json.clone();
 
-                    |params: Form<OAuth2TokenRequest>| Self::google_home_token_handler(params, base)
+                    |params: Form<OAuth2TokenRequest>| {
+                        Self::google_home_token_handler(params, base, db, google_home_client_json)
+                    }
                 }),
             )
             .route(
