@@ -8,16 +8,19 @@ use axum::extract::Query;
 use axum::response::Html;
 use axum::response::IntoResponse;
 use axum::response::Redirect;
+use axum_extra::extract::PrivateCookieJar;
+use axum_oidc_client::auth::SESSION_KEY;
 use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::auth_session::AuthSession;
 use axum_oidc_client::jwt::DecodingKey;
+use http::HeaderMap;
 use http::StatusCode;
 use tokio::sync::RwLock;
+use tower_sessions::cookie::Key;
 use url::Url;
 
 use crate::services::auth::Auth;
 use crate::services::auth::ClientJsonWeb;
-use crate::services::db::Db;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub(super) struct OAuth2AuthRequest {
@@ -30,12 +33,14 @@ pub(super) struct OAuth2AuthRequest {
 
 impl Auth {
     pub(super) async fn google_home_link_handler(
+        headers: HeaderMap,
+        private_cookie_key: Key,
         session: AuthSession,
         Query(query): Query<OAuth2AuthRequest>,
         OriginalUri(uri): OriginalUri,
         base: Url,
         certs: Arc<RwLock<HashMap<String, DecodingKey>>>,
-        db: Db,
+        db: Arc<dyn AuthCache + Send + Sync>,
         client_json: ClientJsonWeb,
         google_home_client_json: ClientJsonWeb,
     ) -> impl IntoResponse {
@@ -65,6 +70,15 @@ impl Auth {
             )
                 .into_response();
         };
+
+        let jar = PrivateCookieJar::from_headers(&headers, private_cookie_key);
+
+        let Some(session_cookie) = jar.get(SESSION_KEY) else {
+            tracing::error!("No session cookie {query:#?}");
+            return StatusCode::UNAUTHORIZED.into_response();
+        };
+
+        let session_id = session_cookie.value();
 
         let redirect_uri = if let Some(redirect_uri) = &query.redirect_uri
             && let Ok(redirect_uri) = Url::parse(&redirect_uri)
@@ -100,16 +114,18 @@ impl Auth {
         auth_uri
             .query_pairs_mut()
             .append_pair("response_type", "code");
+        auth_uri.query_pairs_mut().append_pair("scope", "openid");
         auth_uri
             .query_pairs_mut()
-            .append_pair("scope", "openid email profile");
+            .append_pair("access_type", "offline");
+        auth_uri.query_pairs_mut().append_pair("prompt", "consent");
 
         if let Err(e) = db
             .set_code_verifier(
                 &state,
                 &format!(
                     "{}|{redirect_uri}|{}",
-                    &session.access_token, google_home_client_json.project_id
+                    session_id, google_home_client_json.project_id
                 ),
             )
             .await
@@ -118,8 +134,8 @@ impl Auth {
             return StatusCode::UNAUTHORIZED.into_response();
         }
 
-        tracing::info!("{auth_uri}");
+        tracing::info!("Link Redirect: {auth_uri}");
 
-        Redirect::to(auth_uri.as_str()).into_response()
+        Redirect::temporary(auth_uri.as_str()).into_response()
     }
 }

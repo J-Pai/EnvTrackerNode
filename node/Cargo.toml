@@ -7,6 +7,7 @@ default-run = "node"
 [dependencies]
 appcui = { version = "0.4.11", optional = true }
 axum = { version = "0.8.9", features = ["macros"] }
+axum-extra = { version = "0.12.6", features = ["cookie"] }
 axum-oidc-client = { version = "0.7.0" }
 base64 = "0.22.1"
 chrono = "0.4.44"

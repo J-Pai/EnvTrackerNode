@@ -18,10 +18,13 @@ use axum_oidc_client::auth_session::AuthSession;
 use axum_oidc_client::extractors::OptionalAuthSession;
 use axum_oidc_client::jwt::Algorithm;
 use axum_oidc_client::jwt::DecodingKey;
+use axum_oidc_client::jwt::OidcClaims;
+use axum_oidc_client::jwt::TokenData;
 use axum_oidc_client::jwt::Validation;
 use axum_oidc_client::jwt::decode_jwt;
 use axum_oidc_client::jwt::decode_jwt_unverified;
-use axum_oidc_client::logout::handle_default_logout::DefaultLogoutHandler;
+use axum_oidc_client::logout::handle_oidc_logout::OidcLogoutHandler;
+use http::HeaderMap;
 use http::Uri;
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
@@ -31,13 +34,13 @@ use tower_sessions::cookie::Key;
 use url::Url;
 
 use crate::config::OAuth2Config;
-use crate::error::NodeError;
 use crate::services::auth::google_home_callback::OAuth2CallbackRequest;
 use crate::services::auth::google_home_link::OAuth2AuthRequest;
 use crate::services::auth::google_home_token::OAuth2TokenRequest;
 use crate::services::db::Db;
 
 mod google_home_callback;
+mod google_home_fulfillment;
 mod google_home_link;
 mod google_home_login_handler;
 mod google_home_token;
@@ -125,7 +128,7 @@ impl Auth {
         certs: Arc<RwLock<HashMap<String, DecodingKey>>>,
         session: &AuthSession,
         audience: &[String],
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<TokenData<OidcClaims>, Box<dyn std::error::Error>> {
         let token_data = decode_jwt_unverified(&session.id_token)?;
 
         let mut validation = Validation::new(Algorithm::RS256);
@@ -137,7 +140,7 @@ impl Auth {
             &validation,
         )?;
 
-        Ok(token_data.claims.email.ok_or(NodeError::new("No email."))?)
+        Ok(token_data)
     }
 
     fn stringify_query(uri: &Uri) -> (String, String) {
@@ -174,7 +177,9 @@ impl Auth {
             .with_base_path("/auth");
         config.private_cookie_key = Some(Key::from(&self.cookie_secret_key));
         let config = config.build()?;
-        let logout_handler = Arc::new(DefaultLogoutHandler);
+        let logout_handler = Arc::new(OidcLogoutHandler::new(
+            base.join("auth/logout").unwrap().as_str(),
+        ));
 
         let cache: Arc<dyn AuthCache + Send + Sync> = Arc::new(self.db.clone());
 
@@ -182,14 +187,20 @@ impl Auth {
             .route(
                 "/google_home/link",
                 routing::get({
-                    let db = self.db.clone();
+                    let private_cookie_key = config.private_cookie_key.clone();
+                    let db = cache.clone();
                     let client_json = self.client_json.clone();
                     let google_home_client_json = self.google_home_client_json.clone();
                     let certs = self.certs.clone();
                     let base = self.redirect_uri_base.clone();
 
-                    |session: AuthSession, query: Query<OAuth2AuthRequest>, uri: OriginalUri| {
+                    |headers: HeaderMap,
+                     session: AuthSession,
+                     query: Query<OAuth2AuthRequest>,
+                     uri: OriginalUri| {
                         Self::google_home_link_handler(
+                            headers,
+                            private_cookie_key,
                             session,
                             query,
                             uri,
@@ -205,31 +216,32 @@ impl Auth {
             .route(
                 "/google_home/token",
                 routing::post({
-                    let db = self.db.clone();
+                    let db = cache.clone();
                     let base = self.redirect_uri_base.clone();
+                    let client_json = self.client_json.clone();
                     let google_home_client_json = self.google_home_client_json.clone();
+                    let certs = self.certs.clone();
 
-                    |params: Form<OAuth2TokenRequest>| {
-                        Self::google_home_token_handler(params, base, db, google_home_client_json)
+                    |headers: HeaderMap, params: Form<OAuth2TokenRequest>| {
+                        Self::google_home_token_handler(
+                            headers,
+                            params,
+                            certs,
+                            base,
+                            db,
+                            client_json,
+                            google_home_client_json,
+                        )
                     }
                 }),
             )
             .route(
                 "/google_home/callback",
                 routing::get({
-                    let db = self.db.clone();
-                    let client_json = self.client_json.clone();
+                    let db = cache.clone();
                     let google_home_client_json = self.google_home_client_json.clone();
-                    let certs = self.certs.clone();
-                    |session: AuthSession, query: Query<OAuth2CallbackRequest>| {
-                        Self::google_home_callback_handler(
-                            session,
-                            query,
-                            certs,
-                            db,
-                            client_json,
-                            google_home_client_json,
-                        )
+                    |query: Query<OAuth2CallbackRequest>| {
+                        Self::google_home_callback_handler(query, db, google_home_client_json)
                     }
                 }),
             )
@@ -256,10 +268,7 @@ impl Auth {
             .route(
                 "/google_home/fulfillment",
                 routing::post({
-                    |_session: AuthSession| async move {
-                        tracing::debug!("Handling fulfillment");
-                        "{}"
-                    }
+                    |headers: HeaderMap| Self::google_home_fulfillment_handler(headers)
                 }),
             )
             .layer(AuthenticationLayer::new(

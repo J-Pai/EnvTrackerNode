@@ -37,7 +37,7 @@ impl Auth {
                     .map(|e| e.to_string())
                     .unwrap_or_else(|| "(no expiry)".to_string());
 
-                let Ok(email) = Self::validate_session(certs, &session, &[client_json.client_id])
+                let Ok(token) = Self::validate_session(certs, &session, &[client_json.client_id])
                     .await
                     .map_err(|e| {
                         tracing::error!("JWT validation failed: {e} - {}", session.id_token)
@@ -47,13 +47,16 @@ impl Auth {
                         .into_response();
                 };
 
-                tracing::info!("JWT data verified {email:#?}");
+                tracing::info!(
+                    "JWT data verified {:#?}",
+                    token.claims.email.clone().unwrap()
+                );
 
                 (
                     StatusCode::OK,
                     Html(format!(
                         r#"
-                            Hello World for Google Home ({email}): expires {expires}
+                            Hello World for Google Home ({}): expires {expires}
                             <br />
                             <a href='{base}google_home/link{decoded_query}'>Authorize Link</a>
                             <br />
@@ -61,6 +64,7 @@ impl Auth {
                             <br />
                             <pre><code>{query:#?}</code></pre>
                         "#,
+                        token.claims.email.unwrap()
                     )),
                 )
                     .into_response()

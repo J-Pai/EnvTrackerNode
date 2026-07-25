@@ -3853,6 +3853,7 @@ version = "0.1.0"
 dependencies = [
  "appcui",
  "axum",
+ "axum-extra",
  "axum-oidc-client",
  "base64",
  "chrono",
