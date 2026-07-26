@@ -253,6 +253,20 @@ impl Auth {
                 return invalid_response;
             }
 
+            if let Err(e) = db
+                .invalidate_auth_session(&format!(
+                    "google_home_auth_token|{}",
+                    &auth_session.access_token
+                ))
+                .await
+            {
+                tracing::error!(
+                    "Unable to invalidate previous auth token {}: {e}",
+                    &auth_session.access_token,
+                );
+                return invalid_response;
+            }
+
             let form = HashMap::from([
                 ("grant_type", "refresh_token".to_string()),
                 ("refresh_token", stored_refresh_token.clone()),
@@ -273,7 +287,18 @@ impl Auth {
             if let Err(e) = db
                 .set_auth_session(
                     &format!("google_home_auth_token|{}", body.access_token),
-                    updated_auth_session,
+                    updated_auth_session.clone(),
+                )
+                .await
+            {
+                tracing::error!("Failed to save Google Home token: {e}");
+                return invalid_response;
+            }
+
+            if let Err(e) = db
+                .set_auth_session(
+                    &format!("google_home_refresh_token|{}", refresh_token),
+                    updated_auth_session.clone(),
                 )
                 .await
             {
