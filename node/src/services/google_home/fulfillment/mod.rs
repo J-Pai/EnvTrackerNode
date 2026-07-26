@@ -1,5 +1,6 @@
 //! Handler for Google Home fulfillment requests.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::Json;
@@ -9,7 +10,10 @@ use axum_oidc_client::jwt::decode_jwt_unverified;
 use http::HeaderMap;
 use http::StatusCode;
 use http::header::AUTHORIZATION;
+use serde_json::Value;
+use tokio::sync::RwLock;
 
+use crate::services::google_home::Device;
 use crate::services::google_home::GoogleHome;
 use crate::services::google_home::fulfillment::request::Intent;
 use crate::services::google_home::fulfillment::request::Request;
@@ -23,6 +27,7 @@ impl GoogleHome {
         headers: HeaderMap,
         Json(json): Json<Request>,
         db: Arc<dyn AuthCache + Send + Sync>,
+        devices: HashMap<String, Arc<RwLock<impl Device>>>,
     ) -> impl IntoResponse {
         tracing::info!("HEADERS : {headers:#?}");
 
@@ -58,16 +63,43 @@ impl GoogleHome {
 
         let sub = id.sub;
         let request_id = json.get_request_id();
-        let response = Response::new(request_id, sub);
 
-        for intent in json.get_inputs() {
-            match Request::parse_intent(intent) {
-                Some(Intent::Sync) => {
-                    response = response
-                        .set_intent(Intent::Sync)
-                        .add_device(value);
+        let mut response = Response::new(request_id, sub);
+        let Some(intent) = json.get_inputs().first() else {
+            tracing::error!("No intents to process. {json:#?}");
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        };
+
+        match Request::parse_intent(intent) {
+            Some(Intent::Sync) => {
+                response = response.set_intent(Intent::Sync);
+                for (id, device) in devices {
+                    response = response.add_device(id, device.read().await.get_sync_value());
                 }
-                _ => {}
+            }
+            Some(Intent::Query(query_devices)) => {
+                response = response.set_intent(Intent::Query(vec![]));
+
+                for device in query_devices {
+                    let Some(id) = device.get("id") else {
+                        continue;
+                    };
+
+                    let Some(id) = id.as_str() else {
+                        continue;
+                    };
+
+                    let Some(device) = devices.get(id) else {
+                        response = response.add_device(id.to_string(), Value::Null);
+                        continue;
+                    };
+
+                    response =
+                        response.add_device(id.to_string(), device.read().await.get_query_value());
+                }
+            }
+            _ => {
+                response = response.error_payload(String::new());
             }
         }
 

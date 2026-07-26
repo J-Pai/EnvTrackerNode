@@ -1,37 +1,4 @@
 //! Generator for Fulfillment responses.
-//!
-//! let response = FulfillmentResponse {
-//!     request_id,
-//!     payload: Payload {
-//!         agent_user_id: Some(sub.clone()),
-//!         devices: Some(vec![Device {
-//!             id: format!("{}_dlight", sub.clone()),
-//!             device_type: "action.devices.types.LIGHT".to_string(),
-//!             traits: [
-//!                 "action.devices.traits.ColorSetting".to_string(),
-//!                 "action.devices.traits.Brightness".to_string(),
-//!                 "action.devices.traits.OnOff".to_string(),
-//!             ]
-//!             .to_vec(),
-//!             name: Name {
-//!                 name: "glamp".to_string(),
-//!             },
-//!             will_report_state: false,
-//!             attributes: Attributes {
-//!                 color_temperature_range: Some(LightColorTemperatureRange {
-//!                     temperature_min_k: 2600,
-//!                     temperature_max_k: 6000,
-//!                 }),
-//!             },
-//!             device_info: DeviceInfo {
-//!                 manufacturer: "Me".to_string(),
-//!                 model: "dLight".to_string(),
-//!                 hw_version: "1".to_string(),
-//!                 sw_version: "1".to_string(),
-//!             },
-//!         }]),
-//!     },
-//! };
 
 use axum::Json;
 use axum::response::IntoResponse;
@@ -52,7 +19,7 @@ pub(crate) struct Response {
 }
 
 impl Response {
-    pub(crate) fn new(handling_intent: Intent, request_id: String, agent_user_id: String) -> Self {
+    pub(crate) fn new(request_id: String, agent_user_id: String) -> Self {
         Response {
             request_id,
             payload: Value::Null,
@@ -69,7 +36,7 @@ impl Response {
         self
     }
 
-    pub(crate) fn add_device(mut self, value: Value) -> Self {
+    pub(crate) fn add_device(mut self, id: String, value: Value) -> Self {
         match self.handling_intent {
             Some(Intent::Sync) => {
                 if self.payload.is_null() {
@@ -98,8 +65,52 @@ impl Response {
 
                 devices.push(value);
             }
+            Some(Intent::Query(_)) => {
+                if self.payload.is_null() {
+                    let mut payload = Map::new();
+                    let devices = Map::new();
+                    payload.insert("devices".to_string(), Value::Object(devices));
+                    self.payload = Value::Object(payload);
+                }
+
+                let devices = self
+                    .payload
+                    .as_object_mut()
+                    .unwrap()
+                    .get_mut("devices")
+                    .unwrap()
+                    .as_object_mut()
+                    .unwrap();
+
+                if value.is_null() {
+                    let mut error = Map::new();
+                    error.insert(
+                        "errorCode".to_string(),
+                        Value::String("deviceOffline".to_string()),
+                    );
+                    error.insert("status".to_string(), Value::String("ERROR".to_string()));
+                    devices.insert(id, Value::Object(error));
+                } else {
+                    devices.insert(id, value);
+                }
+            }
             _ => {}
         }
+        self
+    }
+
+    pub(crate) fn error_payload(mut self, error_code: String) -> Self {
+        let mut error = Map::new();
+        error.insert(
+            "errorCode".to_string(),
+            Value::String(if error_code.is_empty() {
+                "notSupported".to_string()
+            } else {
+                error_code
+            }),
+        );
+        error.insert("status".to_string(), Value::String("ERROR".to_string()));
+        self.payload = Value::Object(error);
         self
     }
 

@@ -12,7 +12,7 @@ pub(crate) struct Request {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) enum Intent {
     Sync,
-    Query,
+    Query(Vec<Value>),
     Execute,
     Disconnect,
 }
@@ -37,7 +37,21 @@ impl Request {
 
         match intent_type.as_str() {
             Some("action.devices.SYNC") => Some(Intent::Sync),
-            Some("action.devices.QUERY") => Some(Intent::Query),
+            Some("action.devices.QUERY") => {
+                let Some(payload) = intent.get("payload") else {
+                    return None;
+                };
+                let Some(devices) = payload.as_object() else {
+                    return None;
+                };
+                let Some(devices) = devices.get("devices") else {
+                    return None;
+                };
+                let Some(devices) = devices.as_array() else {
+                    return None;
+                };
+                Some(Intent::Query(devices.clone()))
+            }
             Some("action.devices.EXECUTE") => Some(Intent::Execute),
             Some("action.devices.DISCONNECT") => Some(Intent::Disconnect),
             _ => None,
