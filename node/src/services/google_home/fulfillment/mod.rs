@@ -10,6 +10,7 @@ use axum_oidc_client::jwt::decode_jwt_unverified;
 use http::HeaderMap;
 use http::StatusCode;
 use http::header::AUTHORIZATION;
+use serde_json::Map;
 use serde_json::Value;
 use tokio::sync::RwLock;
 
@@ -31,7 +32,7 @@ impl GoogleHome {
     ) -> impl IntoResponse {
         tracing::info!("HEADERS : {headers:#?}");
 
-        let id = if let Some(bearer_token) = headers.get(AUTHORIZATION)
+        let (id, auth_session) = if let Some(bearer_token) = headers.get(AUTHORIZATION)
             && let Ok(bearer_token) = bearer_token.to_str()
         {
             let split = bearer_token.split(" ");
@@ -53,7 +54,7 @@ impl GoogleHome {
                 tracing::error!("Invalid Auth Session. {auth_session:#?}");
                 return StatusCode::UNAUTHORIZED.into_response();
             };
-            id.1
+            (id.1, auth_session)
         } else {
             tracing::error!("No authorization field.");
             return StatusCode::UNAUTHORIZED.into_response();
@@ -97,6 +98,29 @@ impl GoogleHome {
                     response =
                         response.add_device(id.to_string(), device.read().await.get_query_value());
                 }
+            }
+            Some(Intent::Disconnect) => {
+                if let Err(e) = db
+                    .invalidate_auth_session(&format!(
+                        "google_home_auth_token|{}",
+                        auth_session.access_token
+                    ))
+                    .await
+                {
+                    tracing::error!("Failed to invalidate auth token: {e}");
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                }
+                if let Err(e) = db
+                    .invalidate_auth_session(&format!(
+                        "google_home_refresh_token|{}",
+                        auth_session.refresh_token.unwrap()
+                    ))
+                    .await
+                {
+                    tracing::error!("Failed to invalidate auth token: {e}");
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                }
+                return Json(Value::Object(Map::new())).into_response();
             }
             _ => {
                 response = response.error_payload(String::new());
