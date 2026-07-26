@@ -1,19 +1,16 @@
 //! Handler for Google Home fulfillment requests.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::Json;
 use axum::response::IntoResponse;
 use axum_oidc_client::auth_cache::AuthCache;
-use axum_oidc_client::jwt::DecodingKey;
+use axum_oidc_client::jwt::decode_jwt_unverified;
 use http::HeaderMap;
 use http::StatusCode;
 use http::header::AUTHORIZATION;
-use tokio::sync::RwLock;
 
-use crate::services::auth::Auth;
-use crate::services::auth::ClientJsonWeb;
+use crate::services::google_home::GoogleHome;
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 struct Intent {
@@ -84,13 +81,11 @@ pub(super) struct FulfillmentResponse {
     payload: Payload,
 }
 
-impl Auth {
+impl GoogleHome {
     pub(super) async fn google_home_fulfillment_handler(
         headers: HeaderMap,
         Json(json): Json<FulfillmentRequest>,
         db: Arc<dyn AuthCache + Send + Sync>,
-        certs: Arc<RwLock<HashMap<String, DecodingKey>>>,
-        client_json: ClientJsonWeb,
     ) -> impl IntoResponse {
         tracing::info!("HEADERS : {headers:#?}");
 
@@ -103,25 +98,28 @@ impl Auth {
                 return StatusCode::UNAUTHORIZED.into_response();
             };
 
-            if let Ok(Some(auth_session)) = db
+            let Ok(Some(auth_session)) = db
                 .get_auth_session(&format!("google_home_auth_token|{bearer_token}"))
                 .await
-                && let Ok(id) =
-                    Self::validate_session(certs, &auth_session, &[client_json.client_id]).await
-            {
-                id
-            } else {
+            else {
                 tracing::error!("Bearer/Access Token not found. {bearer_token}");
                 return StatusCode::UNAUTHORIZED.into_response();
-            }
+            };
+            let Ok(id) = decode_jwt_unverified(&auth_session.id_token)
+                .map_err(|e| tracing::error!("Token ID Failure: {e}"))
+            else {
+                tracing::error!("Invalid Auth Session. {auth_session:#?}");
+                return StatusCode::UNAUTHORIZED.into_response();
+            };
+            id.1
         } else {
             tracing::error!("No authorization field.");
             return StatusCode::UNAUTHORIZED.into_response();
         };
 
-        tracing::info!("[{}] JSON: {json:#?}", id.claims.email.unwrap());
+        tracing::info!("[{}] JSON: {json:#?}", id.email.unwrap());
 
-        let sub = id.claims.sub;
+        let sub = id.sub;
 
         for inputs in &json.inputs {
             let intent = inputs.intent.clone();

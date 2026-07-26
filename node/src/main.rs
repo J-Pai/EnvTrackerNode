@@ -109,7 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(oauth2) = api_config.get_oauth2_config() {
             tracing::info!("[Service] Authed API Backend");
             web = web
-                .setup_auth_router(
+                .setup_auth_route(
                     Auth::new(
                         &oauth2,
                         db.clone().expect("Auth requires a DB."),
@@ -118,6 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await?,
                 )
                 .await?;
+            web = web.setup_google_home_route().await?;
         }
     }
 

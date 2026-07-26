@@ -4,6 +4,7 @@ use axum::Router;
 
 use crate::services::auth::Auth;
 use crate::services::db::Db;
+use crate::services::google_home::GoogleHome;
 use crate::services::poller::Poller;
 
 mod api;
@@ -14,6 +15,7 @@ pub(crate) struct Web {
     router: Router,
     db: Option<Db>,
     auth: Option<Auth>,
+    google_home: Option<GoogleHome>,
     #[cfg(debug_assertions)]
     watcher: Option<notify::RecommendedWatcher>,
 }
@@ -24,6 +26,7 @@ impl Web {
             router: Router::new(),
             db,
             auth: None,
+            google_home: None,
             #[cfg(debug_assertions)]
             watcher: None,
         }
@@ -37,12 +40,21 @@ impl Web {
         Ok(())
     }
 
-    pub(crate) async fn setup_auth_router(
+    pub(crate) async fn setup_auth_route(
         mut self,
         mut auth: Auth,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        self.router = auth.setup_auth_router(self.router).await?;
+        self.router = auth.setup_route(self.router).await?;
         self.auth = Some(auth);
+        Ok(self)
+    }
+
+    pub(crate) async fn setup_google_home_route(
+        mut self,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let google_home = GoogleHome::new(self.db.as_ref().unwrap().clone())?;
+        self.router = google_home.setup_route(self.router).await?;
+        self.google_home = Some(google_home);
         Ok(self)
     }
 }

@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::Form;
-use axum::Json;
 use axum::Router;
 use axum::extract::OriginalUri;
 use axum::extract::Query;
@@ -36,16 +35,14 @@ use url::Url;
 
 use crate::config::OAuth2Config;
 use crate::services::auth::google_home_callback::OAuth2CallbackRequest;
-use crate::services::auth::google_home_fulfillment::FulfillmentRequest;
 use crate::services::auth::google_home_link::OAuth2AuthRequest;
 use crate::services::auth::google_home_token::OAuth2TokenRequest;
 use crate::services::db::Db;
 
 mod google_home_callback;
-mod google_home_fulfillment;
 mod google_home_link;
-mod google_home_login_handler;
 mod google_home_token;
+mod login_handler;
 
 #[derive(Clone, Default, serde::Deserialize)]
 #[allow(unused)]
@@ -97,7 +94,7 @@ impl Auth {
         })
     }
 
-    fn parse_client_json(
+    pub(crate) fn parse_client_json(
         oauth2_client_json: &PathBuf,
     ) -> Result<ClientJsonWeb, Box<dyn std::error::Error>> {
         let json_str = fs::read_to_string(oauth2_client_json)?;
@@ -157,7 +154,7 @@ impl Auth {
         }
     }
 
-    pub(crate) async fn setup_auth_router(
+    pub(crate) async fn setup_route(
         &mut self,
         mut router: Router,
     ) -> Result<Router, Box<dyn std::error::Error>> {
@@ -264,17 +261,6 @@ impl Auth {
                             certs,
                             client_json,
                         )
-                    }
-                }),
-            )
-            .route(
-                "/google_home/fulfillment",
-                routing::post({
-                    let db = cache.clone();
-                    let certs = self.certs.clone();
-                    let client_json = self.client_json.clone();
-                    |headers: HeaderMap, json: Json<FulfillmentRequest>| {
-                        Self::google_home_fulfillment_handler(headers, json, db, certs, client_json)
                     }
                 }),
             )
