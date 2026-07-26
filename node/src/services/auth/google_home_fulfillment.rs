@@ -22,7 +22,7 @@ struct Intent {
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub(super) struct FulfillmentRequest {
-    #[serde(alias = "requestId")]
+    #[serde(rename = "requestId")]
     request_id: String,
     inputs: Vec<Intent>,
 }
@@ -34,12 +34,15 @@ struct Name {
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 struct LightColorTemperatureRange {
+    #[serde(rename = "temperatureMinK")]
     temperature_min_k: i64,
+    #[serde(rename = "temperatureMaxK")]
     temperature_max_k: i64,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 struct Attributes {
+    #[serde(rename = "colorTemperatureRange")]
     color_temperature_range: Option<LightColorTemperatureRange>,
 }
 
@@ -47,36 +50,36 @@ struct Attributes {
 struct DeviceInfo {
     manufacturer: String,
     model: String,
-    #[serde(alias = "hwVersion")]
+    #[serde(rename = "hwVersion")]
     hw_version: String,
-    #[serde(alias = "swVersion")]
+    #[serde(rename = "swVersion")]
     sw_version: String,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 struct Device {
     id: String,
-    #[serde(alias = "type")]
+    #[serde(rename = "type")]
     device_type: String,
     traits: Vec<String>,
     name: Name,
-    #[serde(alias = "willReportState")]
+    #[serde(rename = "willReportState")]
     will_report_state: bool,
     attributes: Attributes,
-    #[serde(alias = "deviceInfo")]
+    #[serde(rename = "deviceInfo")]
     device_info: DeviceInfo,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub(super) struct Payload {
-    #[serde(alias = "agentUserId")]
+    #[serde(rename = "agentUserId")]
     agent_user_id: String,
-    devices: Vec<Device>,
+    devices: Option<Vec<Device>>,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub(super) struct FulfillmentResponse {
-    #[serde(alias = "requestId")]
+    #[serde(rename = "requestId")]
     request_id: String,
     payload: Payload,
 }
@@ -129,7 +132,7 @@ impl Auth {
                         request_id,
                         payload: Payload {
                             agent_user_id: sub.clone(),
-                            devices: vec![Device {
+                            devices: Some(vec![Device {
                                 id: format!("{}_dlight", sub.clone()),
                                 device_type: "action.devices.types.LIGHT".to_string(),
                                 traits: [
@@ -154,14 +157,21 @@ impl Auth {
                                     hw_version: "1".to_string(),
                                     sw_version: "1".to_string(),
                                 },
-                            }],
+                            }]),
                         },
                     };
 
                     return Json(response).into_response();
                 }
                 _ => {
-                    tracing::warn!("Unhandled {json:#?}");
+                    let response = FulfillmentResponse {
+                        request_id,
+                        payload: Payload {
+                            agent_user_id: sub.clone(),
+                            devices: None,
+                        },
+                    };
+                    return Json(response).into_response();
                 }
             }
         }
