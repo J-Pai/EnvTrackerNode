@@ -29,7 +29,7 @@ pub(super) struct OAuth2TokenRequest {
     grant_type: String,
     code: Option<String>,
     refresh_token: Option<String>,
-    redirect_uri: String,
+    redirect_uri: Option<String>,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
@@ -155,7 +155,8 @@ impl Auth {
             }
 
             if let Some(redirect_uri) = redirect_uri
-                && redirect_uri != &form.redirect_uri
+                && let Some(form_redirect_uri) = &form.redirect_uri
+                && redirect_uri != form_redirect_uri
             {
                 if let Err(e) = db.invalidate_code_verifier(&code).await {
                     tracing::error!("Failed to update state: {e}");
@@ -174,7 +175,8 @@ impl Auth {
                 ),
             ]);
 
-            let Ok(mut body) = Self::oauth2_token_request(&google_home_client_json, form).await else {
+            let Ok(mut body) = Self::oauth2_token_request(&google_home_client_json, form).await
+            else {
                 tracing::error!("OAuth2 token request failed");
                 return invalid_response;
             };
@@ -256,7 +258,8 @@ impl Auth {
                 ("refresh_token", stored_refresh_token.clone()),
             ]);
 
-            let Ok(mut body) = Self::oauth2_token_request(&google_home_client_json, form).await else {
+            let Ok(mut body) = Self::oauth2_token_request(&google_home_client_json, form).await
+            else {
                 return invalid_response;
             };
 
