@@ -7,7 +7,6 @@ use axum_oidc_client::auth_cache::AuthCache;
 use http::HeaderMap;
 
 use crate::services::db::Db;
-use crate::services::google_home::fulfillment::FulfillmentRequest;
 
 mod fulfillment;
 
@@ -30,7 +29,7 @@ impl GoogleHome {
             "/google_home/fulfillment",
             routing::post({
                 let db = cache.clone();
-                |headers: HeaderMap, json: Json<FulfillmentRequest>| {
+                |headers: HeaderMap, json: Json<fulfillment::request::Request>| {
                     Self::google_home_fulfillment_handler(headers, json, db)
                 }
             }),
