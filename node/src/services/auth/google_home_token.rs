@@ -9,6 +9,8 @@ use axum::response::IntoResponse;
 use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::auth_session::AuthSession;
 use axum_oidc_client::jwt::DecodingKey;
+use chrono::DateTime;
+use chrono::Local;
 use http::HeaderMap;
 use http::StatusCode;
 use reqwest_middleware::ClientBuilder;
@@ -18,6 +20,7 @@ use url::Url;
 
 use crate::services::auth::Auth;
 use crate::services::auth::ClientJsonWeb;
+use crate::services::db::Db;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub(super) struct OAuth2TokenRequest {
@@ -29,11 +32,19 @@ pub(super) struct OAuth2TokenRequest {
     redirect_uri: String,
 }
 
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub(super) struct OAuth2Token {
+    token_type: String,
+    access_token: String,
+    refresh_token: Option<String>,
+    expires_in: i64,
+}
+
 impl Auth {
     async fn oauth2_token_request(
         google_home_client_json: &ClientJsonWeb,
         mut form: HashMap<&str, String>,
-    ) -> Result<AuthSession, ()> {
+    ) -> Result<OAuth2Token, ()> {
         form.insert("client_id", google_home_client_json.client_id.clone());
         form.insert(
             "client_secret",
@@ -68,7 +79,9 @@ impl Auth {
             return Err(());
         }
 
-        let body = serde_json::from_str::<AuthSession>(body).unwrap();
+        tracing::info!("OAuth2 Raw Response: {body:#?}");
+
+        let body = serde_json::from_str::<OAuth2Token>(body).unwrap();
 
         tracing::info!("OAuth2 Response: {body:#?}");
 
@@ -161,13 +174,22 @@ impl Auth {
                 ),
             ]);
 
-            let Ok(body) = Self::oauth2_token_request(&google_home_client_json, form).await else {
+            let Ok(mut body) = Self::oauth2_token_request(&google_home_client_json, form).await else {
+                tracing::error!("OAuth2 token request failed");
                 return invalid_response;
             };
 
+            let Some(refresh_token) = &body.refresh_token else {
+                tracing::error!("Failed to obtain Google Home refresh token.");
+                return invalid_response;
+            };
+
+            let utc = DateTime::from_timestamp(Db::expires_at(body.expires_in), 0).unwrap();
             let updated_auth_session = AuthSession {
-                id_token: auth_session.id_token,
-                ..body.clone()
+                access_token: body.access_token.clone(),
+                refresh_token: Some(refresh_token.clone()),
+                expires: Some(DateTime::<Local>::from(utc)),
+                ..auth_session
             };
 
             if let Err(e) = db
@@ -180,11 +202,6 @@ impl Auth {
                 tracing::error!("Failed to save Google Home token: {e}");
                 return invalid_response;
             }
-
-            let Some(refresh_token) = &body.refresh_token else {
-                tracing::error!("Failed to obtain Google Home refresh token.");
-                return invalid_response;
-            };
 
             if let Err(e) = db
                 .set_auth_session(
@@ -209,14 +226,13 @@ impl Auth {
                 return invalid_response;
             }
 
-            tracing::info!("Google Home Authorization Tokens: {:#?}", body);
-
             if let Err(e) = db.invalidate_auth_session(session_id).await {
                 tracing::error!("Failed to invalidate Google Home link session. {e}");
                 return invalid_response;
             };
 
-            return (StatusCode::OK, Json::from(body)).into_response();
+            body.expires_in = 60;
+            return Json::from(&body).into_response();
         } else if &form.grant_type == "refresh_token"
             && let Some(refresh_token) = &form.refresh_token
             && let Ok(Some(auth_session)) = db
@@ -240,19 +256,20 @@ impl Auth {
                 ("refresh_token", stored_refresh_token.clone()),
             ]);
 
-            let Ok(body) = Self::oauth2_token_request(&google_home_client_json, form).await else {
+            let Ok(mut body) = Self::oauth2_token_request(&google_home_client_json, form).await else {
                 return invalid_response;
             };
 
+            let utc = DateTime::from_timestamp(Db::expires_at(body.expires_in), 0).unwrap();
             let updated_auth_session = AuthSession {
                 access_token: body.access_token.clone(),
-                expires: body.expires.clone(),
+                expires: Some(DateTime::<Local>::from(utc)),
                 ..auth_session
             };
 
             if let Err(e) = db
                 .set_auth_session(
-                    &format!("google_home_refresh_token|{}", refresh_token),
+                    &format!("google_home_auth_token|{}", body.access_token),
                     updated_auth_session,
                 )
                 .await
@@ -273,9 +290,11 @@ impl Auth {
                 return invalid_response;
             }
 
-            return (StatusCode::OK, Json::from(body)).into_response();
+            body.expires_in = 60;
+            return Json::from(&body).into_response();
         }
 
+        tracing::error!("Unknown grant type. {form:#?}");
         invalid_response
     }
 }

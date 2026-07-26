@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::Form;
+use axum::Json;
 use axum::Router;
 use axum::extract::OriginalUri;
 use axum::extract::Query;
@@ -35,6 +36,7 @@ use url::Url;
 
 use crate::config::OAuth2Config;
 use crate::services::auth::google_home_callback::OAuth2CallbackRequest;
+use crate::services::auth::google_home_fulfillment::FulfillmentRequest;
 use crate::services::auth::google_home_link::OAuth2AuthRequest;
 use crate::services::auth::google_home_token::OAuth2TokenRequest;
 use crate::services::db::Db;
@@ -268,7 +270,12 @@ impl Auth {
             .route(
                 "/google_home/fulfillment",
                 routing::post({
-                    |headers: HeaderMap| Self::google_home_fulfillment_handler(headers)
+                    let db = cache.clone();
+                    let certs = self.certs.clone();
+                    let client_json = self.client_json.clone();
+                    |headers: HeaderMap, json: Json<FulfillmentRequest>| {
+                        Self::google_home_fulfillment_handler(headers, json, db, certs, client_json)
+                    }
                 }),
             )
             .layer(AuthenticationLayer::new(

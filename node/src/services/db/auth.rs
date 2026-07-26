@@ -91,7 +91,7 @@ impl Db {
     }
 
     #[inline]
-    fn expires_at(ttl_sec: i64) -> i64 {
+    pub(crate) fn expires_at(ttl_sec: i64) -> i64 {
         Self::now_timestamp() + ttl_sec
     }
 
