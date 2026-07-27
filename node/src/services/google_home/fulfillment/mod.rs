@@ -99,6 +99,11 @@ impl GoogleHome {
                         response.add_device(id.to_string(), device.read().await.get_query_value());
                 }
             }
+            Some(Intent::Execute(commands)) => {
+                response = response.set_intent(Intent::Execute(vec![]));
+
+                for command in commands {}
+            }
             Some(Intent::Disconnect) => {
                 if let Err(e) = db
                     .invalidate_auth_session(&format!(

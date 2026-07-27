@@ -99,6 +99,20 @@ impl Response {
         self
     }
 
+    pub(crate) fn add_command_status(
+        mut self,
+        ids: Vec<String>,
+        status: String,
+        states: Value,
+        error_code: String,
+    ) -> Self {
+        match self.handling_intent {
+            Some(Intent::Execute(_)) => {}
+            _ => {}
+        }
+        self
+    }
+
     pub(crate) fn error_payload(mut self, error_code: String) -> Self {
         let mut error = Map::new();
         error.insert(

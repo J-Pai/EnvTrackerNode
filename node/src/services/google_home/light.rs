@@ -120,4 +120,8 @@ impl Device for DLight {
         fields.insert("color".to_string(), Value::Object(color));
         serde_json::Value::Object(fields)
     }
+
+    fn execute_actions(&mut self, execution: Vec<Value>) -> Value {
+
+    }
 }

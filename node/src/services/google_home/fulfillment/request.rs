@@ -9,11 +9,15 @@ pub(crate) struct Request {
     inputs: Vec<Value>,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Command {
+    devices: Vec<Value>,
+    execution: Vec<Value>,
+}
+
 pub(crate) enum Intent {
     Sync,
     Query(Vec<Value>),
-    Execute,
+    Execute(Vec<Command>),
     Disconnect,
 }
 
@@ -52,7 +56,43 @@ impl Request {
                 };
                 Some(Intent::Query(devices.clone()))
             }
-            Some("action.devices.EXECUTE") => Some(Intent::Execute),
+            Some("action.devices.EXECUTE") => {
+                let Some(payload) = intent.get("payload") else {
+                    return None;
+                };
+                let Some(commands) = payload.as_object() else {
+                    return None;
+                };
+                let Some(commands) = commands.get("commands") else {
+                    return None;
+                };
+                let Some(commands) = commands.as_array() else {
+                    return None;
+                };
+
+                let mut parsed_commands: Vec<Command> = vec![];
+
+                for command in commands {
+                    let Some(devices) = command.get("devices") else {
+                        continue;
+                    };
+                    let Some(devices) = devices.as_array() else {
+                        continue;
+                    };
+                    let Some(execution) = command.get("execution") else {
+                        continue;
+                    };
+                    let Some(execution) = execution.as_array() else {
+                        continue;
+                    };
+                    parsed_commands.push(Command {
+                        devices: devices.clone(),
+                        execution: execution.clone(),
+                    });
+                }
+
+                Some(Intent::Execute(parsed_commands))
+            }
             Some("action.devices.DISCONNECT") => Some(Intent::Disconnect),
             _ => None,
         }
