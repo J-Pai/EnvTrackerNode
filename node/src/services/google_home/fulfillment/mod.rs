@@ -7,6 +7,7 @@ use axum::Json;
 use axum::response::IntoResponse;
 use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::jwt::decode_jwt_unverified;
+use gcp_auth::TokenProvider;
 use http::HeaderMap;
 use http::StatusCode;
 use http::header::AUTHORIZATION;
@@ -28,6 +29,7 @@ impl GoogleHome {
         headers: HeaderMap,
         Json(json): Json<Request>,
         db: Arc<dyn AuthCache + Send + Sync>,
+        google_home_service_account: Arc<dyn TokenProvider>,
         mut devices: HashMap<String, Arc<RwLock<impl Device>>>,
     ) -> impl IntoResponse {
         let (id, auth_session) = if let Some(bearer_token) = headers.get(AUTHORIZATION)
@@ -59,6 +61,17 @@ impl GoogleHome {
         };
 
         tracing::info!("Request: {}", serde_json::to_string_pretty(&json).unwrap());
+
+        let Ok(token) = google_home_service_account
+            .token(&["https://www.googleapis.com/auth/homegraph"])
+            .await
+            .map_err(|e| {
+                tracing::error!("Google Home API Authorization Token Failure: {e}");
+            })
+        else {
+            tracing::error!("Unable to get Google Home API Authorization Token.");
+            return StatusCode::UNAUTHORIZED.into_response();
+        };
 
         let sub = id.sub;
         let request_id = json.get_request_id();
