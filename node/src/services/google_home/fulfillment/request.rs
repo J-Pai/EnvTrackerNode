@@ -9,11 +9,37 @@ pub(crate) struct Request {
     inputs: Vec<Value>,
 }
 
+#[derive(Debug, serde::Deserialize)]
 pub(crate) struct Command {
     devices: Vec<Value>,
     execution: Vec<Value>,
 }
 
+impl Command {
+    pub(super) fn get_devices(&self) -> Vec<String> {
+        self.devices
+            .iter()
+            .map(|d| {
+                let Some(id) = d.as_object() else {
+                    return String::new();
+                };
+                let Some(id) = id.get("id") else {
+                    return String::new();
+                };
+                let Some(id) = id.as_str() else {
+                    return String::new();
+                };
+                id.to_string()
+            })
+            .collect()
+    }
+
+    pub(super) fn get_execution(&self) -> &Vec<Value> {
+        &self.execution
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
 pub(crate) enum Intent {
     Sync,
     Query(Vec<Value>),

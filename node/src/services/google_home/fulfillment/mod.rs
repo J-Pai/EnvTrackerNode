@@ -28,10 +28,8 @@ impl GoogleHome {
         headers: HeaderMap,
         Json(json): Json<Request>,
         db: Arc<dyn AuthCache + Send + Sync>,
-        devices: HashMap<String, Arc<RwLock<impl Device>>>,
+        mut devices: HashMap<String, Arc<RwLock<impl Device>>>,
     ) -> impl IntoResponse {
-        tracing::info!("HEADERS : {headers:#?}");
-
         let (id, auth_session) = if let Some(bearer_token) = headers.get(AUTHORIZATION)
             && let Ok(bearer_token) = bearer_token.to_str()
         {
@@ -60,7 +58,7 @@ impl GoogleHome {
             return StatusCode::UNAUTHORIZED.into_response();
         };
 
-        tracing::info!("[{}] JSON: {json:#?}", id.email.unwrap());
+        tracing::info!("Request: {}", serde_json::to_string_pretty(&json).unwrap());
 
         let sub = id.sub;
         let request_id = json.get_request_id();
@@ -102,7 +100,27 @@ impl GoogleHome {
             Some(Intent::Execute(commands)) => {
                 response = response.set_intent(Intent::Execute(vec![]));
 
-                for command in commands {}
+                let mut result: HashMap<Value, Vec<String>> = HashMap::new();
+
+                for command in commands {
+                    for device_id in command.get_devices() {
+                        if let Some(device) = devices.get_mut(&device_id) {
+                            let device_result = device
+                                .write()
+                                .await
+                                .execute_actions(command.get_execution());
+                            let ids = match result.get_mut(&device_result) {
+                                Some(ids) => ids,
+                                None => {
+                                    result.insert(device_result.clone(), vec![]);
+                                    result.get_mut(&device_result).unwrap()
+                                }
+                            };
+                            ids.push(device_id);
+                        }
+                    }
+                }
+                response = response.add_command_status(result);
             }
             Some(Intent::Disconnect) => {
                 if let Err(e) = db

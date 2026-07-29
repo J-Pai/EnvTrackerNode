@@ -1,36 +1,4 @@
 //! Structure representing a smart lights.
-//! let response = FulfillmentResponse {
-//!     request_id,
-//!     payload: Payload {
-//!         agent_user_id: Some(sub.clone()),
-//!         devices: Some(vec![Device {
-//!             id: format!("{}_dlight", sub.clone()),
-//!             device_type: "action.devices.types.LIGHT".to_string(),
-//!             traits: [
-//!                 "action.devices.traits.ColorSetting".to_string(),
-//!                 "action.devices.traits.Brightness".to_string(),
-//!                 "action.devices.traits.OnOff".to_string(),
-//!             ]
-//!             .to_vec(),
-//!             name: Name {
-//!                 name: "glamp".to_string(),
-//!             },
-//!             will_report_state: false,
-//!             attributes: Attributes {
-//!                 color_temperature_range: Some(LightColorTemperatureRange {
-//!                     temperature_min_k: 2600,
-//!                     temperature_max_k: 6000,
-//!                 }),
-//!             },
-//!             device_info: DeviceInfo {
-//!                 manufacturer: "Me".to_string(),
-//!                 model: "dLight".to_string(),
-//!                 hw_version: "1".to_string(),
-//!                 sw_version: "1".to_string(),
-//!             },
-//!         }]),
-//!     },
-//! };
 
 use serde_json::Map;
 use serde_json::Number;
@@ -121,7 +89,125 @@ impl Device for DLight {
         serde_json::Value::Object(fields)
     }
 
-    fn execute_actions(&mut self, execution: Vec<Value>) -> Value {
+    fn execute_actions(&mut self, execution: &Vec<Value>) -> Value {
+        let mut fields = Map::new();
 
+        tracing::info!("EXECUTION: {execution:#?}");
+
+        fields.insert("status".to_string(), Value::String("ERROR".to_string()));
+        fields.insert(
+            "errorCode".to_string(),
+            Value::String("transientError".to_string()),
+        );
+
+        let mut success = true;
+
+        let mut on_set = false;
+        let mut brightness_set = false;
+        let mut color_set = false;
+
+        for action in execution {
+            let Some(action) = action.as_object() else {
+                success = false;
+                break;
+            };
+            let Some(command) = action.get("command") else {
+                success = false;
+                break;
+            };
+            let Some(params) = action.get("params") else {
+                success = false;
+                break;
+            };
+            let Some(params) = params.as_object() else {
+                success = false;
+                break;
+            };
+            match command.as_str() {
+                Some("action.devices.commands.OnOff") => {
+                    let Some(on) = params.get("on") else {
+                        success = false;
+                        break;
+                    };
+
+                    let Some(on) = on.as_bool() else {
+                        success = false;
+                        break;
+                    };
+
+                    self.on = on;
+                    on_set = true;
+                }
+                Some("action.devices.commands.BrightnessAbsolute") => {
+                    let Some(brightness) = params.get("brightness") else {
+                        success = false;
+                        break;
+                    };
+
+                    let Some(brightness) = brightness.as_u64() else {
+                        success = false;
+                        break;
+                    };
+
+                    self.brightness = brightness;
+                    brightness_set = true;
+                }
+                Some("action.devices.commands.ColorAbsolute") => {
+                    let Some(color) = params.get("color") else {
+                        success = false;
+                        break;
+                    };
+                    let Some(color) = color.as_object() else {
+                        success = false;
+                        break;
+                    };
+                    let Some(temperature) = color.get("temperature") else {
+                        success = false;
+                        break;
+                    };
+
+                    let Some(temperature) = temperature.as_u64() else {
+                        success = false;
+                        break;
+                    };
+
+                    self.temperature = temperature;
+                    color_set = true;
+                }
+                _ => {}
+            }
+        }
+
+        if success {
+            fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));
+            fields.remove(&"errorCode".to_string());
+
+            let mut state = Map::new();
+            state.insert("online".to_string(), Value::Bool(true));
+
+            if color_set {
+                let mut color = Map::new();
+                color.insert(
+                    "temperatureK".to_string(),
+                    Value::Number(Number::from(self.temperature)),
+                );
+                state.insert("color".to_string(), Value::Object(color));
+            }
+
+            if brightness_set {
+                state.insert(
+                    "brightness".to_string(),
+                    Value::Number(Number::from(self.brightness)),
+                );
+            }
+
+            if on_set {
+                state.insert("on".to_string(), Value::Bool(self.on));
+            }
+
+            fields.insert("states".to_string(), Value::Object(state));
+        }
+
+        Value::Object(fields)
     }
 }

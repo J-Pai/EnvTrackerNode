@@ -1,11 +1,13 @@
 //! Generator for Fulfillment responses.
 
+use std::collections::HashMap;
+
 use axum::Json;
 use axum::response::IntoResponse;
 use serde_json::Map;
 use serde_json::Value;
 
-use crate::{error::NodeError, services::google_home::fulfillment::request::Intent};
+use crate::services::google_home::fulfillment::request::Intent;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub(crate) struct Response {
@@ -101,15 +103,30 @@ impl Response {
 
     pub(crate) fn add_command_status(
         mut self,
-        ids: Vec<String>,
-        status: String,
-        states: Value,
-        error_code: String,
+        command_result: HashMap<Value, Vec<String>>,
     ) -> Self {
         match self.handling_intent {
             Some(Intent::Execute(_)) => {}
-            _ => {}
+            _ => {
+                return self;
+            }
         }
+
+        let mut result: Vec<Value> = vec![];
+
+        for (mut k, v) in command_result {
+            let ids = Value::Array(v.iter().map(|i| Value::String(i.clone())).collect());
+            let Some(state) = k.as_object_mut() else {
+                continue;
+            };
+            state.insert("ids".to_string(), ids);
+            result.push(Value::Object(state.clone()));
+        }
+
+        let mut payload = Map::new();
+        payload.insert("commands".to_string(), Value::Array(result));
+        self.payload = Value::Object(payload);
+
         self
     }
 
@@ -129,11 +146,14 @@ impl Response {
     }
 
     pub(crate) fn build(
-        self,
+        mut self,
     ) -> Result<axum::http::Response<axum::body::Body>, Box<dyn std::error::Error>> {
         if self.payload.is_null() {
-            return Err(NodeError::new("Incomplete Payload"));
+            self = self.error_payload("transientError".to_string());
         }
+
+        tracing::info!("Payload: {:#?} {:#?}", self.handling_intent, self.payload);
+        tracing::info!("JSON:\n{}", serde_json::to_string_pretty(&self).unwrap());
 
         Ok(Json(self).into_response())
     }

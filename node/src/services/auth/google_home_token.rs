@@ -175,7 +175,7 @@ impl Auth {
                 ),
             ]);
 
-            let Ok(mut body) = Self::oauth2_token_request(&google_home_client_json, form).await
+            let Ok(body) = Self::oauth2_token_request(&google_home_client_json, form).await
             else {
                 tracing::error!("OAuth2 token request failed");
                 return invalid_response;
@@ -233,7 +233,6 @@ impl Auth {
                 return invalid_response;
             };
 
-            body.expires_in = 60;
             return Json::from(&body).into_response();
         } else if &form.grant_type == "refresh_token"
             && let Some(refresh_token) = &form.refresh_token
@@ -272,7 +271,7 @@ impl Auth {
                 ("refresh_token", stored_refresh_token.clone()),
             ]);
 
-            let Ok(mut body) = Self::oauth2_token_request(&google_home_client_json, form).await
+            let Ok(body) = Self::oauth2_token_request(&google_home_client_json, form).await
             else {
                 return invalid_response;
             };
@@ -318,7 +317,6 @@ impl Auth {
                 return invalid_response;
             }
 
-            body.expires_in = 60;
             return Json::from(&body).into_response();
         }
 
