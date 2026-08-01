@@ -7,6 +7,7 @@ use axum::Json;
 use axum::response::IntoResponse;
 use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::jwt::decode_jwt_unverified;
+use futures_util::TryFutureExt;
 use gcp_auth::TokenProvider;
 use http::HeaderMap;
 use http::StatusCode;
@@ -30,7 +31,7 @@ impl GoogleHome {
         headers: HeaderMap,
         Json(json): Json<Request>,
         db: Arc<dyn AuthCache + Send + Sync>,
-        _google_home_service_account: Arc<dyn TokenProvider>,
+        google_home_service_account: Arc<dyn TokenProvider>,
         mut devices: HashMap<String, Arc<RwLock<impl Device>>>,
     ) -> impl IntoResponse {
         let (id, auth_session) = if let Some(bearer_token) = headers.get(AUTHORIZATION)
@@ -61,12 +62,10 @@ impl GoogleHome {
             return StatusCode::UNAUTHORIZED.into_response();
         };
 
-        tracing::info!("Request: {}", serde_json::to_string_pretty(&json).unwrap());
-
         let sub = id.sub;
         let request_id = json.get_request_id();
 
-        let mut response = Response::new(request_id, sub);
+        let mut response = Response::new(request_id.clone(), sub.clone());
         let Some(intent) = json.get_inputs().first() else {
             tracing::error!("No intents to process. {json:#?}");
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
@@ -152,6 +151,22 @@ impl GoogleHome {
                 response = response.error_payload(String::new());
             }
         }
+
+        if Self::report_state(
+            google_home_service_account,
+            request_id,
+            sub,
+            response.get_intent(),
+            &response,
+        )
+        .map_err(|e| {
+            tracing::error!("Issue with reporting state: {e}");
+        })
+        .await
+        .is_err()
+        {
+            response = response.error_payload(String::new());
+        };
 
         response
             .build()

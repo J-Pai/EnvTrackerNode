@@ -13,7 +13,7 @@ use crate::services::google_home::fulfillment::request::Intent;
 pub(crate) struct Response {
     #[serde(rename = "requestId")]
     request_id: String,
-    payload: Value,
+    pub(crate) payload: Value,
     #[serde(skip_serializing)]
     agent_user_id: String,
     #[serde(skip_serializing)]
@@ -36,6 +36,10 @@ impl Response {
         }
         self.handling_intent = Some(intent);
         self
+    }
+
+    pub(super) fn get_intent(&self) -> Option<Intent> {
+        self.handling_intent.clone()
     }
 
     pub(crate) fn add_device(mut self, id: String, value: Value) -> Self {
@@ -151,9 +155,6 @@ impl Response {
         if self.payload.is_null() {
             self = self.error_payload("transientError".to_string());
         }
-
-        tracing::info!("Payload: {:#?} {:#?}", self.handling_intent, self.payload);
-        tracing::info!("JSON:\n{}", serde_json::to_string_pretty(&self).unwrap());
 
         Ok(Json(self).into_response())
     }

@@ -42,7 +42,7 @@ impl Device for DLight {
         let mut name = Map::new();
         name.insert("name".to_string(), Value::String(self.name.clone()));
         fields.insert("name".to_string(), Value::Object(name));
-        fields.insert("willReportState".to_string(), Value::Bool(false));
+        fields.insert("willReportState".to_string(), Value::Bool(true));
         let mut attributes = Map::new();
         let mut color_temperature_range = Map::new();
         color_temperature_range.insert(
@@ -91,8 +91,6 @@ impl Device for DLight {
 
     fn execute_actions(&mut self, execution: &[Value]) -> Value {
         let mut fields = Map::new();
-
-        tracing::info!("EXECUTION: {execution:#?}");
 
         fields.insert("status".to_string(), Value::String("ERROR".to_string()));
         fields.insert(

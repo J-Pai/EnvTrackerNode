@@ -9,7 +9,7 @@ pub(crate) struct Request {
     inputs: Vec<Value>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub(crate) struct Command {
     devices: Vec<Value>,
     execution: Vec<Value>,
@@ -39,7 +39,7 @@ impl Command {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub(crate) enum Intent {
     Sync,
     Query(Vec<Value>),
