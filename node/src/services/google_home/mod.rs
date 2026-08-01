@@ -29,7 +29,7 @@ pub(crate) struct GoogleHome {
 trait Device {
     fn get_sync_value(&self) -> Value;
     fn get_query_value(&self) -> Value;
-    fn execute_actions(&mut self, execution: &Vec<Value>) -> Value;
+    fn execute_actions(&mut self, execution: &[Value]) -> Value;
 }
 
 impl GoogleHome {
@@ -64,13 +64,7 @@ impl GoogleHome {
                     HashMap::from([(self.dlight.read().await.id.clone(), self.dlight.clone())]);
                 let service_account = self.google_home_service_account.clone();
                 |headers: HeaderMap, json: Json<fulfillment::request::Request>| {
-                    Self::google_home_fulfillment_handler(
-                        headers,
-                        json,
-                        db,
-                        service_account,
-                        devices,
-                    )
+                    Self::fulfillment_handler(headers, json, db, service_account, devices)
                 }
             }),
         );

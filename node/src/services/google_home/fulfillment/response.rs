@@ -1,14 +1,9 @@
 //! Generator for Fulfillment responses.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::Arc;
 
 use axum::Json;
 use axum::response::IntoResponse;
-use gcp_auth::CustomServiceAccount;
-use gcp_auth::Token;
-use gcp_auth::TokenProvider;
 use serde_json::Map;
 use serde_json::Value;
 

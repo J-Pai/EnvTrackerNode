@@ -1,8 +1,5 @@
 //! Handler for initiating link with Google Home.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-
 use axum::extract::OriginalUri;
 use axum::extract::Query;
 use axum::response::Html;
@@ -10,17 +7,14 @@ use axum::response::IntoResponse;
 use axum::response::Redirect;
 use axum_extra::extract::PrivateCookieJar;
 use axum_oidc_client::auth::SESSION_KEY;
-use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::auth_session::AuthSession;
-use axum_oidc_client::jwt::DecodingKey;
 use http::HeaderMap;
 use http::StatusCode;
-use tokio::sync::RwLock;
 use tower_sessions::cookie::Key;
 use url::Url;
 
 use crate::services::auth::Auth;
-use crate::services::auth::ClientJsonWeb;
+use crate::services::auth::ServerState;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub(super) struct OAuth2AuthRequest {
@@ -38,11 +32,13 @@ impl Auth {
         session: AuthSession,
         Query(query): Query<OAuth2AuthRequest>,
         OriginalUri(uri): OriginalUri,
-        base: Url,
-        certs: Arc<RwLock<HashMap<String, DecodingKey>>>,
-        db: Arc<dyn AuthCache + Send + Sync>,
-        client_json: ClientJsonWeb,
-        google_home_client_json: ClientJsonWeb,
+        ServerState {
+            base,
+            db,
+            certs,
+            client_json,
+            google_home_client_json,
+        }: ServerState,
     ) -> impl IntoResponse {
         let Ok(_) = Self::validate_session(certs, &session, &[client_json.client_id])
             .await
@@ -81,7 +77,7 @@ impl Auth {
         let session_id = session_cookie.value();
 
         let redirect_uri = if let Some(redirect_uri) = &query.redirect_uri
-            && let Ok(redirect_uri) = Url::parse(&redirect_uri)
+            && let Ok(redirect_uri) = Url::parse(redirect_uri)
             && redirect_uri.path() == format!("/r/{}", google_home_client_json.project_id)
             && let Some(host) = redirect_uri.host_str()
             && (host == "oauth-redirect.googleusercontent.com"

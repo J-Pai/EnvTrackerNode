@@ -157,11 +157,9 @@ impl OAuth2Config {
     }
 
     pub(crate) fn get_google_home_client_json(&self) -> Option<PathBuf> {
-        if let Some(json) = self.google_home_client_secret_json.clone() {
-            Some(PathBuf::from(json))
-        } else {
-            None
-        }
+        self.google_home_client_secret_json
+            .clone()
+            .map(PathBuf::from)
     }
 
     pub(crate) fn get_redirect_uri_base(&self) -> Url {

@@ -89,7 +89,7 @@ impl Device for DLight {
         serde_json::Value::Object(fields)
     }
 
-    fn execute_actions(&mut self, execution: &Vec<Value>) -> Value {
+    fn execute_actions(&mut self, execution: &[Value]) -> Value {
         let mut fields = Map::new();
 
         tracing::info!("EXECUTION: {execution:#?}");

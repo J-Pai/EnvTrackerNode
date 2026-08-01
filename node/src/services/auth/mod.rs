@@ -69,6 +69,14 @@ pub(crate) struct Auth {
     cookie_secret_key: Vec<u8>,
 }
 
+pub(crate) struct ServerState {
+    base: Url,
+    db: Arc<dyn AuthCache + Send + Sync>,
+    certs: Arc<RwLock<HashMap<String, DecodingKey>>>,
+    client_json: ClientJsonWeb,
+    google_home_client_json: ClientJsonWeb,
+}
+
 impl Auth {
     pub(crate) async fn new(
         oauth2_config: &OAuth2Config,
@@ -203,11 +211,13 @@ impl Auth {
                             session,
                             query,
                             uri,
-                            base,
-                            certs,
-                            db,
-                            client_json,
-                            google_home_client_json,
+                            ServerState {
+                                base,
+                                db,
+                                certs,
+                                client_json,
+                                google_home_client_json,
+                            },
                         )
                     }
                 }),
@@ -225,11 +235,13 @@ impl Auth {
                         Self::google_home_token_handler(
                             headers,
                             params,
-                            certs,
-                            base,
-                            db,
-                            client_json,
-                            google_home_client_json,
+                            ServerState {
+                                base,
+                                db,
+                                certs,
+                                client_json,
+                                google_home_client_json,
+                            },
                         )
                     }
                 }),

@@ -57,44 +57,24 @@ impl Request {
     }
 
     pub(crate) fn parse_intent(intent: &Value) -> Option<Intent> {
-        let Some(intent) = intent.as_object() else {
-            return None;
-        };
+        let intent = intent.as_object()?;
 
-        let Some(intent_type) = intent.get("intent") else {
-            return None;
-        };
+        let intent_type = intent.get("intent")?;
 
         match intent_type.as_str() {
             Some("action.devices.SYNC") => Some(Intent::Sync),
             Some("action.devices.QUERY") => {
-                let Some(payload) = intent.get("payload") else {
-                    return None;
-                };
-                let Some(devices) = payload.as_object() else {
-                    return None;
-                };
-                let Some(devices) = devices.get("devices") else {
-                    return None;
-                };
-                let Some(devices) = devices.as_array() else {
-                    return None;
-                };
+                let payload = intent.get("payload")?;
+                let devices = payload.as_object()?;
+                let devices = devices.get("devices")?;
+                let devices = devices.as_array()?;
                 Some(Intent::Query(devices.clone()))
             }
             Some("action.devices.EXECUTE") => {
-                let Some(payload) = intent.get("payload") else {
-                    return None;
-                };
-                let Some(commands) = payload.as_object() else {
-                    return None;
-                };
-                let Some(commands) = commands.get("commands") else {
-                    return None;
-                };
-                let Some(commands) = commands.as_array() else {
-                    return None;
-                };
+                let payload = intent.get("payload")?;
+                let commands = payload.as_object()?;
+                let commands = commands.get("commands")?;
+                let commands = commands.as_array()?;
 
                 let mut parsed_commands: Vec<Command> = vec![];
 

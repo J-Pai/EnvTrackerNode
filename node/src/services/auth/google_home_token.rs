@@ -1,25 +1,21 @@
 //! Handler for Google Home token requesters.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use axum::Form;
 use axum::Json;
 use axum::response::IntoResponse;
-use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::auth_session::AuthSession;
-use axum_oidc_client::jwt::DecodingKey;
 use chrono::DateTime;
 use chrono::Local;
 use http::HeaderMap;
 use http::StatusCode;
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
-use tokio::sync::RwLock;
-use url::Url;
 
 use crate::services::auth::Auth;
 use crate::services::auth::ClientJsonWeb;
+use crate::services::auth::ServerState;
 use crate::services::db::Db;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
@@ -91,11 +87,13 @@ impl Auth {
     pub(super) async fn google_home_token_handler(
         headers: HeaderMap,
         Form(form): Form<OAuth2TokenRequest>,
-        certs: Arc<RwLock<HashMap<String, DecodingKey>>>,
-        base: Url,
-        db: Arc<dyn AuthCache + Send + Sync>,
-        client_json: ClientJsonWeb,
-        google_home_client_json: ClientJsonWeb,
+        ServerState {
+            base,
+            db,
+            certs,
+            client_json,
+            google_home_client_json,
+        }: ServerState,
     ) -> impl IntoResponse {
         tracing::info!("HEADERS : {headers:#?}");
 
@@ -122,14 +120,14 @@ impl Auth {
             let redirect_uri = parts.next();
 
             if session_id.is_none() || redirect_uri.is_none() {
-                if let Err(e) = db.invalidate_code_verifier(&code).await {
+                if let Err(e) = db.invalidate_code_verifier(code).await {
                     tracing::error!("Failed to update state: {e}");
                 }
                 tracing::error!("Bad state in DB: {form:#?}");
                 return invalid_response;
             }
 
-            if let Err(e) = db.invalidate_code_verifier(&code).await {
+            if let Err(e) = db.invalidate_code_verifier(code).await {
                 tracing::error!("Failed to update state: {e}");
                 return invalid_response;
             }
@@ -158,7 +156,7 @@ impl Auth {
                 && let Some(form_redirect_uri) = &form.redirect_uri
                 && redirect_uri != form_redirect_uri
             {
-                if let Err(e) = db.invalidate_code_verifier(&code).await {
+                if let Err(e) = db.invalidate_code_verifier(code).await {
                     tracing::error!("Failed to update state: {e}");
                 }
 
@@ -175,8 +173,7 @@ impl Auth {
                 ),
             ]);
 
-            let Ok(body) = Self::oauth2_token_request(&google_home_client_json, form).await
-            else {
+            let Ok(body) = Self::oauth2_token_request(&google_home_client_json, form).await else {
                 tracing::error!("OAuth2 token request failed");
                 return invalid_response;
             };
@@ -245,7 +242,7 @@ impl Auth {
                 return invalid_response;
             };
 
-            if &refresh_token != &stored_refresh_token {
+            if refresh_token != stored_refresh_token {
                 tracing::error!(
                     "Mismatched refresh token. {refresh_token} != {stored_refresh_token}"
                 );
@@ -271,8 +268,7 @@ impl Auth {
                 ("refresh_token", stored_refresh_token.clone()),
             ]);
 
-            let Ok(body) = Self::oauth2_token_request(&google_home_client_json, form).await
-            else {
+            let Ok(body) = Self::oauth2_token_request(&google_home_client_json, form).await else {
                 return invalid_response;
             };
 
