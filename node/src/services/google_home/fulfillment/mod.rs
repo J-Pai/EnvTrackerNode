@@ -75,7 +75,7 @@ impl GoogleHome {
             Some(Intent::Sync) => {
                 response = response.set_intent(Intent::Sync);
                 for (id, device) in devices {
-                    response = response.add_device(id, device.lock().await.get_sync_value());
+                    response = response.add_device(id, device.lock().await.get_sync_value().await);
                 }
             }
             Some(Intent::Query(query_devices)) => {
@@ -95,8 +95,8 @@ impl GoogleHome {
                         continue;
                     };
 
-                    response =
-                        response.add_device(id.to_string(), device.lock().await.get_query_value());
+                    response = response
+                        .add_device(id.to_string(), device.lock().await.get_query_value().await);
                 }
             }
             Some(Intent::Execute(commands)) => {
@@ -107,8 +107,11 @@ impl GoogleHome {
                 for command in commands {
                     for device_id in command.get_devices() {
                         if let Some(device) = devices.get_mut(&device_id) {
-                            let device_result =
-                                device.lock().await.execute_actions(command.get_execution());
+                            let device_result = device
+                                .lock()
+                                .await
+                                .execute_actions(command.get_execution())
+                                .await;
                             let ids = match result.get_mut(&device_result) {
                                 Some(ids) => ids,
                                 None => {

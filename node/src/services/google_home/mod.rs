@@ -29,9 +29,9 @@ pub(crate) struct GoogleHome {
 }
 
 trait Device {
-    fn get_sync_value(&mut self) -> Value;
-    fn get_query_value(&mut self) -> Value;
-    fn execute_actions(&mut self, execution: &[Value]) -> Value;
+    async fn get_sync_value(&mut self) -> Value;
+    async fn get_query_value(&mut self) -> Value;
+    async fn execute_actions(&mut self, execution: &[Value]) -> Value;
 }
 
 impl GoogleHome {

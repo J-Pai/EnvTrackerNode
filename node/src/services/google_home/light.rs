@@ -89,7 +89,7 @@ impl DLight {
         Self::discover(uri).await
     }
 
-    pub(crate) fn mock() -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn _mock() -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             id: "glamp_mock_device".to_string(),
             name: "glamp".to_string(),
@@ -178,7 +178,8 @@ impl DLight {
 }
 
 impl Device for DLight {
-    fn get_sync_value(&mut self) -> serde_json::Value {
+    async fn get_sync_value(&mut self) -> serde_json::Value {
+        let _ = self.query_state().await;
         let mut fields = Map::new();
 
         fields.insert("id".to_string(), Value::String(self.id.clone()));
@@ -234,7 +235,8 @@ impl Device for DLight {
         serde_json::Value::Object(fields)
     }
 
-    fn get_query_value(&mut self) -> Value {
+    async fn get_query_value(&mut self) -> Value {
+        let _ = self.query_state().await;
         let mut fields = Map::new();
         fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));
         fields.insert("online".to_string(), Value::Bool(true));
@@ -252,7 +254,7 @@ impl Device for DLight {
         serde_json::Value::Object(fields)
     }
 
-    fn execute_actions(&mut self, execution: &[Value]) -> Value {
+    async fn execute_actions(&mut self, execution: &[Value]) -> Value {
         let mut fields = Map::new();
 
         fields.insert("status".to_string(), Value::String("ERROR".to_string()));
