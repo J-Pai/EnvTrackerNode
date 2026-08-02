@@ -66,14 +66,18 @@ impl Creator {
         Ok(self)
     }
 
-    pub(super) fn write(self, path: PathBuf) -> ServerConfig {
+    pub(super) fn write(self, path: PathBuf) -> Result<ServerConfig, String> {
         let config = self.config.as_ref().take();
+
+        if !config.commit {
+            return Err("Config was not committed.".to_string());
+        }
 
         let config_text =
             toml::to_string_pretty(&config).expect("Could not convert config to toml.");
         fs::write(&path, config_text).expect("Failed to write config file.");
 
-        config
+        Ok(config)
     }
 }
 

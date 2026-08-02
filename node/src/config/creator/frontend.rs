@@ -121,6 +121,7 @@ impl FrontendServerUi {
     ) -> Result<EventProcessStatus, Handle<Button>> {
         if handle == self.save_button {
             server_config.frontend_server = self.generate_config(window);
+            server_config.commit = true;
         }
         Err(handle)
     }

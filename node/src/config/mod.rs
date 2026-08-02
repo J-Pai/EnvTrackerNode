@@ -15,6 +15,8 @@ mod creator;
 /// Base configuration structure.
 #[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ServerConfig {
+    #[serde(skip_serializing, skip_deserializing)]
+    pub(crate) commit: bool,
     pub(crate) api_server: Option<ApiServerConfig>,
     pub(crate) frontend_server: Option<FrontendServerConfig>,
     pub(crate) node: Option<Node>,
@@ -61,7 +63,8 @@ impl ServerConfig {
                     .unwrap()
                     .create()
                     .unwrap()
-                    .write(path);
+                    .write(path)
+                    .unwrap();
 
                 exit(0);
             }

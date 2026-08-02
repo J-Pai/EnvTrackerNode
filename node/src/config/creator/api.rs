@@ -543,6 +543,7 @@ impl ApiServerUi {
     ) -> Result<EventProcessStatus, Handle<Button>> {
         if handle == self.save_button {
             server_config.api_server = self.generate_config(window);
+            server_config.commit = true;
             return Ok(EventProcessStatus::Processed);
         }
 
