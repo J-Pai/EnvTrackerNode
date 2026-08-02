@@ -43,10 +43,13 @@ struct DLightColor {
     temperature: u64,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct DLightState {
+    #[serde(skip_serializing_if = "Option::is_none")]
     on: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     brightness: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     color: Option<DLightColor>,
 }
 
@@ -115,9 +118,39 @@ impl DLight {
                 commands: None,
             })
             .await?;
+        if resp.status != "SUCCESS"
+            || resp.command_id != uuid.to_string()
+            || resp.device_id != self.device_id
+        {
+            return Err(NodeError::new(
+                format!("DLight Response Error: {resp:#?}").as_str(),
+            ));
+        }
         self.on = resp.states.clone().unwrap().on.unwrap();
         self.brightness = resp.states.clone().unwrap().brightness.unwrap();
         self.temperature = resp.states.clone().unwrap().color.unwrap().temperature;
+        Ok(())
+    }
+
+    async fn execution(&mut self, state: &DLightState) -> Result<(), Box<dyn std::error::Error>> {
+        let uuid = Uuid::new_v4();
+        let resp = self
+            .send_request(&DLightRequest {
+                command_id: uuid.to_string(),
+                device_id: self.device_id.clone(),
+                command_type: DLightCommand::Execute,
+                commands: Some(vec![state.clone()]),
+            })
+            .await?;
+        if resp.status != "SUCCESS"
+            || resp.command_id != uuid.to_string()
+            || resp.device_id != self.device_id
+        {
+            return Err(NodeError::new(
+                format!("DLight Response Error: {resp:#?}").as_str(),
+            ));
+        }
+        self.query_state().await?;
         Ok(())
     }
 
@@ -211,7 +244,7 @@ impl Device for DLight {
         let mut color_temperature_range = Map::new();
         color_temperature_range.insert(
             "temperatureMinK".to_string(),
-            Value::Number(Number::from(2000)),
+            Value::Number(Number::from(2600)),
         );
         color_temperature_range.insert(
             "temperatureMaxK".to_string(),
@@ -348,6 +381,8 @@ impl Device for DLight {
             let mut state = Map::new();
             state.insert("online".to_string(), Value::Bool(true));
 
+            let mut command = DLightState::default();
+
             if color_set {
                 let mut color = Map::new();
                 color.insert(
@@ -355,6 +390,9 @@ impl Device for DLight {
                     Value::Number(Number::from(self.temperature)),
                 );
                 state.insert("color".to_string(), Value::Object(color));
+                command.color = Some(DLightColor {
+                    temperature: self.temperature,
+                });
             }
 
             if brightness_set {
@@ -362,10 +400,16 @@ impl Device for DLight {
                     "brightness".to_string(),
                     Value::Number(Number::from(self.brightness)),
                 );
+                command.brightness = Some(self.brightness);
             }
 
             if on_set {
                 state.insert("on".to_string(), Value::Bool(self.on));
+                command.on = Some(self.on);
+            }
+
+            if let Err(e) = self.execution(&command).await {
+                tracing::error!("UPDATE Issue: {command:#?} => {e}");
             }
 
             fields.insert("states".to_string(), Value::Object(state));
