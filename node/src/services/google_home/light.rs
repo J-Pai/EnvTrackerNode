@@ -104,10 +104,6 @@ impl DLight {
         })
     }
 
-    pub(crate) fn get_id(&self) -> String {
-        self.id.clone()
-    }
-
     pub(crate) async fn query_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let uuid = Uuid::new_v4();
         let resp = self
@@ -211,6 +207,10 @@ impl DLight {
 }
 
 impl Device for DLight {
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
     async fn get_sync_value(&mut self) -> serde_json::Value {
         let _ = self.query_state().await;
         let mut fields = Map::new();
