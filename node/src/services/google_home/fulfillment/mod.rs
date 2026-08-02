@@ -14,7 +14,7 @@ use http::StatusCode;
 use http::header::AUTHORIZATION;
 use serde_json::Map;
 use serde_json::Value;
-use tokio::sync::RwLock;
+use tokio::sync::Mutex;
 
 use crate::services::google_home::Device;
 use crate::services::google_home::GoogleHome;
@@ -32,7 +32,7 @@ impl GoogleHome {
         Json(json): Json<Request>,
         db: Arc<dyn AuthCache + Send + Sync>,
         google_home_service_account: Arc<dyn TokenProvider>,
-        mut devices: HashMap<String, Arc<RwLock<impl Device>>>,
+        mut devices: HashMap<String, Arc<Mutex<impl Device>>>,
     ) -> impl IntoResponse {
         let (id, auth_session) = if let Some(bearer_token) = headers.get(AUTHORIZATION)
             && let Ok(bearer_token) = bearer_token.to_str()
@@ -75,7 +75,7 @@ impl GoogleHome {
             Some(Intent::Sync) => {
                 response = response.set_intent(Intent::Sync);
                 for (id, device) in devices {
-                    response = response.add_device(id, device.read().await.get_sync_value());
+                    response = response.add_device(id, device.lock().await.get_sync_value());
                 }
             }
             Some(Intent::Query(query_devices)) => {
@@ -96,7 +96,7 @@ impl GoogleHome {
                     };
 
                     response =
-                        response.add_device(id.to_string(), device.read().await.get_query_value());
+                        response.add_device(id.to_string(), device.lock().await.get_query_value());
                 }
             }
             Some(Intent::Execute(commands)) => {
@@ -107,10 +107,8 @@ impl GoogleHome {
                 for command in commands {
                     for device_id in command.get_devices() {
                         if let Some(device) = devices.get_mut(&device_id) {
-                            let device_result = device
-                                .write()
-                                .await
-                                .execute_actions(command.get_execution());
+                            let device_result =
+                                device.lock().await.execute_actions(command.get_execution());
                             let ids = match result.get_mut(&device_result) {
                                 Some(ids) => ids,
                                 None => {
@@ -152,7 +150,7 @@ impl GoogleHome {
             }
         }
 
-        if Self::report_state(
+        let _ = Self::report_state(
             google_home_service_account,
             request_id,
             sub,
@@ -160,13 +158,9 @@ impl GoogleHome {
             &response,
         )
         .map_err(|e| {
-            tracing::error!("Issue with reporting state: {e}");
+            tracing::warn!("Issue with reporting state: {e}");
         })
-        .await
-        .is_err()
-        {
-            response = response.error_payload(String::new());
-        };
+        .await;
 
         response
             .build()

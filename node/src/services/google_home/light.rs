@@ -1,21 +1,184 @@
 //! Structure representing a smart lights.
 
+use std::str::FromStr;
+use std::time::Duration;
+
 use serde_json::Map;
 use serde_json::Number;
 use serde_json::Value;
+use tokio::io::AsyncWriteExt;
+use tokio::net::TcpStream;
+use tokio::net::UdpSocket;
+use tokio::time::timeout;
+use url::Url;
+use uuid::Uuid;
 
+use crate::error::NodeError;
 use crate::services::google_home::Device;
 
 pub(crate) struct DLight {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) brightness: u64,
-    pub(crate) temperature: u64,
-    pub(crate) on: bool,
+    id: String,
+    name: String,
+    device_id: String,
+    /// Percent: 0 - 100
+    brightness: u64,
+    /// Kelvin: 2600 - 6000
+    temperature: u64,
+    on: bool,
+    uri: Url,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+enum DLightCommand {
+    #[serde(rename = "EXECUTE")]
+    Execute,
+    #[serde(rename = "QUERY_DEVICE_STATES")]
+    QueryDeviceStates,
+    #[serde(rename = "QUERY_DEVICE_INFO")]
+    QueryDeviceInfo,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct DLightColor {
+    temperature: u64,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct DLightState {
+    on: Option<bool>,
+    brightness: Option<u64>,
+    color: Option<DLightColor>,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct DLightRequest {
+    #[serde(rename = "commandId")]
+    command_id: String,
+    #[serde(rename = "deviceId")]
+    device_id: String,
+    #[serde(rename = "commandType")]
+    command_type: DLightCommand,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    commands: Option<Vec<DLightState>>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct DLightResponse {
+    #[serde(rename = "commandId")]
+    command_id: String,
+    #[serde(rename = "deviceId")]
+    device_id: String,
+    status: String,
+    states: Option<DLightState>,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct DLightDiscovery {
+    #[serde(rename = "deviceModel")]
+    device_model: String,
+    #[serde(rename = "deviceId")]
+    device_id: String,
+    #[serde(rename = "swVersion")]
+    sw_version: String,
+    #[serde(rename = "hwVersion")]
+    hw_version: String,
+}
+
+impl DLight {
+    pub(crate) async fn new(uri: Url) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::discover(uri).await
+    }
+
+    pub(crate) fn mock() -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(Self {
+            id: "glamp_mock_device".to_string(),
+            name: "glamp".to_string(),
+            device_id: "mock_device".to_string(),
+            brightness: 100,
+            temperature: 6000,
+            on: false,
+            uri: Url::from_str(&"http://localhost:3333").unwrap(),
+        })
+    }
+
+    pub(crate) fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    pub(crate) async fn query_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let uuid = Uuid::new_v4();
+        let resp = self
+            .send_request(&DLightRequest {
+                command_id: uuid.to_string(),
+                device_id: self.device_id.clone(),
+                command_type: DLightCommand::QueryDeviceStates,
+                commands: None,
+            })
+            .await?;
+        self.on = resp.states.clone().unwrap().on.unwrap();
+        self.brightness = resp.states.clone().unwrap().brightness.unwrap();
+        self.temperature = resp.states.clone().unwrap().color.unwrap().temperature;
+        Ok(())
+    }
+
+    async fn send_request(
+        &self,
+        request: &DLightRequest,
+    ) -> Result<DLightResponse, Box<dyn std::error::Error>> {
+        let host = self.uri.host().unwrap();
+        let port = self.uri.port().unwrap();
+
+        let mut tcp_stream = TcpStream::connect((host.to_string(), port)).await?;
+        let src = serde_json::to_string(request)?;
+
+        tcp_stream.write_all(src.as_bytes()).await?;
+        tcp_stream.write(b"\n").await?;
+
+        timeout(Duration::from_secs(5), async {
+            tcp_stream.readable().await?;
+            let mut header = [0; 4];
+            tcp_stream.try_read(&mut header)?;
+            let size = u32::from_be_bytes(header) as usize;
+            let mut data = [0; 1024];
+            let _ = tcp_stream.try_read(&mut data)?;
+            let response: DLightResponse = serde_json::from_slice(&data[..size])?;
+            Ok(response)
+        })
+        .await
+        .map_err(|e| NodeError::new(e.to_string().as_str()))?
+    }
+
+    async fn discover(uri: Url) -> Result<Self, Box<dyn std::error::Error>> {
+        let host = uri.host().unwrap();
+        let json: DLightDiscovery = {
+            const COMMAND_PAYLOAD: &[u8; 40] = b"476f6f676c654e50455f457269635f5761796e65";
+            let udp = UdpSocket::bind(("0.0.0.0", 9487)).await?;
+            udp.set_broadcast(true)?;
+            udp.send_to(COMMAND_PAYLOAD, (host.to_string(), 9478))
+                .await?;
+            let mut buf = [0u8; 256];
+            let resp = udp.recv_from(&mut buf).await?;
+            serde_json::from_slice(&buf[..resp.0])?
+        };
+
+        let mut new = Self {
+            id: format!("{}_{}", json.device_model, json.device_id),
+            name: json.device_model,
+            device_id: json.device_id,
+            brightness: 0,
+            temperature: 0,
+            on: false,
+            uri,
+        };
+
+        new.query_state().await?;
+
+        Ok(new)
+    }
 }
 
 impl Device for DLight {
-    fn get_sync_value(&self) -> serde_json::Value {
+    fn get_sync_value(&mut self) -> serde_json::Value {
         let mut fields = Map::new();
 
         fields.insert("id".to_string(), Value::String(self.id.clone()));
@@ -71,7 +234,7 @@ impl Device for DLight {
         serde_json::Value::Object(fields)
     }
 
-    fn get_query_value(&self) -> Value {
+    fn get_query_value(&mut self) -> Value {
         let mut fields = Map::new();
         fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));
         fields.insert("online".to_string(), Value::Bool(true));

@@ -52,7 +52,7 @@ impl Web {
     pub(crate) async fn setup_google_home_route(
         mut self,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let google_home = GoogleHome::new(self.db.as_ref().unwrap().clone())?;
+        let google_home = GoogleHome::new(self.db.as_ref().unwrap().clone()).await?;
         self.router = google_home.setup_route(self.router).await?;
         self.google_home = Some(google_home);
         Ok(self)
