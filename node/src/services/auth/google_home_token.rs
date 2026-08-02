@@ -8,7 +8,6 @@ use axum::response::IntoResponse;
 use axum_oidc_client::auth_session::AuthSession;
 use chrono::DateTime;
 use chrono::Local;
-use http::HeaderMap;
 use http::StatusCode;
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
@@ -47,8 +46,6 @@ impl Auth {
             google_home_client_json.client_secret.clone(),
         );
 
-        tracing::info!("OAuth2 Request Form: {form:#?}");
-
         let oauth2_client = ClientBuilder::new(Client::new()).build();
 
         let Ok(data) = oauth2_client
@@ -61,7 +58,6 @@ impl Auth {
             return Err(());
         };
 
-        tracing::info!("OAuth2 Response: {data:#?}");
         let status = data.status();
 
         let Ok(body) = &data.text().await else {
@@ -75,17 +71,12 @@ impl Auth {
             return Err(());
         }
 
-        tracing::info!("OAuth2 Raw Response: {body:#?}");
-
         let body = serde_json::from_str::<OAuth2Token>(body).unwrap();
-
-        tracing::info!("OAuth2 Response: {body:#?}");
 
         Ok(body)
     }
 
     pub(super) async fn google_home_token_handler(
-        headers: HeaderMap,
         Form(form): Form<OAuth2TokenRequest>,
         ServerState {
             base,
@@ -95,9 +86,6 @@ impl Auth {
             google_home_client_json,
         }: ServerState,
     ) -> impl IntoResponse {
-        tracing::info!("HEADERS : {headers:#?}");
-
-        tracing::info!("TOKEN ENDPOINT\n{form:#?}");
         let invalid_response = (
             StatusCode::BAD_REQUEST,
             Json::from(HashMap::from([("error", "invalid_grant")])),
@@ -136,8 +124,6 @@ impl Auth {
                 tracing::error!("No state session_key: {form:#?}");
                 return invalid_response;
             };
-
-            tracing::info!("SESSION ID: {session_id}");
 
             let Ok(Some(auth_session)) = db.get_auth_session(session_id).await else {
                 tracing::error!("Stale session_key: {form:#?}");

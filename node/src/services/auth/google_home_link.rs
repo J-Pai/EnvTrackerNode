@@ -1,6 +1,5 @@
 //! Handler for initiating link with Google Home.
 
-use axum::extract::OriginalUri;
 use axum::extract::Query;
 use axum::response::Html;
 use axum::response::IntoResponse;
@@ -31,7 +30,6 @@ impl Auth {
         private_cookie_key: Key,
         session: AuthSession,
         Query(query): Query<OAuth2AuthRequest>,
-        OriginalUri(uri): OriginalUri,
         ServerState {
             base,
             db,
@@ -46,10 +44,6 @@ impl Auth {
         else {
             return StatusCode::UNAUTHORIZED.into_response();
         };
-
-        let (decoded_query, encoded_query) = Self::stringify_query(&uri);
-
-        tracing::info!("{decoded_query}\n{encoded_query}\n{query:#?}");
 
         let client_id = if let Some(client_id) = query.client_id.clone()
             && client_id == google_home_client_json.client_id
@@ -129,8 +123,6 @@ impl Auth {
             tracing::error!("Issue storing Google Home code verifier {e}");
             return StatusCode::UNAUTHORIZED.into_response();
         }
-
-        tracing::info!("Link Redirect: {auth_uri}");
 
         Redirect::temporary(auth_uri.as_str()).into_response()
     }

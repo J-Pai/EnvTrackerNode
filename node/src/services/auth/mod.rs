@@ -201,16 +201,12 @@ impl Auth {
                     let certs = self.certs.clone();
                     let base = self.redirect_uri_base.clone();
 
-                    |headers: HeaderMap,
-                     session: AuthSession,
-                     query: Query<OAuth2AuthRequest>,
-                     uri: OriginalUri| {
+                    |headers: HeaderMap, session: AuthSession, query: Query<OAuth2AuthRequest>| {
                         Self::google_home_link_handler(
                             headers,
                             private_cookie_key,
                             session,
                             query,
-                            uri,
                             ServerState {
                                 base,
                                 db,
@@ -231,9 +227,8 @@ impl Auth {
                     let google_home_client_json = self.google_home_client_json.clone();
                     let certs = self.certs.clone();
 
-                    |headers: HeaderMap, params: Form<OAuth2TokenRequest>| {
+                    |params: Form<OAuth2TokenRequest>| {
                         Self::google_home_token_handler(
-                            headers,
                             params,
                             ServerState {
                                 base,

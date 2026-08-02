@@ -27,8 +27,6 @@ impl Auth {
         db: Arc<dyn AuthCache + Send + Sync>,
         google_home_client_json: ClientJsonWeb,
     ) -> impl IntoResponse {
-        tracing::info!("Callback Received: {query:#?}");
-
         if query.iss != "https://accounts.google.com" {
             tracing::error!("Incorrect issuer: {query:#?}");
             return StatusCode::BAD_REQUEST.into_response();
@@ -87,8 +85,6 @@ impl Auth {
         redirect_uri
             .query_pairs_mut()
             .append_pair("state", &query.state);
-
-        tracing::info!("Redirecting: {redirect_uri}");
 
         Redirect::to(redirect_uri.as_str()).into_response()
     }
