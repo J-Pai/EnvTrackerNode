@@ -112,6 +112,7 @@ impl GoogleHome {
         let mut devices = Map::new();
         let mut device_states = Map::new();
         device_states.insert("states".to_string(), Value::Object(states));
+        device_states.insert("notifications".to_string(), Value::Object(Map::new()));
         devices.insert("devices".to_string(), Value::Object(device_states));
         let report_state = ReportStateRequest {
             request_id,
@@ -125,6 +126,7 @@ impl GoogleHome {
             AUTHORIZATION,
             format!("Bearer {}", token.as_str()).parse().unwrap(),
         );
+
         let request = google_home_api_client
             .post("https://homegraph.googleapis.com/v1/devices:reportStateAndNotification")
             .headers(headers)
@@ -139,6 +141,7 @@ impl GoogleHome {
             .await?;
         let status = resp.status();
         if status != StatusCode::OK {
+            tracing::error!("{}", resp.text().await?);
             return Err(NodeError::new(
                 format!("Report State Received: {status}").as_str(),
             ));
