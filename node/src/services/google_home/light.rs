@@ -1,6 +1,5 @@
 //! Structure representing a smart lights.
 
-use std::str::FromStr;
 use std::time::Duration;
 
 use serde_json::Map;
@@ -25,7 +24,8 @@ pub(crate) struct DLight {
     /// Kelvin: 2600 - 6000
     temperature: u64,
     on: bool,
-    uri: Url,
+    uri: Option<Url>,
+    api_uri: Option<Url>,
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -87,21 +87,31 @@ struct DLightDiscovery {
     hw_version: String,
 }
 
+impl Default for DLight {
+    fn default() -> Self {
+        let uuid = Uuid::new_v4();
+        Self {
+            id: format!("GLAMP_BASE_{uuid}"),
+            name: "GLAMP_BASE".to_string(),
+            device_id: uuid.to_string(),
+            brightness: 0,
+            temperature: 0,
+            on: false,
+            uri: None,
+            api_uri: None,
+        }
+    }
+}
+
 impl DLight {
     pub(crate) async fn new(uri: Url) -> Result<Self, Box<dyn std::error::Error>> {
         Self::discover(uri).await
     }
 
-    pub(crate) fn _mock() -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self {
-            id: "glamp_mock_device".to_string(),
-            name: "glamp".to_string(),
-            device_id: "mock_device".to_string(),
-            brightness: 100,
-            temperature: 6000,
-            on: false,
-            uri: Url::from_str("http://localhost:3333").unwrap(),
-        })
+    pub(crate) async fn new_node(uri: Url) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut base = Self::default();
+        base.api_uri = Some(uri);
+        Ok(base)
     }
 
     pub(crate) async fn query_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -154,8 +164,8 @@ impl DLight {
         &self,
         request: &DLightRequest,
     ) -> Result<DLightResponse, Box<dyn std::error::Error>> {
-        let host = self.uri.host().unwrap();
-        let port = self.uri.port().unwrap();
+        let host = self.uri.as_ref().unwrap().host().unwrap();
+        let port = self.uri.as_ref().unwrap().port().unwrap();
 
         let mut tcp_stream = TcpStream::connect((host.to_string(), port)).await?;
         let src = serde_json::to_string(request)?;
@@ -197,7 +207,8 @@ impl DLight {
             brightness: 0,
             temperature: 0,
             on: false,
-            uri,
+            uri: Some(uri),
+            api_uri: None,
         };
 
         new.query_state().await?;

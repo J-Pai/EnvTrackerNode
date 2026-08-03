@@ -158,6 +158,7 @@ pub(super) struct ApiServerUi {
     enable: Handle<CheckBox>,
     save_button: Handle<Button>,
     db_field: Handle<TextField>,
+    google_home_node_api_field: Handle<TextField>,
     client_secret_json_field: Handle<TextField>,
     redirect_uri_base_field: Handle<TextField>,
     cookie_secret_key_field: Handle<TextField>,
@@ -186,10 +187,13 @@ impl ApiServerUi {
         let label = label!("'Database Path:', x:1, y:2, w: 14");
         form_panel.add(label);
         let db = form_panel.add(textfield!("caption='sqlite.db', x:32, y:2, w:48"));
+        let label = label!("'GHA Node URI:', x:1, y:4, w: 14");
+        form_panel.add(label);
+        let google_home_node_api = form_panel.add(textfield!("caption='', x:32, y:4, w:48"));
 
         let mut oauth2_editor_panel = Panel::new(
             "OAuth2 Config",
-            LayoutBuilder::new().x(0).y(4).width(1.0).height(11).build(),
+            LayoutBuilder::new().x(0).y(6).width(1.0).height(11).build(),
         );
         let label = label!("'Client Secret JSON:', x:1, y:0, w: 32");
         oauth2_editor_panel.add(label);
@@ -214,7 +218,7 @@ impl ApiServerUi {
             &mut form_panel,
             true,
             String::new(),
-            15,
+            17,
             0,
         );
 
@@ -231,6 +235,7 @@ impl ApiServerUi {
             enable,
             save_button: save,
             db_field: db,
+            google_home_node_api_field: google_home_node_api,
             client_secret_json_field: client_secret_json,
             redirect_uri_base_field: redirect_uri_base,
             cookie_secret_key_field: cookie_secret_key,
@@ -402,6 +407,14 @@ impl ApiServerUi {
                 return None;
             };
 
+            let google_home_node_api = if let Some(google_home_node_api) =
+                window.control(self.google_home_node_api_field)
+            {
+                Url::parse(google_home_node_api.text().trim()).ok()
+            } else {
+                return None;
+            };
+
             let oauth2_config = if let Some(client_secret_json_field) =
                 window.control(self.client_secret_json_field)
                 && let Some(redirect_uri_base_field) = window.control(self.redirect_uri_base_field)
@@ -514,6 +527,7 @@ impl ApiServerUi {
             return Some(ApiServerConfig {
                 db,
                 nodes,
+                google_home_node_api,
                 oauth2: oauth2_config.map(
                     |(json, redirect, cookie, gha_client_secret_json, gha_service_acount_json)| {
                         OAuth2Config {
@@ -544,6 +558,13 @@ impl ApiServerUi {
 
         if let Some(db) = window.control_mut(self.db_field) {
             db.set_text(&config.get_db());
+        }
+
+        if let Some(google_home_node_api) = window.control_mut(self.google_home_node_api_field) {
+            google_home_node_api.set_text(&match config.get_google_home_node_api().clone() {
+                Some(uri) => uri.to_string(),
+                None => String::new(),
+            });
         }
 
         if let Some(oauth2) = config.get_oauth2_config()

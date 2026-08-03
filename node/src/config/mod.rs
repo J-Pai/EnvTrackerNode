@@ -203,6 +203,8 @@ pub(crate) struct ApiServerConfig {
     db: String,
     /// OAuth2 Configuration.
     oauth2: Option<OAuth2Config>,
+    /// Google Home devices endpoint.
+    google_home_node_api: Option<Url>,
 }
 
 impl ApiServerConfig {
@@ -216,6 +218,10 @@ impl ApiServerConfig {
 
     pub(crate) fn get_oauth2_config(&self) -> Option<OAuth2Config> {
         self.oauth2.clone()
+    }
+
+    pub(crate) fn get_google_home_node_api(&self) -> Option<Url> {
+        self.google_home_node_api.clone()
     }
 }
 

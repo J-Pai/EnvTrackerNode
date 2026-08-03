@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use axum::Router;
+use url::Url;
 
 use crate::services::auth::Auth;
 use crate::services::db::Db;
@@ -54,8 +55,9 @@ impl Web {
     pub(crate) async fn setup_google_home_route(
         mut self,
         service_account: Option<PathBuf>,
+        node_api_uri: Option<Url>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let google_home = GoogleHome::new(self.db.clone(), service_account).await?;
+        let google_home = GoogleHome::new(self.db.clone(), service_account, node_api_uri).await?;
         self.router = google_home.setup_route(self.router).await?;
         self.google_home = Some(google_home);
         Ok(self)

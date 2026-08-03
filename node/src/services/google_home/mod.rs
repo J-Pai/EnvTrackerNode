@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use axum::Json;
@@ -24,6 +23,7 @@ mod light;
 pub(crate) struct GoogleHome {
     db: Option<Db>,
     service_account: Option<PathBuf>,
+    node_uri: Option<Url>,
 }
 
 trait Device {
@@ -37,10 +37,12 @@ impl GoogleHome {
     pub(crate) async fn new(
         db: Option<Db>,
         service_account: Option<PathBuf>,
+        node_uri: Option<Url>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             db,
             service_account,
+            node_uri,
         })
     }
 
@@ -50,13 +52,12 @@ impl GoogleHome {
     ) -> Result<Router, Box<dyn std::error::Error>> {
         if let Some(db) = self.db.clone()
             && let Some(path) = self.service_account.clone()
+            && let Some(uri) = self.node_uri.clone()
         {
             let cache: Arc<dyn AuthCache + Send + Sync> = Arc::new(db);
             let service_account = Arc::new(CustomServiceAccount::from_file(path)?);
 
-            let dlight = Arc::new(Mutex::new(
-                DLight::new(Url::from_str("http://192.168.86.22:3333")?).await?,
-            ));
+            let dlight = Arc::new(Mutex::new(DLight::new(uri).await?));
 
             let devices = HashMap::from([(dlight.lock().await.get_id(), dlight.clone())]);
 
