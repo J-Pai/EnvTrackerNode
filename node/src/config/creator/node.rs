@@ -195,15 +195,15 @@ impl NodeUi {
         let add_node = node_editor_panel.add.take().unwrap();
         let update_node = node_editor_panel.update.take().unwrap();
 
-        let mut dlight_panel = Panel::new("DLight", layout!("x:0, y:20, w:100%, h:5"));
-        dlight_panel.add(label!("'URI:', x:0, y:2, w: 32"));
-        let dlight_uri = textfield!("caption='http://0.0.0.0:3333', x:32, y:2, w: 32");
+        let mut dlight_panel = Panel::new("DLight", layout!("x:0, y:20, w:100%, h:3"));
+        dlight_panel.add(label!("'URI:', x:0, y:0, w: 32"));
+        let dlight_uri = textfield!("caption='', x:32, y:0, w: 32");
         let dlight_uri_field = dlight_panel.add(dlight_uri);
         form_panel.add(dlight_panel);
 
-        let mut wemo0_panel = Panel::new("Wemo 0", layout!("x:0, y:25, w:100%, h:5"));
-        wemo0_panel.add(label!("'URI:', x:0, y:2, w: 32"));
-        let wemo0_uri = textfield!("caption='http://0.0.0.0:49153', x:32, y:2, w: 32");
+        let mut wemo0_panel = Panel::new("Wemo 0", layout!("x:0, y:23, w:100%, h:3"));
+        wemo0_panel.add(label!("'URI:', x:0, y:0, w: 32"));
+        let wemo0_uri = textfield!("caption='', x:32, y:0, w: 32");
         let wemo0_uri_field = wemo0_panel.add(wemo0_uri);
         form_panel.add(wemo0_panel);
 
@@ -467,7 +467,35 @@ impl NodeUi {
                 }
             }
 
-            return Some(Node { nodes });
+            let dlight_uri = if let Some(dlight_uri) = window.control(self.dlight_field) {
+                let uri = dlight_uri.text().trim().to_string();
+
+                if uri.is_empty() {
+                    None
+                } else {
+                    Url::parse(&uri).ok()
+                }
+            } else {
+                return None;
+            };
+
+            let wemo0_uri = if let Some(wemo0_uri) = window.control(self.wemo0_field) {
+                let uri = wemo0_uri.text().trim().to_string();
+
+                if uri.is_empty() {
+                    None
+                } else {
+                    Url::parse(&uri).ok()
+                }
+            } else {
+                return None;
+            };
+
+            return Some(Node {
+                nodes,
+                dlight_uri,
+                wemo0_uri,
+            });
         }
 
         None
@@ -480,8 +508,22 @@ impl NodeUi {
             return;
         };
 
-        for node in config.nodes {
-            self.add_node(window, node);
+        for node in &config.nodes {
+            self.add_node(window, node.clone());
+        }
+
+        if let Some(dlight_field) = window.control_mut(self.dlight_field) {
+            dlight_field.set_text(&match config.get_dlight_uri().clone() {
+                Some(uri) => uri.to_string(),
+                None => String::new(),
+            });
+        }
+
+        if let Some(wemo0_field) = window.control_mut(self.wemo0_field) {
+            wemo0_field.set_text(&match config.get_wemo0_uri().clone() {
+                Some(uri) => uri.to_string(),
+                None => String::new(),
+            });
         }
 
         if let Some(enable) = window.control_mut(self.enable) {

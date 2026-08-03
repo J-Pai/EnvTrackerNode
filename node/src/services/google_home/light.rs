@@ -100,7 +100,7 @@ impl DLight {
             brightness: 100,
             temperature: 6000,
             on: false,
-            uri: Url::from_str(&"http://localhost:3333").unwrap(),
+            uri: Url::from_str("http://localhost:3333").unwrap(),
         })
     }
 
@@ -161,7 +161,7 @@ impl DLight {
         let src = serde_json::to_string(request)?;
 
         tcp_stream.write_all(src.as_bytes()).await?;
-        tcp_stream.write(b"\n").await?;
+        tcp_stream.write_all(b"\n").await?;
 
         timeout(Duration::from_secs(5), async {
             tcp_stream.readable().await?;
