@@ -298,10 +298,20 @@ pub(crate) enum NodeClass {
 pub(crate) struct Node {
     // List of IoT devices to interact with and their polling schedules.
     nodes: Vec<NodeClass>,
+    dlight_uri: Option<Url>,
+    wemo0_uri: Option<Url>,
 }
 
 impl Node {
     pub(crate) fn get_nodes(&self) -> Vec<NodeClass> {
         self.nodes.clone()
+    }
+
+    pub(crate) fn get_dlight_uri(&self) -> Option<Url> {
+        self.dlight_uri.clone()
+    }
+
+    pub(crate) fn get_wemo0_uri(&self) -> Option<Url> {
+        self.wemo0_uri.clone()
     }
 }

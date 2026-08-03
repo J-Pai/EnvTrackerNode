@@ -169,6 +169,8 @@ pub(super) struct NodeUi {
     load_node_button: Handle<Button>,
     node_index: usize,
     node_configs: HashMap<usize, NodeDeviceConfigUi>,
+    dlight_field: Handle<TextField>,
+    wemo0_field: Handle<TextField>,
 }
 
 impl NodeUi {
@@ -194,19 +196,15 @@ impl NodeUi {
         let update_node = node_editor_panel.update.take().unwrap();
 
         let mut dlight_panel = Panel::new("DLight", layout!("x:0, y:20, w:100%, h:5"));
-        let dlight_enable = checkbox!("'Enable DLight', x:0, y:0, w:32");
-        dlight_panel.add(dlight_enable);
         dlight_panel.add(label!("'URI:', x:0, y:2, w: 32"));
         let dlight_uri = textfield!("caption='http://0.0.0.0:3333', x:32, y:2, w: 32");
-        dlight_panel.add(dlight_uri);
+        let dlight_uri_field = dlight_panel.add(dlight_uri);
         form_panel.add(dlight_panel);
 
         let mut wemo0_panel = Panel::new("Wemo 0", layout!("x:0, y:25, w:100%, h:5"));
-        let wemo0_enable = checkbox!("'Enable DLight', x:0, y:0, w:32");
-        wemo0_panel.add(wemo0_enable);
         wemo0_panel.add(label!("'URI:', x:0, y:2, w: 32"));
         let wemo0_uri = textfield!("caption='http://0.0.0.0:49153', x:32, y:2, w: 32");
-        wemo0_panel.add(wemo0_uri);
+        let wemo0_uri_field = wemo0_panel.add(wemo0_uri);
         form_panel.add(wemo0_panel);
 
         tabs.add(index, form_panel);
@@ -227,6 +225,8 @@ impl NodeUi {
             load_node_button: load_node,
             node_index: 0,
             node_configs: HashMap::new(),
+            dlight_field: dlight_uri_field,
+            wemo0_field: wemo0_uri_field,
         }
     }
 
