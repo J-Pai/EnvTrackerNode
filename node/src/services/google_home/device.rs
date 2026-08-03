@@ -21,13 +21,13 @@ impl GoogleHome {
         device: Option<Path<String>>,
     ) -> impl IntoResponse {
         let Some(Path(device)) = device else {
-            let ids = Value::Array(
-                devices
-                    .keys()
-                    .map(|f| Value::String(f.to_string()))
-                    .collect(),
-            );
-            return Json(ids).into_response();
+            let mut device_sync: Vec<Value> = vec![];
+
+            for device in devices.values() {
+                device_sync.push(device.lock().await.get_sync_value().await);
+            }
+
+            return Json(device_sync).into_response();
         };
 
         let Some(device) = devices.get(&device) else {
