@@ -23,7 +23,7 @@ mod light;
 
 pub(crate) struct GoogleHome {
     db: Option<Db>,
-    google_home_service_account: Option<PathBuf>,
+    service_account: Option<PathBuf>,
 }
 
 trait Device {
@@ -34,12 +34,13 @@ trait Device {
 }
 
 impl GoogleHome {
-    pub(crate) async fn new(db: Option<Db>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) async fn new(
+        db: Option<Db>,
+        service_account: Option<PathBuf>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             db,
-            google_home_service_account: Some(PathBuf::from(
-                "/home/jpai/.config/envtrackernode/google_home_api_service_account.json",
-            )),
+            service_account,
         })
     }
 
@@ -48,7 +49,7 @@ impl GoogleHome {
         mut router: Router,
     ) -> Result<Router, Box<dyn std::error::Error>> {
         if let Some(db) = self.db.clone()
-            && let Some(path) = self.google_home_service_account.clone()
+            && let Some(path) = self.service_account.clone()
         {
             let cache: Arc<dyn AuthCache + Send + Sync> = Arc::new(db);
             let service_account = Arc::new(CustomServiceAccount::from_file(path)?);

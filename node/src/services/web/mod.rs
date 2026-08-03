@@ -1,5 +1,7 @@
 //! Sets up the web services.
 
+use std::path::PathBuf;
+
 use axum::Router;
 
 use crate::services::auth::Auth;
@@ -51,8 +53,9 @@ impl Web {
 
     pub(crate) async fn setup_google_home_route(
         mut self,
+        service_account: Option<PathBuf>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let google_home = GoogleHome::new(self.db.clone()).await?;
+        let google_home = GoogleHome::new(self.db.clone(), service_account).await?;
         self.router = google_home.setup_route(self.router).await?;
         self.google_home = Some(google_home);
         Ok(self)

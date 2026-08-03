@@ -31,7 +31,7 @@ impl GoogleHome {
         headers: HeaderMap,
         Json(json): Json<Request>,
         db: Arc<dyn AuthCache + Send + Sync>,
-        google_home_service_account: Arc<dyn TokenProvider>,
+        gcp_auth_token: Arc<dyn TokenProvider>,
         mut devices: HashMap<String, Arc<Mutex<impl Device>>>,
     ) -> impl IntoResponse {
         let (id, auth_session) = if let Some(bearer_token) = headers.get(AUTHORIZATION)
@@ -154,7 +154,7 @@ impl GoogleHome {
         }
 
         let _ = Self::report_state(
-            google_home_service_account,
+            gcp_auth_token,
             request_id,
             sub,
             response.get_intent(),

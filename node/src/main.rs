@@ -118,8 +118,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await?,
                 )
                 .await?;
-            web = web.setup_google_home_route().await?;
+
+            web = web
+                .setup_google_home_route(oauth2.get_google_home_service_account_json())
+                .await?;
         }
+    } else {
+        web = web.setup_google_home_route(None).await?;
     }
 
     web.start(poller).await?;
