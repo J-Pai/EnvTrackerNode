@@ -139,9 +139,6 @@ pub(crate) struct OAuth2Config {
     /// Path to the client secret JSON. This can be obtained directly from
     /// GCP when creating a new client in the OAuth2 setup page.
     client_secret_json: String,
-    /// Path to the Google Home client secret JSON. This can be obtained
-    /// directly from GCP when creating a new client in the OAuth2 setup page.
-    google_home_client_secret_json: Option<String>,
     /// OAuth2 callback/redirect base URI.
     redirect_uri_base: Url,
     /// OAuth2 base64 cookie encryption key.
@@ -152,6 +149,14 @@ pub(crate) struct OAuth2Config {
     /// openssl rand -base64 64
     /// ```
     cookie_secret_key: Option<String>,
+    /// Path to the Google Home client secret JSON. This can be obtained
+    /// directly from GCP when creating a new client in the OAuth2 setup page.
+    google_home_client_secret_json: Option<String>,
+    /// Path to the Google Home API Service Account JSON. This can be obtained
+    /// directly from GCP when creating a new Service Account.
+    /// This is needed to do stuff like ReportState:
+    /// https://developers.home.google.com/cloud-to-cloud/integration/report-state
+    google_home_service_account_json: Option<String>,
 }
 
 impl OAuth2Config {
@@ -161,6 +166,12 @@ impl OAuth2Config {
 
     pub(crate) fn get_google_home_client_json(&self) -> Option<PathBuf> {
         self.google_home_client_secret_json
+            .clone()
+            .map(PathBuf::from)
+    }
+
+    pub(crate) fn get_google_home_service_account_json(&self) -> Option<PathBuf> {
+        self.google_home_service_account_json
             .clone()
             .map(PathBuf::from)
     }
