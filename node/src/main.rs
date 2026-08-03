@@ -123,11 +123,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .setup_google_home_route(
                     oauth2.get_google_home_service_account_json(),
                     api_config.get_google_home_node_api(),
+                    None,
                 )
                 .await?;
         }
-    } else if let Some(node) = config.get_node_config() {
-        web = web.setup_google_home_route(None, None).await?;
+    }
+
+    if let Some(node) = config.get_node_config() {
+        web = web
+            .setup_google_home_route(None, None, node.get_dlight_uri())
+            .await?;
     }
 
     web.start(poller).await?;

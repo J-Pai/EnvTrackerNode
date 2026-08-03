@@ -56,9 +56,10 @@ impl Web {
         mut self,
         service_account: Option<PathBuf>,
         node_api_uri: Option<Url>,
+        dlight_uri: Option<Url>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let google_home = GoogleHome::new(self.db.clone(), service_account, node_api_uri).await?;
-        self.router = google_home.setup_route(self.router).await?;
+        self.router = google_home.setup_route(self.router, dlight_uri).await?;
         self.google_home = Some(google_home);
         Ok(self)
     }
