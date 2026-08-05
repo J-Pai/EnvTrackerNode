@@ -32,7 +32,7 @@ impl GoogleHome {
 
         let Some(device) = devices.get(&device) else {
             tracing::error!("Device {device} not found.");
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            return StatusCode::NOT_FOUND.into_response();
         };
 
         Json(device.lock().await.get_query_value().await).into_response()
@@ -45,7 +45,7 @@ impl GoogleHome {
     ) -> impl IntoResponse {
         let Some(device) = devices.get(&device) else {
             tracing::error!("Device {device} not found.");
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            return StatusCode::NOT_FOUND.into_response();
         };
 
         Json(device.lock().await.execute_actions(&actions).await).into_response()

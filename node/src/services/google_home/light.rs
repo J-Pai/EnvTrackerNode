@@ -2,6 +2,9 @@
 
 use std::time::Duration;
 
+use http::StatusCode;
+use reqwest_middleware::ClientBuilder;
+use reqwest_middleware::reqwest::Client;
 use serde_json::Map;
 use serde_json::Number;
 use serde_json::Value;
@@ -108,12 +111,6 @@ impl DLight {
         Self::discover(uri).await
     }
 
-    pub(crate) async fn new_node(uri: Url) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut base = Self::default();
-        base.api_uri = Some(uri);
-        Ok(base)
-    }
-
     pub(crate) async fn query_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let uuid = Uuid::new_v4();
         let resp = self
@@ -188,17 +185,24 @@ impl DLight {
     }
 
     async fn discover(uri: Url) -> Result<Self, Box<dyn std::error::Error>> {
+        const COMMAND_PAYLOAD: &[u8; 40] = b"476f6f676c654e50455f457269635f5761796e65";
         let host = uri.host().unwrap();
-        let json: DLightDiscovery = {
-            const COMMAND_PAYLOAD: &[u8; 40] = b"476f6f676c654e50455f457269635f5761796e65";
-            let udp = UdpSocket::bind(("0.0.0.0", 9487)).await?;
-            udp.set_broadcast(true)?;
-            udp.send_to(COMMAND_PAYLOAD, (host.to_string(), 9478))
-                .await?;
-            let mut buf = [0u8; 256];
-            let resp = udp.recv_from(&mut buf).await?;
-            serde_json::from_slice(&buf[..resp.0])?
+        let udp = UdpSocket::bind(("0.0.0.0", 9487)).await?;
+        udp.set_broadcast(true)?;
+        let json: Result<DLightDiscovery, Box<dyn std::error::Error>> = {
+            timeout(Duration::from_secs(5), async {
+                udp.send_to(COMMAND_PAYLOAD, (host.to_string(), 9478))
+                    .await?;
+                let mut buf = [0u8; 256];
+                let (size, _) = udp.recv_from(&mut buf).await?;
+                let resp: DLightDiscovery = serde_json::from_slice(&buf[..size])?;
+                Ok(resp)
+            })
+            .await
+            .map_err(|e| NodeError::new(e.to_string().as_str()))?
         };
+
+        let json = json?;
 
         let mut new = Self {
             id: format!("{}_{}", json.device_model, json.device_id),
@@ -259,7 +263,7 @@ impl Device for DLight {
         );
         color_temperature_range.insert(
             "temperatureMaxK".to_string(),
-            Value::Number(Number::from(6500)),
+            Value::Number(Number::from(6000)),
         );
         attributes.insert(
             "colorTemperatureRange".to_string(),
@@ -271,7 +275,7 @@ impl Device for DLight {
             "manufacturer".to_string(),
             Value::String("envtrackernode".to_string()),
         );
-        device_info.insert("model".to_string(), Value::String("glamp".to_string()));
+        device_info.insert("model".to_string(), Value::String("dlight".to_string()));
         device_info.insert("hwVersion".to_string(), Value::String("1.0".to_string()));
         device_info.insert("swVersion".to_string(), Value::String("1.0".to_string()));
         fields.insert("deviceInfo".to_string(), Value::Object(device_info));
@@ -280,6 +284,33 @@ impl Device for DLight {
     }
 
     async fn get_query_value(&mut self) -> Value {
+        if let Some(uri) = self.api_uri.clone() {
+            let node_client = ClientBuilder::new(Client::new()).build();
+            let Ok(uri) = uri.join(&self.device_id.clone()) else {
+                return Value::Null;
+            };
+            let request = node_client.get(uri.clone());
+            let Ok(resp) = request.send().await.map_err(|e| {
+                tracing::error!("Resceive Sync from Node: {e}");
+                e
+            }) else {
+                return Value::Null;
+            };
+            let status = resp.status();
+            if status != StatusCode::OK {
+                tracing::error!("Sync error: {}", resp.text().await.unwrap());
+                return Value::Null;
+            }
+
+            let Ok(state): Result<Value, _> = resp.json().await else {
+                tracing::error!("Query JSON Response issue:");
+                return Value::Null;
+            };
+
+            tracing::info!("{uri} - {state}");
+
+            return state;
+        }
         let _ = self.query_state().await;
         let mut fields = Map::new();
         fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));

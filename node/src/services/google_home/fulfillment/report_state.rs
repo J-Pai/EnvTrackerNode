@@ -141,7 +141,7 @@ impl GoogleHome {
             .await?;
         let status = resp.status();
         if status != StatusCode::OK {
-            tracing::error!("{}", resp.text().await?);
+            tracing::error!("{report_state:#?} => {}", resp.text().await?);
             return Err(NodeError::new(
                 format!("Report State Received: {status}").as_str(),
             ));

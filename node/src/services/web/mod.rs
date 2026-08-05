@@ -35,14 +35,6 @@ impl Web {
         }
     }
 
-    pub(crate) async fn start(self, poller: Poller) -> Result<(), Box<dyn std::error::Error>> {
-        poller.start().await?;
-        let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-        tracing::info!("listening on {}", listener.local_addr().unwrap());
-        axum::serve(listener, self.router).await?;
-        Ok(())
-    }
-
     pub(crate) async fn setup_auth_route(
         mut self,
         mut auth: Auth,
@@ -63,4 +55,13 @@ impl Web {
         self.google_home = Some(google_home);
         Ok(self)
     }
+
+    pub(crate) async fn start(self, poller: Poller) -> Result<(), Box<dyn std::error::Error>> {
+        poller.start().await?;
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
+        tracing::info!("listening on {}", listener.local_addr().unwrap());
+        axum::serve(listener, self.router).await?;
+        Ok(())
+    }
+
 }

@@ -60,16 +60,12 @@ impl GoogleHome {
             let cache: Arc<dyn AuthCache + Send + Sync> = Arc::new(db);
             let service_account = Arc::new(CustomServiceAccount::from_file(path)?);
 
-            let dlight = Arc::new(Mutex::new(DLight::new_node(uri).await?));
-
-            let devices = HashMap::from([(dlight.lock().await.get_id(), dlight.clone())]);
-
             router = router.route(
                 "/google_home/fulfillment",
                 routing::post({
                     let db = cache.clone();
                     |headers: HeaderMap, json: Json<fulfillment::request::Request>| {
-                        Self::fulfillment_handler(headers, json, db, service_account, devices)
+                        Self::fulfillment_handler(headers, json, db, service_account, uri)
                     }
                 }),
             );

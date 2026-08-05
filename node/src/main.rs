@@ -129,9 +129,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    if let Some(node) = config.get_node_config() {
+    if let Some(node) = config.get_node_config()
+        && let Some(dlight_uri) = node.get_dlight_uri()
+    {
+        tracing::info!("[Service] Google Home Devices Node");
         web = web
-            .setup_google_home_route(None, None, node.get_dlight_uri())
+            .setup_google_home_route(None, None, Some(dlight_uri))
             .await?;
     }
 
