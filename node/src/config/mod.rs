@@ -15,6 +15,7 @@ mod creator;
 /// Base configuration structure.
 #[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ServerConfig {
+    #[allow(unused)]
     #[serde(skip_serializing, skip_deserializing)]
     pub(crate) commit: bool,
     pub(crate) api_server: Option<ApiServerConfig>,
@@ -317,6 +318,7 @@ impl Node {
         self.dlight_uri.clone()
     }
 
+    #[allow(unused)]
     pub(crate) fn get_wemo0_uri(&self) -> Option<Url> {
         self.wemo0_uri.clone()
     }
