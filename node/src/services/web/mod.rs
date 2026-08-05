@@ -63,5 +63,4 @@ impl Web {
         axum::serve(listener, self.router).await?;
         Ok(())
     }
-
 }

@@ -73,176 +73,159 @@ impl GoogleHome {
         };
 
         let node_client = ClientBuilder::new(Client::new()).build();
-        loop {
-            match Request::parse_intent(intent) {
-                Some(Intent::Sync) => {
-                    response = response.set_intent(Intent::Sync);
+        match Request::parse_intent(intent) {
+            Some(Intent::Sync) => {
+                response = response.set_intent(Intent::Sync);
 
-                    let mut node_uri = node_uri.clone();
-                    let path = node_uri.path().to_string();
-                    let path = path.strip_suffix("/").unwrap();
-                    node_uri.set_path(path);
+                let mut node_uri = node_uri.clone();
+                let path = node_uri.path().to_string();
+                let path = path.strip_suffix("/").unwrap();
+                node_uri.set_path(path);
 
-                    let request = node_client.get(node_uri);
-                    let Ok(resp) = request.send().await.map_err(|e| {
-                        tracing::error!("Resceive Sync from Node: {e}");
-                        e
-                    }) else {
-                        response = response.error_payload("hardError".to_string());
-                        break;
-                    };
+                let request = node_client.get(node_uri);
+                if let Ok(resp) = request.send().await.map_err(|e| {
+                    tracing::error!("Resceive Sync from Node: {e}");
+                }) {
                     let status = resp.status();
-
                     if status != StatusCode::OK {
                         tracing::error!("Sync error: {}", resp.text().await.unwrap());
+                    } else if let Ok(devices) = resp.json::<Vec<Value>>().await.map_err(|e| {
+                        tracing::error!("Sync parsing error: {e}");
+                    }) {
+                        for device in devices {
+                            let Some(id) = device.as_object() else {
+                                continue;
+                            };
+                            let Some(id) = id.get("id") else {
+                                continue;
+                            };
+                            let Some(id) = id.as_str() else {
+                                continue;
+                            };
+                            response = response.add_device(id.to_string(), device);
+                        }
+                    } else {
                         response = response.error_payload("hardError".to_string());
-                        break;
                     }
+                } else {
+                    response = response.error_payload("hardError".to_string());
+                }
+            }
+            Some(Intent::Query(query_devices)) => {
+                response = response.set_intent(Intent::Query(vec![]));
 
-                    let Ok(devices): Result<Vec<Value>, _> = resp.json().await else {
-                        response = response.error_payload("hardError".to_string());
-                        break;
+                for device in query_devices {
+                    let Some(id) = device.get("id") else {
+                        continue;
                     };
 
-                    for device in devices {
-                        let Some(id) = device.as_object().clone() else {
-                            continue;
-                        };
-                        let Some(id) = id.get("id") else {
-                            continue;
-                        };
-                        let Some(id) = id.as_str() else {
-                            continue;
-                        };
-                        response = response.add_device(id.to_string(), device);
+                    let Some(id) = id.as_str() else {
+                        continue;
+                    };
+
+                    let Ok(node_uri) = node_uri.join(id) else {
+                        continue;
+                    };
+
+                    let request = node_client.get(node_uri.clone());
+                    if let Ok(resp) = request.send().await.map_err(|e| {
+                        tracing::error!("Resceive Sync from Node: {e}");
+                    }) {
+                        let status = resp.status();
+                        if status == StatusCode::NOT_FOUND {
+                            tracing::error!("Query error - NOT FOUND: {id}");
+                            response = response.error_payload("deviceNotFound".to_string());
+                        } else if status != StatusCode::OK {
+                            tracing::error!("Query error: {}", resp.text().await.unwrap());
+                            response = response.error_payload("hardError".to_string());
+                        } else if let Ok(state) = resp.json::<Value>().await {
+                            response = response.add_device(id.to_string(), state);
+                        } else {
+                            response = response.error_payload("hardError".to_string());
+                        }
+                    } else {
+                        response = response.error_payload("hardError".to_string());
                     }
                 }
-                Some(Intent::Query(query_devices)) => {
-                    response = response.set_intent(Intent::Query(vec![]));
+            }
+            Some(Intent::Execute(commands)) => {
+                response = response.set_intent(Intent::Execute(vec![]));
 
-                    for device in query_devices {
-                        let Some(id) = device.get("id") else {
+                let mut result: HashMap<Value, Vec<String>> = HashMap::new();
+
+                for command in commands {
+                    for id in command.get_devices() {
+                        let Ok(node_uri) = node_uri.join(&id) else {
                             continue;
                         };
 
-                        let Some(id) = id.as_str() else {
-                            continue;
-                        };
+                        let request = node_client
+                            .post(node_uri.clone())
+                            .json(command.get_execution());
 
-                        let Ok(node_uri) = node_uri.join(id) else {
-                            continue;
-                        };
-
-                        let request = node_client.get(node_uri.clone());
                         let Ok(resp) = request.send().await.map_err(|e| {
                             tracing::error!("Resceive Sync from Node: {e}");
                             e
                         }) else {
                             response = response.error_payload("hardError".to_string());
-                            break;
+                            continue;
                         };
                         let status = resp.status();
 
                         if status == StatusCode::NOT_FOUND {
                             tracing::error!("NOT FOUND: {id}");
                             response = response.error_payload("deviceNotFound".to_string());
-                            break;
+                            continue;
                         }
 
                         if status != StatusCode::OK {
                             tracing::error!("Query error: {}", resp.text().await.unwrap());
                             response = response.error_payload("hardError".to_string());
-                            break;
+                            continue;
                         }
 
                         let Ok(state): Result<Value, _> = resp.json().await else {
                             response = response.error_payload("hardError".to_string());
-                            break;
+                            continue;
                         };
-
-                        response = response.add_device(id.to_string(), state);
-                    }
-                }
-                Some(Intent::Execute(commands)) => {
-                    response = response.set_intent(Intent::Execute(vec![]));
-
-                    let mut result: HashMap<Value, Vec<String>> = HashMap::new();
-
-                    for command in commands {
-                        for id in command.get_devices() {
-                            let Ok(node_uri) = node_uri.join(&id) else {
-                                continue;
-                            };
-
-                            let request = node_client
-                                .post(node_uri.clone())
-                                .json(command.get_execution());
-
-                            let Ok(resp) = request.send().await.map_err(|e| {
-                                tracing::error!("Resceive Sync from Node: {e}");
-                                e
-                            }) else {
-                                response = response.error_payload("hardError".to_string());
-                                break;
-                            };
-                            let status = resp.status();
-
-                            if status == StatusCode::NOT_FOUND {
-                                tracing::error!("NOT FOUND: {id}");
-                                response = response.error_payload("deviceNotFound".to_string());
-                                break;
+                        let ids = match result.get_mut(&state) {
+                            Some(ids) => ids,
+                            None => {
+                                result.insert(state.clone(), vec![]);
+                                result.get_mut(&state).unwrap()
                             }
-
-                            if status != StatusCode::OK {
-                                tracing::error!("Query error: {}", resp.text().await.unwrap());
-                                response = response.error_payload("hardError".to_string());
-                                break;
-                            }
-
-                            let Ok(state): Result<Value, _> = resp.json().await else {
-                                response = response.error_payload("hardError".to_string());
-                                break;
-                            };
-                            let ids = match result.get_mut(&state) {
-                                Some(ids) => ids,
-                                None => {
-                                    result.insert(state.clone(), vec![]);
-                                    result.get_mut(&state).unwrap()
-                                }
-                            };
-                            ids.push(id);
-                        }
+                        };
+                        ids.push(id);
                     }
-                    response = response.add_command_status(result);
                 }
-                Some(Intent::Disconnect) => {
-                    if let Err(e) = db
-                        .invalidate_auth_session(&format!(
-                            "google_home_auth_token|{}",
-                            auth_session.access_token
-                        ))
-                        .await
-                    {
-                        tracing::error!("Failed to invalidate auth token: {e}");
-                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-                    }
-                    if let Err(e) = db
-                        .invalidate_auth_session(&format!(
-                            "google_home_refresh_token|{}",
-                            auth_session.refresh_token.unwrap()
-                        ))
-                        .await
-                    {
-                        tracing::error!("Failed to invalidate auth token: {e}");
-                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-                    }
-                    return Json(Value::Object(Map::new())).into_response();
-                }
-                _ => {
-                    response = response.error_payload(String::new());
-                }
+                response = response.add_command_status(result);
             }
-            break;
+            Some(Intent::Disconnect) => {
+                if let Err(e) = db
+                    .invalidate_auth_session(&format!(
+                        "google_home_auth_token|{}",
+                        auth_session.access_token
+                    ))
+                    .await
+                {
+                    tracing::error!("Failed to invalidate auth token: {e}");
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                }
+                if let Err(e) = db
+                    .invalidate_auth_session(&format!(
+                        "google_home_refresh_token|{}",
+                        auth_session.refresh_token.unwrap()
+                    ))
+                    .await
+                {
+                    tracing::error!("Failed to invalidate auth token: {e}");
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                }
+                return Json(Value::Object(Map::new())).into_response();
+            }
+            _ => {
+                response = response.error_payload(String::new());
+            }
         }
 
         let _ = Self::report_state(
