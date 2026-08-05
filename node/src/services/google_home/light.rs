@@ -2,9 +2,6 @@
 
 use std::time::Duration;
 
-use http::StatusCode;
-use reqwest_middleware::ClientBuilder;
-use reqwest_middleware::reqwest::Client;
 use serde_json::Map;
 use serde_json::Number;
 use serde_json::Value;
@@ -28,7 +25,6 @@ pub(crate) struct DLight {
     temperature: u64,
     on: bool,
     uri: Option<Url>,
-    api_uri: Option<Url>,
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -101,7 +97,6 @@ impl Default for DLight {
             temperature: 0,
             on: false,
             uri: None,
-            api_uri: None,
         }
     }
 }
@@ -212,7 +207,6 @@ impl DLight {
             temperature: 0,
             on: false,
             uri: Some(uri),
-            api_uri: None,
         };
 
         new.query_state().await?;
@@ -284,33 +278,6 @@ impl Device for DLight {
     }
 
     async fn get_query_value(&mut self) -> Value {
-        if let Some(uri) = self.api_uri.clone() {
-            let node_client = ClientBuilder::new(Client::new()).build();
-            let Ok(uri) = uri.join(&self.device_id.clone()) else {
-                return Value::Null;
-            };
-            let request = node_client.get(uri.clone());
-            let Ok(resp) = request.send().await.map_err(|e| {
-                tracing::error!("Resceive Sync from Node: {e}");
-                e
-            }) else {
-                return Value::Null;
-            };
-            let status = resp.status();
-            if status != StatusCode::OK {
-                tracing::error!("Sync error: {}", resp.text().await.unwrap());
-                return Value::Null;
-            }
-
-            let Ok(state): Result<Value, _> = resp.json().await else {
-                tracing::error!("Query JSON Response issue:");
-                return Value::Null;
-            };
-
-            tracing::info!("{uri} - {state}");
-
-            return state;
-        }
         let _ = self.query_state().await;
         let mut fields = Map::new();
         fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));

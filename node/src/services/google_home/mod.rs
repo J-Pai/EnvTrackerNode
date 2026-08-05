@@ -21,6 +21,7 @@ use crate::services::google_home::light::DLight;
 mod device;
 mod fulfillment;
 mod light;
+mod plug;
 
 pub(crate) struct GoogleHome {
     db: Option<Db>,
