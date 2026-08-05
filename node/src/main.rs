@@ -48,6 +48,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("Can't set crypto provider");
 
     let args = Args::parse();
 
