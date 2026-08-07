@@ -17,11 +17,12 @@ use url::Url;
 
 use crate::services::db::Db;
 use crate::services::google_home::light::DLight;
+use crate::services::google_home::plug::Wemo;
 
 mod device;
 mod fulfillment;
-mod light;
-mod plug;
+pub(crate) mod light;
+pub(crate) mod plug;
 
 pub(crate) struct GoogleHome {
     db: Option<Db>,
@@ -29,11 +30,46 @@ pub(crate) struct GoogleHome {
     node_uri: Option<Url>,
 }
 
-trait Device {
+pub(crate) trait Device {
     fn get_id(&self) -> String;
     async fn get_sync_value(&mut self) -> Value;
     async fn get_query_value(&mut self) -> Value;
     async fn execute_actions(&mut self, execution: &[Value]) -> Value;
+}
+
+pub(crate) enum SupportedDevices {
+    DLight(DLight),
+    Wemo(Wemo),
+}
+
+impl Device for SupportedDevices {
+    fn get_id(&self) -> String {
+        match self {
+            SupportedDevices::DLight(device) => device.get_id(),
+            SupportedDevices::Wemo(device) => device.get_id(),
+        }
+    }
+
+    async fn get_sync_value(&mut self) -> Value {
+        match self {
+            SupportedDevices::DLight(device) => device.get_sync_value().await,
+            SupportedDevices::Wemo(device) => device.get_sync_value().await,
+        }
+    }
+
+    async fn get_query_value(&mut self) -> Value {
+        match self {
+            SupportedDevices::DLight(device) => device.get_query_value().await,
+            SupportedDevices::Wemo(device) => device.get_query_value().await,
+        }
+    }
+
+    async fn execute_actions(&mut self, execution: &[Value]) -> Value {
+        match self {
+            SupportedDevices::DLight(device) => device.execute_actions(execution).await,
+            SupportedDevices::Wemo(device) => device.execute_actions(execution).await,
+        }
+    }
 }
 
 impl GoogleHome {
@@ -52,7 +88,7 @@ impl GoogleHome {
     pub(crate) async fn setup_route(
         &self,
         mut router: Router,
-        dlight_uri: Option<Url>,
+        devices: Option<HashMap<String, Arc<Mutex<SupportedDevices>>>>,
     ) -> Result<Router, Box<dyn std::error::Error>> {
         if let Some(db) = self.db.clone()
             && let Some(path) = self.service_account.clone()
@@ -70,11 +106,7 @@ impl GoogleHome {
                     }
                 }),
             );
-        } else if let Some(uri) = dlight_uri {
-            let dlight = Arc::new(Mutex::new(DLight::new(uri).await?));
-
-            let devices = HashMap::from([(dlight.lock().await.get_id(), dlight.clone())]);
-
+        } else if let Some(devices) = devices {
             router = router
                 .route(
                     "/google_home/device",

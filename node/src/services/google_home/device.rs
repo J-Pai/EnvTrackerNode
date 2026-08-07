@@ -14,10 +14,11 @@ use tokio::sync::Mutex;
 
 use crate::services::google_home::Device;
 use crate::services::google_home::GoogleHome;
+use crate::services::google_home::SupportedDevices;
 
 impl GoogleHome {
     pub(super) async fn device_get_handler(
-        devices: HashMap<String, Arc<Mutex<impl Device>>>,
+        devices: HashMap<String, Arc<Mutex<SupportedDevices>>>,
         device: Option<Path<String>>,
     ) -> impl IntoResponse {
         let Some(Path(device)) = device else {
@@ -39,7 +40,7 @@ impl GoogleHome {
     }
 
     pub(super) async fn device_post_handler(
-        devices: HashMap<String, Arc<Mutex<impl Device>>>,
+        devices: HashMap<String, Arc<Mutex<SupportedDevices>>>,
         Path(device): Path<String>,
         Json(actions): Json<Vec<Value>>,
     ) -> impl IntoResponse {

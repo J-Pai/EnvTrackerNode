@@ -2,12 +2,13 @@
 //!
 //! Sets up and launches services for interacting with IoT devices.
 
+use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Parser;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::MessageQueue;
 use tracing_subscriber::layer::SubscriberExt;
@@ -16,6 +17,9 @@ use tracing_subscriber::util::SubscriberInitExt;
 use crate::config::NodeClass;
 use crate::services::auth::Auth;
 use crate::services::db::Db;
+use crate::services::google_home::light::DLight;
+use crate::services::google_home::plug::Wemo;
+use crate::services::google_home::{Device, SupportedDevices};
 use crate::services::kasa::Kasa;
 use crate::services::poller::Poller;
 use crate::services::web::Web;
@@ -132,12 +136,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    let mut devices: HashMap<String, Arc<Mutex<SupportedDevices>>> = HashMap::new();
+
     if let Some(node) = config.get_node_config()
-        && let Some(dlight_uri) = node.get_dlight_uri()
+        && let Some(uri) = node.get_dlight_uri()
     {
+        let dlight = DLight::new(uri).await?;
+        devices.insert(
+            dlight.get_id(),
+            Arc::new(Mutex::new(SupportedDevices::DLight(dlight))),
+        );
+    }
+
+    if let Some(node) = config.get_node_config()
+        && let Some(uri) = node.get_wemo0_uri()
+    {
+        let wemo0 = Wemo::new(uri, "wemo0".to_string()).await?;
+        devices.insert(
+            wemo0.get_id(),
+            Arc::new(Mutex::new(SupportedDevices::Wemo(wemo0))),
+        );
+    }
+
+    if !devices.is_empty() {
         tracing::info!("[Service] Google Home Devices Node");
+
         web = web
-            .setup_google_home_route(None, None, Some(dlight_uri))
+            .setup_google_home_route(None, None, Some(devices))
             .await?;
     }
 
