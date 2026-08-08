@@ -127,8 +127,6 @@ impl GoogleHome {
                         continue;
                     };
 
-                    tracing::info!("{node_uri}");
-
                     let request = node_client.get(node_uri.clone());
                     if let Ok(resp) = request.send().await.map_err(|e| {
                         tracing::error!("Resceive Sync from Node: {e}");

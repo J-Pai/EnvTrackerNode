@@ -12,6 +12,7 @@ use reqwest_middleware::reqwest::Client;
 use serde_json::Map;
 use serde_json::Value;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 use crate::error::NodeError;
 use crate::services::google_home::Device;
@@ -51,11 +52,34 @@ impl GoogleHome {
 
         let mut states = Map::new();
 
-        for (id, device) in devices {
+        let mut device_handles: Vec<JoinHandle<(String, Value)>> =
+            Vec::with_capacity(devices.len());
+
+        for (id, device) in devices.clone() {
             if !params.device_ids.is_empty() && !params.device_ids.contains(&id) {
                 continue;
             }
-            let mut query = device.lock().await.get_query_value().await;
+
+            device_handles.push(tokio::spawn(async move {
+                (id, device.lock().await.get_query_value().await)
+            }));
+        }
+
+        let mut device_handle_result: Vec<(String, Value)> = Vec::with_capacity(devices.len());
+
+        for handle in device_handles {
+            if let Ok(result) = handle.await.map_err(|e| {
+                tracing::warn!("Query State Failed: {e}");
+            }) {
+                device_handle_result.push(result);
+                continue;
+            }
+        }
+
+        for (id, mut query) in device_handle_result {
+            if !params.device_ids.is_empty() && !params.device_ids.contains(&id) {
+                continue;
+            }
             let Some(object) = query.as_object_mut() else {
                 continue;
             };
