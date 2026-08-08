@@ -84,12 +84,12 @@ impl Wemo {
     }
 
     pub(crate) async fn query_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.send_request("GetBinaryState", false).await?;
+        self.on = self.send_request("GetBinaryState", false).await?;
         Ok(())
     }
 
     async fn execution(&mut self, state: bool) -> Result<(), Box<dyn std::error::Error>> {
-        self.send_request("SetBinaryState", state).await?;
+        self.on = self.send_request("SetBinaryState", state).await?;
         Ok(())
     }
 
