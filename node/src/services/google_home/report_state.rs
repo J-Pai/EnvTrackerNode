@@ -18,6 +18,7 @@ use crate::error::NodeError;
 use crate::services::google_home::Device;
 use crate::services::google_home::GoogleHome;
 use crate::services::google_home::SupportedDevices;
+use crate::timer::Timer;
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub(super) struct ReportStateRequest {
@@ -54,6 +55,7 @@ impl GoogleHome {
 
         let mut device_handles: Vec<JoinHandle<(String, Value)>> =
             Vec::with_capacity(devices.len());
+        let mut device_handle_result: Vec<(String, Value)> = Vec::with_capacity(devices.len());
 
         for (id, device) in devices.clone() {
             if !params.device_ids.is_empty() && !params.device_ids.contains(&id) {
@@ -64,8 +66,6 @@ impl GoogleHome {
                 (id, device.lock().await.get_query_value().await)
             }));
         }
-
-        let mut device_handle_result: Vec<(String, Value)> = Vec::with_capacity(devices.len());
 
         for handle in device_handles {
             if let Ok(result) = handle.await.map_err(|e| {

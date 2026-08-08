@@ -27,6 +27,7 @@ use crate::services::web::Web;
 mod config;
 mod error;
 mod services;
+mod timer;
 
 /// Commandline arguments for Server.
 #[derive(Parser, Debug)]
