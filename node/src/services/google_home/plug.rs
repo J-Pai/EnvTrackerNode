@@ -83,9 +83,16 @@ impl Wemo {
         Self::discover(uri, name).await
     }
 
-    pub(crate) async fn query_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) async fn query_state(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
+        let prev_on = self.on;
+
         self.on = self.send_request("GetBinaryState", false).await?;
-        Ok(())
+
+        if self.on == prev_on {
+            return Ok(false);
+        }
+
+        Ok(true)
     }
 
     async fn execution(&mut self, state: bool) -> Result<(), Box<dyn std::error::Error>> {

@@ -2,6 +2,9 @@
 
 use std::time::Duration;
 
+use chrono::DateTime;
+use chrono::Local;
+use chrono::Utc;
 use serde_json::Map;
 use serde_json::Number;
 use serde_json::Value;
@@ -25,6 +28,7 @@ pub(crate) struct DLight {
     temperature: u64,
     on: bool,
     uri: Option<Url>,
+    start_unreachable: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -97,6 +101,7 @@ impl Default for DLight {
             temperature: 0,
             on: false,
             uri: None,
+            start_unreachable: None,
         }
     }
 }
@@ -106,7 +111,11 @@ impl DLight {
         Self::discover(uri).await
     }
 
-    pub(crate) async fn query_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) async fn query_state(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
+        let prev_on = self.on;
+        let prev_brightness = self.brightness;
+        let prev_temperature = self.temperature;
+
         let uuid = Uuid::new_v4();
         let resp = self
             .send_request(&DLightRequest {
@@ -127,7 +136,15 @@ impl DLight {
         self.on = resp.states.clone().unwrap().on.unwrap();
         self.brightness = resp.states.clone().unwrap().brightness.unwrap();
         self.temperature = resp.states.clone().unwrap().color.unwrap().temperature;
-        Ok(())
+
+        if self.on == prev_on
+            && prev_brightness == self.brightness
+            && prev_temperature == self.temperature
+        {
+            return Ok(false);
+        }
+
+        Ok(true)
     }
 
     async fn execution(&mut self, state: &DLightState) -> Result<(), Box<dyn std::error::Error>> {
@@ -159,13 +176,11 @@ impl DLight {
         let host = self.uri.as_ref().unwrap().host().unwrap();
         let port = self.uri.as_ref().unwrap().port().unwrap();
 
-        let mut tcp_stream = TcpStream::connect((host.to_string(), port)).await?;
-        let src = serde_json::to_string(request)?;
-
-        tcp_stream.write_all(src.as_bytes()).await?;
-        tcp_stream.write_all(b"\n").await?;
-
-        timeout(Duration::from_secs(2), async {
+        timeout(Duration::from_secs(1), async {
+            let mut tcp_stream = TcpStream::connect((host.to_string(), port)).await?;
+            let src = serde_json::to_string(request)?;
+            tcp_stream.write_all(src.as_bytes()).await?;
+            tcp_stream.write_all(b"\n").await?;
             tcp_stream.readable().await?;
             let mut header = [0; 4];
             tcp_stream.try_read(&mut header)?;
@@ -207,6 +222,7 @@ impl DLight {
             temperature: 0,
             on: false,
             uri: Some(uri),
+            start_unreachable: None,
         };
 
         new.query_state().await?;
@@ -221,7 +237,21 @@ impl Device for DLight {
     }
 
     async fn get_sync_value(&mut self) -> serde_json::Value {
-        let _ = self.query_state().await;
+        if let Err(e) = self.query_state().await {
+            let dt = self.start_unreachable.get_or_insert(Utc::now());
+            tracing::warn!(
+                "Device Unreachable [starting from: {}]: {e}",
+                dt.with_timezone(&Local)
+            );
+            let mut fields = Map::new();
+            fields.insert("status".to_string(), Value::String("ERROR".to_string()));
+            fields.insert(
+                "errorCode".to_string(),
+                Value::String("deviceOffline".to_string()),
+            );
+            return Value::Object(fields);
+        }
+        self.start_unreachable = None;
         let mut fields = Map::new();
 
         fields.insert("id".to_string(), Value::String(self.id.clone()));
@@ -278,7 +308,21 @@ impl Device for DLight {
     }
 
     async fn get_query_value(&mut self) -> Value {
-        let _ = self.query_state().await;
+        if let Err(e) = self.query_state().await {
+            let dt = self.start_unreachable.get_or_insert(Utc::now());
+            tracing::warn!(
+                "Device Unreachable [starting from: {}]: {e}",
+                dt.with_timezone(&Local)
+            );
+            let mut fields = Map::new();
+            fields.insert("status".to_string(), Value::String("ERROR".to_string()));
+            fields.insert(
+                "errorCode".to_string(),
+                Value::String("deviceOffline".to_string()),
+            );
+            return Value::Object(fields);
+        }
+        self.start_unreachable = None;
         let mut fields = Map::new();
         fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));
         fields.insert("online".to_string(), Value::Bool(true));
@@ -419,7 +463,21 @@ impl Device for DLight {
 
             if let Err(e) = self.execution(&command).await {
                 tracing::error!("UPDATE Issue: {command:#?} => {e}");
+                let dt = self.start_unreachable.get_or_insert(Utc::now());
+                tracing::warn!(
+                    "Device Unreachable [starting from: {}]: {e}",
+                    dt.with_timezone(&Local)
+                );
+                let mut fields = Map::new();
+                fields.insert("status".to_string(), Value::String("ERROR".to_string()));
+                fields.insert(
+                    "errorCode".to_string(),
+                    Value::String("deviceOffline".to_string()),
+                );
+                return Value::Object(fields);
             }
+
+            self.start_unreachable = None;
 
             fields.insert("states".to_string(), Value::Object(state));
         }

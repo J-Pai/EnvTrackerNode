@@ -121,8 +121,16 @@ impl GoogleHome {
                     routing::get({
                         let devices = devices.clone();
                         |device_ids: Query<Vec<(String, String)>>| {
-                            Self::device_get_handler(devices, Some(device_ids), None)
+                            let resp = Self::device_get_handler(devices, Some(device_ids), None);
+                            resp
                         }
+                    }),
+                )
+                .route(
+                    "/google_home/device/{id}",
+                    routing::get({
+                        let devices = devices.clone();
+                        |device: Path<String>| Self::device_get_handler(devices, None, Some(device))
                     }),
                 )
                 .route(

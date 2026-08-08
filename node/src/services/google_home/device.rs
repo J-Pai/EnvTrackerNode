@@ -26,7 +26,7 @@ impl GoogleHome {
         device_ids: Option<Query<Vec<(String, String)>>>,
         device_id: Option<Path<String>>,
     ) -> impl IntoResponse {
-        let multi_query = async |device_ids: &[String]| -> Vec<(String, Value)> {
+        let multi_query = async |device_ids: &[String], sync: bool| -> Vec<(String, Value)> {
             let mut device_sync: Vec<(String, Value)> = vec![];
 
             let mut device_handles: Vec<JoinHandle<(String, Value)>> =
@@ -37,7 +37,11 @@ impl GoogleHome {
                 if let Some(device) = devices.get(&device_id) {
                     let device = device.clone();
                     device_handles.push(tokio::spawn(async move {
-                        (device_id, device.lock().await.get_sync_value().await)
+                        if sync {
+                            (device_id, device.lock().await.get_sync_value().await)
+                        } else {
+                            (device_id, device.lock().await.get_query_value().await)
+                        }
                     }));
                 }
             }
@@ -63,12 +67,12 @@ impl GoogleHome {
                 .map(|(_, v)| v.clone())
                 .collect();
 
-            return Json(multi_query(&device_ids).await).into_response();
+            return Json(multi_query(&device_ids, false).await).into_response();
         }
 
         let Some(Path(device)) = device_id else {
             let device_ids: Vec<String> = devices.keys().cloned().collect();
-            return Json(multi_query(&device_ids).await).into_response();
+            return Json(multi_query(&device_ids, true).await).into_response();
         };
 
         let Some(device) = devices.get(&device) else {

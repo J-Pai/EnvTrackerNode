@@ -1,10 +1,12 @@
 //! Logic for polling node endpoints.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_middleware::reqwest::Client;
+use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
@@ -14,6 +16,7 @@ use crate::config::KasaDeviceConfig;
 use crate::config::NodeClass;
 use crate::config::PollingConfig;
 use crate::services::db::Db;
+use crate::services::google_home::SupportedDevices;
 use crate::services::kasa::KasaChildInfo;
 
 pub(crate) struct Poller {
@@ -148,6 +151,23 @@ impl Poller {
         })?;
 
         self.scheduler.read().await.add(job).await?;
+
+        Ok(self)
+    }
+
+    pub(crate) async fn add_devices_job(
+        self,
+        devices: HashMap<String, Arc<Mutex<SupportedDevices>>>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        // Poll device state every 1 second.
+
+        for device in devices.values().clone() {
+            let job = Job::new_async("*/1 * * * * *", move |_uuid, _l| {
+                Box::pin({ async move {} })
+            })?;
+
+            self.scheduler.read().await.add(job).await?;
+        }
 
         Ok(self)
     }

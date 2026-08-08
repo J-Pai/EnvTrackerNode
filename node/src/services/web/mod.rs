@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use axum::Router;
 use tokio::sync::Mutex;
+use tower_http::trace::TraceLayer;
 use url::Url;
 
 use crate::services::auth::Auth;
@@ -70,7 +71,9 @@ impl Web {
         poller.start().await?;
         let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
         tracing::info!("listening on {}", listener.local_addr().unwrap());
-        axum::serve(listener, self.router).await?;
+        let mut router = self.router;
+        router = router.layer(TraceLayer::new_for_http());
+        axum::serve(listener, router).await?;
         Ok(())
     }
 }

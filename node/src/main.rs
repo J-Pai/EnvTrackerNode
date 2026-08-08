@@ -8,7 +8,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Parser;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use tokio_cron_scheduler::JobScheduler;
 use tokio_memq::MessageQueue;
 use tracing_subscriber::layer::SubscriberExt;
@@ -167,9 +168,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 None,
                 node.get_agent_user_id(),
                 node.get_google_home_service_account_json(),
-                Some(devices),
+                Some(devices.clone()),
             )
             .await?;
+
+        poller = poller.add_devices_job(devices).await?;
     }
 
     web.start(poller).await?;
