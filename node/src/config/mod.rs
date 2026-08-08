@@ -153,11 +153,6 @@ pub(crate) struct OAuth2Config {
     /// Path to the Google Home client secret JSON. This can be obtained
     /// directly from GCP when creating a new client in the OAuth2 setup page.
     google_home_client_secret_json: Option<String>,
-    /// Path to the Google Home API Service Account JSON. This can be obtained
-    /// directly from GCP when creating a new Service Account.
-    /// This is needed to do stuff like ReportState:
-    /// https://developers.home.google.com/cloud-to-cloud/integration/report-state
-    google_home_service_account_json: Option<String>,
 }
 
 impl OAuth2Config {
@@ -167,12 +162,6 @@ impl OAuth2Config {
 
     pub(crate) fn get_google_home_client_json(&self) -> Option<PathBuf> {
         self.google_home_client_secret_json
-            .clone()
-            .map(PathBuf::from)
-    }
-
-    pub(crate) fn get_google_home_service_account_json(&self) -> Option<PathBuf> {
-        self.google_home_service_account_json
             .clone()
             .map(PathBuf::from)
     }
@@ -307,6 +296,11 @@ pub(crate) struct Node {
     nodes: Vec<NodeClass>,
     dlight_uri: Option<Url>,
     wemo0_uri: Option<Url>,
+    /// Path to the Google Home API Service Account JSON. This can be obtained
+    /// directly from GCP when creating a new Service Account.
+    /// This is needed to do stuff like ReportState:
+    /// https://developers.home.google.com/cloud-to-cloud/integration/report-state
+    google_home_service_account_json: Option<String>,
 }
 
 impl Node {
@@ -318,8 +312,14 @@ impl Node {
         self.dlight_uri.clone()
     }
 
-    #[allow(unused)]
     pub(crate) fn get_wemo0_uri(&self) -> Option<Url> {
         self.wemo0_uri.clone()
     }
+
+    pub(crate) fn get_google_home_service_account_json(&self) -> Option<PathBuf> {
+        self.google_home_service_account_json
+            .clone()
+            .map(PathBuf::from)
+    }
+
 }

@@ -19,11 +19,11 @@ use serde_json::Value;
 use url::Url;
 
 use crate::services::google_home::GoogleHome;
+use crate::services::google_home::ReportStateParams;
 use crate::services::google_home::fulfillment::request::Intent;
 use crate::services::google_home::fulfillment::request::Request;
 use crate::services::google_home::fulfillment::response::Response;
 
-pub(crate) mod report_state;
 pub(crate) mod request;
 pub(crate) mod response;
 
@@ -32,7 +32,6 @@ impl GoogleHome {
         headers: HeaderMap,
         Json(json): Json<Request>,
         db: Arc<dyn AuthCache + Send + Sync>,
-        gcp_auth_token: Arc<dyn TokenProvider>,
         node_uri: Url,
     ) -> impl IntoResponse {
         let (id, auth_session) = if let Some(bearer_token) = headers.get(AUTHORIZATION)
@@ -126,6 +125,8 @@ impl GoogleHome {
                     let Ok(node_uri) = node_uri.join(id) else {
                         continue;
                     };
+
+                    tracing::info!("{node_uri}");
 
                     let request = node_client.get(node_uri.clone());
                     if let Ok(resp) = request.send().await.map_err(|e| {
@@ -228,17 +229,17 @@ impl GoogleHome {
             }
         }
 
-        let _ = Self::report_state(
-            gcp_auth_token,
-            request_id,
-            sub,
-            response.get_intent(),
-            &response,
-        )
-        .map_err(|e| {
-            tracing::warn!("{intent} - Issue with reporting state: {e}");
-        })
-        .await;
+        let node_uri = node_uri.join("report_state").unwrap();
+        let request = node_client
+            .post(node_uri.clone())
+            .form(&ReportStateParams {
+                request_id,
+                agent_user_id: sub,
+            });
+
+        if let Err(e) = request.send().await {
+            tracing::warn!("Issue with reporting state: {e}")
+        };
 
         response
             .build()

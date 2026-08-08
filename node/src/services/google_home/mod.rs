@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use axum::Form;
 use axum::Json;
 use axum::Router;
 use axum::extract::Path;
@@ -18,11 +19,13 @@ use url::Url;
 use crate::services::db::Db;
 use crate::services::google_home::light::DLight;
 use crate::services::google_home::plug::Wemo;
+use crate::services::google_home::report_state::ReportStateParams;
 
 mod device;
 mod fulfillment;
 pub(crate) mod light;
 pub(crate) mod plug;
+mod report_state;
 
 pub(crate) struct GoogleHome {
     db: Option<Db>,
@@ -91,22 +94,23 @@ impl GoogleHome {
         devices: Option<HashMap<String, Arc<Mutex<SupportedDevices>>>>,
     ) -> Result<Router, Box<dyn std::error::Error>> {
         if let Some(db) = self.db.clone()
-            && let Some(path) = self.service_account.clone()
             && let Some(uri) = self.node_uri.clone()
         {
             let cache: Arc<dyn AuthCache + Send + Sync> = Arc::new(db);
-            let service_account = Arc::new(CustomServiceAccount::from_file(path)?);
 
             router = router.route(
                 "/google_home/fulfillment",
                 routing::post({
                     let db = cache.clone();
                     |headers: HeaderMap, json: Json<fulfillment::request::Request>| {
-                        Self::fulfillment_handler(headers, json, db, service_account, uri)
+                        Self::fulfillment_handler(headers, json, db, uri)
                     }
                 }),
             );
-        } else if let Some(devices) = devices {
+        } else if let Some(devices) = devices
+            && let Some(path) = self.service_account.clone()
+        {
+            let service_account = Arc::new(CustomServiceAccount::from_file(path)?);
             router = router
                 .route(
                     "/google_home/device",
@@ -128,6 +132,15 @@ impl GoogleHome {
                         let devices = devices.clone();
                         |device: Path<String>, actions: Json<Vec<Value>>| {
                             Self::device_post_handler(devices, device, actions)
+                        }
+                    }),
+                )
+                .route(
+                    "/google_home/device/report_state",
+                    routing::post({
+                        let devices = devices.clone();
+                        |query: Form<ReportStateParams>| {
+                            Self::device_report_state_handler(devices, service_account, query)
                         }
                     }),
                 );

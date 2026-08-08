@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             web = web
                 .setup_google_home_route(
-                    oauth2.get_google_home_service_account_json(),
+                    None,
                     api_config.get_google_home_node_api(),
                     None,
                 )
@@ -141,6 +141,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(node) = config.get_node_config()
         && let Some(uri) = node.get_dlight_uri()
     {
+        tracing::info!("[Service] dlight");
         let dlight = DLight::new(uri).await?;
         devices.insert(
             dlight.get_id(),
@@ -151,6 +152,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(node) = config.get_node_config()
         && let Some(uri) = node.get_wemo0_uri()
     {
+        tracing::info!("[Service] wemo0");
         let wemo0 = Wemo::new(uri, "wemo0".to_string()).await?;
         devices.insert(
             wemo0.get_id(),
@@ -158,11 +160,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    if !devices.is_empty() {
+    if !devices.is_empty() && let Some(node) = config.get_node_config() {
         tracing::info!("[Service] Google Home Devices Node");
 
         web = web
-            .setup_google_home_route(None, None, Some(devices))
+            .setup_google_home_route(node.get_google_home_service_account_json(), None, Some(devices))
             .await?;
     }
 

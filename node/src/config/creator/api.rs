@@ -163,7 +163,6 @@ pub(super) struct ApiServerUi {
     redirect_uri_base_field: Handle<TextField>,
     cookie_secret_key_field: Handle<TextField>,
     google_home_client_secret_json_field: Handle<TextField>,
-    google_home_service_account_json_field: Handle<TextField>,
     node_editor_panel: NodeConfigUi,
     node_panel: Handle<Panel>,
     update_node_button: Handle<Button>,
@@ -207,10 +206,6 @@ impl ApiServerUi {
         let label = label!("'GHA Client Secret JSON:', x:1, y:6, w: 32");
         oauth2_editor_panel.add(label);
         let google_home_client_secret_json = oauth2_editor_panel.add(textfield!("x:32, y:6, w:48"));
-        let label = label!("'GHA API Service Account:', x:1, y:8, w: 32");
-        oauth2_editor_panel.add(label);
-        let google_home_service_account_json =
-            oauth2_editor_panel.add(textfield!("x:32, y:8, w:48"));
         form_panel.add(oauth2_editor_panel);
 
         let mut node_editor_panel = NodeConfigUi::new(
@@ -240,7 +235,6 @@ impl ApiServerUi {
             redirect_uri_base_field: redirect_uri_base,
             cookie_secret_key_field: cookie_secret_key,
             google_home_client_secret_json_field: google_home_client_secret_json,
-            google_home_service_account_json_field: google_home_service_account_json,
             node_editor_panel,
             node_panel,
             update_node_button: update_node,
@@ -421,17 +415,11 @@ impl ApiServerUi {
                 && let Some(cookie_secret_key_field) = window.control(self.cookie_secret_key_field)
                 && let Some(google_home_client_secret_json_field) =
                     window.control(self.google_home_client_secret_json_field)
-                && let Some(google_home_service_account_json_field) =
-                    window.control(self.google_home_service_account_json_field)
             {
                 let json = client_secret_json_field.text().trim().to_string();
                 let redirect = redirect_uri_base_field.text().trim().to_string();
                 let cookie = cookie_secret_key_field.text().trim().to_string();
                 let gha_client_secret_json = google_home_client_secret_json_field
-                    .text()
-                    .trim()
-                    .to_string();
-                let gha_service_account_json = google_home_service_account_json_field
                     .text()
                     .trim()
                     .to_string();
@@ -450,11 +438,6 @@ impl ApiServerUi {
                             None
                         } else {
                             Some(gha_client_secret_json)
-                        },
-                        if gha_service_account_json.is_empty() {
-                            None
-                        } else {
-                            Some(gha_service_account_json)
                         },
                     ))
                 } else {
@@ -529,13 +512,12 @@ impl ApiServerUi {
                 nodes,
                 google_home_node_api,
                 oauth2: oauth2_config.map(
-                    |(json, redirect, cookie, gha_client_secret_json, gha_service_acount_json)| {
+                    |(json, redirect, cookie, gha_client_secret_json)| {
                         OAuth2Config {
                             client_secret_json: json,
                             redirect_uri_base: redirect,
                             cookie_secret_key: cookie,
                             google_home_client_secret_json: gha_client_secret_json,
-                            google_home_service_account_json: gha_service_acount_json,
                         }
                     },
                 ),
@@ -596,19 +578,6 @@ impl ApiServerUi {
             google_home_client_secret_json_field.set_text(
                 oauth2
                     .get_google_home_client_json()
-                    .unwrap_or_default()
-                    .to_str()
-                    .unwrap_or_default(),
-            );
-        }
-
-        if let Some(oauth2) = config.get_oauth2_config()
-            && let Some(google_home_service_account_json_field) =
-                window.control_mut(self.google_home_service_account_json_field)
-        {
-            google_home_service_account_json_field.set_text(
-                oauth2
-                    .get_google_home_service_account_json()
                     .unwrap_or_default()
                     .to_str()
                     .unwrap_or_default(),
