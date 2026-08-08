@@ -51,7 +51,7 @@ impl GoogleHome {
                 }
             }
 
-            return device_sync;
+            device_sync
         };
 
         if let Some(Query(device_ids)) = device_ids
@@ -67,7 +67,7 @@ impl GoogleHome {
         }
 
         let Some(Path(device)) = device_id else {
-            let device_ids: Vec<String> = devices.keys().map(|f| f.clone()).collect();
+            let device_ids: Vec<String> = devices.keys().cloned().collect();
             return Json(multi_query(&device_ids).await).into_response();
         };
 
