@@ -296,6 +296,10 @@ pub(crate) struct Node {
     nodes: Vec<NodeClass>,
     dlight_uri: Option<Url>,
     wemo0_uri: Option<Url>,
+    /// Agent User ID associated with the devices on this node.
+    ///
+    /// Needed to properly issue updates to the Google Home API.
+    agent_user_id: Option<String>,
     /// Path to the Google Home API Service Account JSON. This can be obtained
     /// directly from GCP when creating a new Service Account.
     /// This is needed to do stuff like ReportState:
@@ -314,6 +318,10 @@ impl Node {
 
     pub(crate) fn get_wemo0_uri(&self) -> Option<Url> {
         self.wemo0_uri.clone()
+    }
+
+    pub(crate) fn get_agent_user_id(&self) -> Option<String> {
+        self.agent_user_id.clone()
     }
 
     pub(crate) fn get_google_home_service_account_json(&self) -> Option<PathBuf> {

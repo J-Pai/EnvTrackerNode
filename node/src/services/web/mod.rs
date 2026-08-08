@@ -49,11 +49,12 @@ impl Web {
 
     pub(crate) async fn setup_google_home_route(
         mut self,
-        service_account: Option<PathBuf>,
         node_api_uri: Option<Url>,
+        agent_user_id: Option<String>,
+        service_account: Option<PathBuf>,
         devices: Option<HashMap<String, Arc<Mutex<SupportedDevices>>>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let google_home = GoogleHome::new(self.db.clone(), service_account, node_api_uri).await?;
+        let google_home = GoogleHome::new(self.db.clone(), agent_user_id, service_account, node_api_uri).await?;
         self.router = google_home.setup_route(self.router, devices).await?;
         self.google_home = Some(google_home);
         Ok(self)

@@ -127,11 +127,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await?;
 
             web = web
-                .setup_google_home_route(
-                    None,
-                    api_config.get_google_home_node_api(),
-                    None,
-                )
+                .setup_google_home_route(api_config.get_google_home_node_api(), None, None, None)
                 .await?;
         }
     }
@@ -160,11 +156,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    if !devices.is_empty() && let Some(node) = config.get_node_config() {
+    if !devices.is_empty()
+        && let Some(node) = config.get_node_config()
+    {
         tracing::info!("[Service] Google Home Devices Node");
 
         web = web
-            .setup_google_home_route(node.get_google_home_service_account_json(), None, Some(devices))
+            .setup_google_home_route(
+                None,
+                node.get_agent_user_id(),
+                node.get_google_home_service_account_json(),
+                Some(devices),
+            )
             .await?;
     }
 

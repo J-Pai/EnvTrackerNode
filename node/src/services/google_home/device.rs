@@ -5,7 +5,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use axum::Form;
 use axum::Json;
 use axum::extract::Path;
 use axum::response::IntoResponse;
@@ -24,7 +23,6 @@ impl GoogleHome {
         devices: HashMap<String, Arc<Mutex<SupportedDevices>>>,
         device: Option<Path<String>>,
     ) -> impl IntoResponse {
-        tracing::info!("{device:#?}");
         let Some(Path(device)) = device else {
             let mut device_sync: Vec<Value> = vec![];
 
@@ -57,22 +55,17 @@ impl GoogleHome {
     }
 
     pub(super) async fn device_report_state_handler(
-        devices: HashMap<String, Arc<Mutex<SupportedDevices>>>,
+        Json(params): Json<ReportStateParams>,
+        agent_user_id: String,
         gcp_auth_token: Arc<dyn TokenProvider>,
-        Form(params): Form<ReportStateParams>,
+        devices: HashMap<String, Arc<Mutex<SupportedDevices>>>,
     ) -> impl IntoResponse {
-        tracing::info!("{params:#?}");
-
-        let Ok(status) = Self::report_state(
-            gcp_auth_token,
-            params.request_id,
-            params.agent_user_id,
-            devices,
-        )
-        .await
-        .map_err(|e| {
-            tracing::warn!("Issue with reporting state: {e}");
-        }) else {
+        let Ok(status) = Self::report_state(agent_user_id, gcp_auth_token, params, devices)
+            .await
+            .map_err(|e| {
+                tracing::warn!("Issue with reporting state: {e}");
+            })
+        else {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         };
 

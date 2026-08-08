@@ -47,16 +47,20 @@ impl Auth {
                         .into_response();
                 };
 
-                tracing::info!(
-                    "JWT data verified {:#?}",
-                    token.claims.email.clone().unwrap()
-                );
+                let email = token.claims.email.clone().unwrap();
+                let sub = token.claims.sub.clone();
+
+                tracing::info!("JWT data verified {email:#?} - {sub}",);
 
                 (
                     StatusCode::OK,
                     Html(format!(
                         r#"
                             Hello World for Google Home ({}): expires {expires}
+                            <br />
+                            Email {email}
+                            <br />
+                            Agent User Id {sub}
                             <br />
                             <a href='{base}google_home/link{decoded_query}'>Authorize Link</a>
                             <br />

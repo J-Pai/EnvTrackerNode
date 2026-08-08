@@ -4,14 +4,17 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use gcp_auth::TokenProvider;
+use http::HeaderMap;
+use http::StatusCode;
 use http::header::AUTHORIZATION;
-use http::{HeaderMap, StatusCode};
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
-use serde_json::{Map, Value};
+use serde_json::Map;
+use serde_json::Value;
 use tokio::sync::Mutex;
 
 use crate::error::NodeError;
+use crate::services::google_home::Device;
 use crate::services::google_home::GoogleHome;
 use crate::services::google_home::SupportedDevices;
 
@@ -28,13 +31,14 @@ pub(super) struct ReportStateRequest {
 pub(super) struct ReportStateParams {
     pub(super) request_id: String,
     pub(super) agent_user_id: String,
+    pub(super) device_ids: Vec<String>,
 }
 
 impl GoogleHome {
     pub(super) async fn report_state(
-        google_home_service_account: Arc<dyn TokenProvider>,
-        request_id: String,
         agent_user_id: String,
+        google_home_service_account: Arc<dyn TokenProvider>,
+        params: ReportStateParams,
         devices: HashMap<String, Arc<Mutex<SupportedDevices>>>,
     ) -> Result<ReportStateRequest, Box<dyn std::error::Error>> {
         let token = google_home_service_account
@@ -47,13 +51,25 @@ impl GoogleHome {
 
         let mut states = Map::new();
 
+        for (id, device) in devices {
+            if !params.device_ids.is_empty() && !params.device_ids.contains(&id) {
+                continue;
+            }
+            let mut query = device.lock().await.get_query_value().await;
+            let Some(object) = query.as_object_mut() else {
+                continue;
+            };
+            object.remove("status");
+            states.insert(id, query);
+        }
+
         let mut devices = Map::new();
         let mut device_states = Map::new();
         device_states.insert("states".to_string(), Value::Object(states));
         device_states.insert("notifications".to_string(), Value::Object(Map::new()));
         devices.insert("devices".to_string(), Value::Object(device_states));
         let report_state = ReportStateRequest {
-            request_id,
+            request_id: params.request_id,
             agent_user_id,
             payload: Value::Object(devices),
         };

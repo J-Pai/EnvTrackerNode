@@ -495,6 +495,7 @@ impl NodeUi {
                 nodes,
                 dlight_uri,
                 wemo0_uri,
+                agent_user_id: None,
                 google_home_service_account_json: None,
             });
         }

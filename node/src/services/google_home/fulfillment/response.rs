@@ -38,10 +38,6 @@ impl Response {
         self
     }
 
-    pub(super) fn get_intent(&self) -> Option<Intent> {
-        self.handling_intent.clone()
-    }
-
     pub(crate) fn add_device(mut self, id: String, value: Value) -> Self {
         match self.handling_intent {
             Some(Intent::Sync) => {

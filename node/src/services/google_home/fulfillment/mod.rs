@@ -7,8 +7,6 @@ use axum::Json;
 use axum::response::IntoResponse;
 use axum_oidc_client::auth_cache::AuthCache;
 use axum_oidc_client::jwt::decode_jwt_unverified;
-use futures_util::TryFutureExt;
-use gcp_auth::TokenProvider;
 use http::HeaderMap;
 use http::StatusCode;
 use http::header::AUTHORIZATION;
@@ -72,6 +70,7 @@ impl GoogleHome {
         };
 
         let node_client = ClientBuilder::new(Client::new()).build();
+        let mut ids: Vec<String> = vec![];
         match Request::parse_intent(intent) {
             Some(Intent::Sync) => {
                 response = response.set_intent(Intent::Sync);
@@ -122,6 +121,8 @@ impl GoogleHome {
                         continue;
                     };
 
+                    ids.push(id.to_string());
+
                     let Ok(node_uri) = node_uri.join(id) else {
                         continue;
                     };
@@ -159,6 +160,8 @@ impl GoogleHome {
                         let Ok(node_uri) = node_uri.join(&id) else {
                             continue;
                         };
+
+                        ids.push(id.to_string());
 
                         let request = node_client
                             .post(node_uri.clone())
@@ -230,12 +233,11 @@ impl GoogleHome {
         }
 
         let node_uri = node_uri.join("report_state").unwrap();
-        let request = node_client
-            .post(node_uri.clone())
-            .form(&ReportStateParams {
-                request_id,
-                agent_user_id: sub,
-            });
+        let request = node_client.post(node_uri.clone()).json(&ReportStateParams {
+            request_id,
+            agent_user_id: sub,
+            device_ids: ids,
+        });
 
         if let Err(e) = request.send().await {
             tracing::warn!("Issue with reporting state: {e}")

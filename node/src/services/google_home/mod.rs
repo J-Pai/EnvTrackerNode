@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use axum::Form;
 use axum::Json;
 use axum::Router;
 use axum::extract::Path;
@@ -29,6 +28,7 @@ mod report_state;
 
 pub(crate) struct GoogleHome {
     db: Option<Db>,
+    agent_user_id: Option<String>,
     service_account: Option<PathBuf>,
     node_uri: Option<Url>,
 }
@@ -78,10 +78,12 @@ impl Device for SupportedDevices {
 impl GoogleHome {
     pub(crate) async fn new(
         db: Option<Db>,
+        agent_user_id: Option<String>,
         service_account: Option<PathBuf>,
         node_uri: Option<Url>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
+            agent_user_id,
             db,
             service_account,
             node_uri,
@@ -108,6 +110,7 @@ impl GoogleHome {
                 }),
             );
         } else if let Some(devices) = devices
+            && let Some(agent_user_id) = self.agent_user_id.clone()
             && let Some(path) = self.service_account.clone()
         {
             let service_account = Arc::new(CustomServiceAccount::from_file(path)?);
@@ -139,8 +142,14 @@ impl GoogleHome {
                     "/google_home/device/report_state",
                     routing::post({
                         let devices = devices.clone();
-                        |query: Form<ReportStateParams>| {
-                            Self::device_report_state_handler(devices, service_account, query)
+                        let agent_user_id = agent_user_id.clone();
+                        |query: Json<ReportStateParams>| {
+                            Self::device_report_state_handler(
+                                query,
+                                agent_user_id,
+                                service_account,
+                                devices,
+                            )
                         }
                     }),
                 );
