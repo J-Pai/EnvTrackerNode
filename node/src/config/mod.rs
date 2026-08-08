@@ -329,5 +329,4 @@ impl Node {
             .clone()
             .map(PathBuf::from)
     }
-
 }

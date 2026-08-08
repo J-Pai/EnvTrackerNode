@@ -511,16 +511,14 @@ impl ApiServerUi {
                 db,
                 nodes,
                 google_home_node_api,
-                oauth2: oauth2_config.map(
-                    |(json, redirect, cookie, gha_client_secret_json)| {
-                        OAuth2Config {
-                            client_secret_json: json,
-                            redirect_uri_base: redirect,
-                            cookie_secret_key: cookie,
-                            google_home_client_secret_json: gha_client_secret_json,
-                        }
-                    },
-                ),
+                oauth2: oauth2_config.map(|(json, redirect, cookie, gha_client_secret_json)| {
+                    OAuth2Config {
+                        client_secret_json: json,
+                        redirect_uri_base: redirect,
+                        cookie_secret_key: cookie,
+                        google_home_client_secret_json: gha_client_secret_json,
+                    }
+                }),
             });
         }
 

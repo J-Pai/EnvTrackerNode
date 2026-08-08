@@ -82,7 +82,7 @@ impl GoogleHome {
 
                 let request = node_client.get(node_uri);
                 if let Ok(resp) = request.send().await.map_err(|e| {
-                    tracing::error!("Resceive Sync from Node: {e}");
+                    tracing::error!("Receive Sync from Node: {e}");
                 }) {
                     let status = resp.status();
                     if status != StatusCode::OK {
@@ -122,30 +122,38 @@ impl GoogleHome {
                     };
 
                     ids.push(id.to_string());
+                }
 
-                    let Ok(node_uri) = node_uri.join(id) else {
-                        continue;
-                    };
+                let mut node_uri = node_uri.clone();
+                let path = node_uri.path().to_string();
+                let path = path.strip_suffix("/").unwrap();
+                node_uri.set_path(path);
+                let mut request = node_client.get(node_uri.clone());
+                let query: Vec<(String, String)> = ids
+                    .iter()
+                    .map(|id| ("device_ids".to_string(), id.clone()))
+                    .collect();
+                request = request.query(&query);
 
-                    let request = node_client.get(node_uri.clone());
-                    if let Ok(resp) = request.send().await.map_err(|e| {
-                        tracing::error!("Resceive Sync from Node: {e}");
-                    }) {
-                        let status = resp.status();
-                        if status == StatusCode::NOT_FOUND {
-                            tracing::error!("Query error - NOT FOUND: {id}");
-                            response = response.error_payload("deviceNotFound".to_string());
-                        } else if status != StatusCode::OK {
-                            tracing::error!("Query error: {}", resp.text().await.unwrap());
-                            response = response.error_payload("hardError".to_string());
-                        } else if let Ok(state) = resp.json::<Value>().await {
-                            response = response.add_device(id.to_string(), state);
-                        } else {
-                            response = response.error_payload("hardError".to_string());
+                if let Ok(resp) = request.send().await.map_err(|e| {
+                    tracing::error!("Receive Sync from Node: {e}");
+                }) {
+                    let status = resp.status();
+                    if status == StatusCode::NOT_FOUND {
+                        tracing::error!("Query error - NOT FOUND");
+                        response = response.error_payload("deviceNotFound".to_string());
+                    } else if status != StatusCode::OK {
+                        tracing::error!("Query error: {}", resp.text().await.unwrap());
+                        response = response.error_payload("hardError".to_string());
+                    } else if let Ok(state) = resp.json::<Vec<(String, Value)>>().await {
+                        for (id, value) in state {
+                            response = response.add_device(id, value);
                         }
                     } else {
                         response = response.error_payload("hardError".to_string());
                     }
+                } else {
+                    response = response.error_payload("hardError".to_string());
                 }
             }
             Some(Intent::Execute(commands)) => {

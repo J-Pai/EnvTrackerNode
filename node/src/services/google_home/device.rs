@@ -7,11 +7,13 @@ use std::sync::Arc;
 
 use axum::Json;
 use axum::extract::Path;
+use axum::extract::Query;
 use axum::response::IntoResponse;
 use gcp_auth::TokenProvider;
 use http::StatusCode;
 use serde_json::Value;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 use crate::services::google_home::Device;
 use crate::services::google_home::GoogleHome;
@@ -21,16 +23,52 @@ use crate::services::google_home::SupportedDevices;
 impl GoogleHome {
     pub(super) async fn device_get_handler(
         devices: HashMap<String, Arc<Mutex<SupportedDevices>>>,
-        device: Option<Path<String>>,
+        device_ids: Option<Query<Vec<(String, String)>>>,
+        device_id: Option<Path<String>>,
     ) -> impl IntoResponse {
-        let Some(Path(device)) = device else {
-            let mut device_sync: Vec<Value> = vec![];
+        let multi_query = async |device_ids: &[String]| -> Vec<(String, Value)> {
+            let mut device_sync: Vec<(String, Value)> = vec![];
 
-            for device in devices.values() {
-                device_sync.push(device.lock().await.get_sync_value().await);
+            let mut device_handles: Vec<JoinHandle<(String, Value)>> =
+                Vec::with_capacity(devices.len());
+
+            for device_id in device_ids {
+                let device_id = device_id.clone();
+                if let Some(device) = devices.get(&device_id) {
+                    let device = device.clone();
+                    device_handles.push(tokio::spawn(async move {
+                        (device_id, device.lock().await.get_sync_value().await)
+                    }));
+                }
             }
 
-            return Json(device_sync).into_response();
+            for handle in device_handles {
+                if let Ok(result) = handle.await.map_err(|e| {
+                    tracing::warn!("Query State Failed: {e}");
+                }) {
+                    device_sync.push(result);
+                    continue;
+                }
+            }
+
+            return device_sync;
+        };
+
+        if let Some(Query(device_ids)) = device_ids
+            && !device_ids.is_empty()
+        {
+            let device_ids: Vec<String> = device_ids
+                .iter()
+                .filter(|(k, _)| k == "device_ids")
+                .map(|(_, v)| v.clone())
+                .collect();
+
+            return Json(multi_query(&device_ids).await).into_response();
+        }
+
+        let Some(Path(device)) = device_id else {
+            let device_ids: Vec<String> = devices.keys().map(|f| f.clone()).collect();
+            return Json(multi_query(&device_ids).await).into_response();
         };
 
         let Some(device) = devices.get(&device) else {
@@ -43,15 +81,16 @@ impl GoogleHome {
 
     pub(super) async fn device_post_handler(
         devices: HashMap<String, Arc<Mutex<SupportedDevices>>>,
-        Path(device): Path<String>,
+        device_id: Path<String>,
         Json(actions): Json<Vec<Value>>,
     ) -> impl IntoResponse {
-        let Some(device) = devices.get(&device) else {
-            tracing::error!("Device {device} not found.");
+        let device_id = device_id.clone();
+        let Some(device) = devices.get(&device_id) else {
+            tracing::error!("Device {device_id} not found.");
             return StatusCode::NOT_FOUND.into_response();
         };
 
-        Json(device.lock().await.execute_actions(&actions).await).into_response()
+        return Json(device.lock().await.execute_actions(&actions).await).into_response();
     }
 
     pub(super) async fn device_report_state_handler(

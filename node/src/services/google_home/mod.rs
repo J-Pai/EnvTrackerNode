@@ -7,6 +7,7 @@ use std::sync::Arc;
 use axum::Json;
 use axum::Router;
 use axum::extract::Path;
+use axum::extract::Query;
 use axum::routing;
 use axum_oidc_client::auth_cache::AuthCache;
 use gcp_auth::CustomServiceAccount;
@@ -119,14 +120,9 @@ impl GoogleHome {
                     "/google_home/device",
                     routing::get({
                         let devices = devices.clone();
-                        || Self::device_get_handler(devices, None)
-                    }),
-                )
-                .route(
-                    "/google_home/device/{id}",
-                    routing::get({
-                        let devices = devices.clone();
-                        |device: Path<String>| Self::device_get_handler(devices, Some(device))
+                        |device_ids: Query<Vec<(String, String)>>| {
+                            Self::device_get_handler(devices, Some(device_ids), None)
+                        }
                     }),
                 )
                 .route(

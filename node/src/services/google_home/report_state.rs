@@ -18,7 +18,6 @@ use crate::error::NodeError;
 use crate::services::google_home::Device;
 use crate::services::google_home::GoogleHome;
 use crate::services::google_home::SupportedDevices;
-use crate::timer::Timer;
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub(super) struct ReportStateRequest {

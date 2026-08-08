@@ -54,7 +54,13 @@ impl Web {
         service_account: Option<PathBuf>,
         devices: Option<HashMap<String, Arc<Mutex<SupportedDevices>>>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let google_home = GoogleHome::new(self.db.clone(), agent_user_id, service_account, node_api_uri).await?;
+        let google_home = GoogleHome::new(
+            self.db.clone(),
+            agent_user_id,
+            service_account,
+            node_api_uri,
+        )
+        .await?;
         self.router = google_home.setup_route(self.router, devices).await?;
         self.google_home = Some(google_home);
         Ok(self)

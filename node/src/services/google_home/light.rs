@@ -165,7 +165,7 @@ impl DLight {
         tcp_stream.write_all(src.as_bytes()).await?;
         tcp_stream.write_all(b"\n").await?;
 
-        timeout(Duration::from_secs(5), async {
+        timeout(Duration::from_secs(2), async {
             tcp_stream.readable().await?;
             let mut header = [0; 4];
             tcp_stream.try_read(&mut header)?;
