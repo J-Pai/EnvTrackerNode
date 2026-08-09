@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Parser;
+use gcp_auth::CustomServiceAccount;
 use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::JobScheduler;
@@ -163,16 +164,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         tracing::info!("[Service] Google Home Devices Node");
 
+        let service_account = if let Some(path) = node.get_google_home_service_account_json() {
+            Some(Arc::new(CustomServiceAccount::from_file(path)?))
+        } else {
+            None
+        };
+
         web = web
             .setup_google_home_route(
                 None,
                 node.get_agent_user_id(),
-                node.get_google_home_service_account_json(),
+                service_account.clone(),
                 Some(devices.clone()),
             )
             .await?;
 
-        poller = poller.add_devices_job(devices).await?;
+        poller = poller
+            .add_devices_job(node.get_agent_user_id(), service_account, devices)
+            .await?;
     }
 
     web.start(poller).await?;

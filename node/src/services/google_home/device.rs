@@ -40,7 +40,7 @@ impl GoogleHome {
                         if sync {
                             (device_id, device.lock().await.get_sync_value().await)
                         } else {
-                            (device_id, device.lock().await.get_query_value().await)
+                            (device_id, device.lock().await.get_query_value().await.1)
                         }
                     }));
                 }

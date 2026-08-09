@@ -1,7 +1,6 @@
 //! Google Home service.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::Json;
@@ -25,19 +24,19 @@ mod device;
 mod fulfillment;
 pub(crate) mod light;
 pub(crate) mod plug;
-mod report_state;
+pub(crate) mod report_state;
 
 pub(crate) struct GoogleHome {
     db: Option<Db>,
     agent_user_id: Option<String>,
-    service_account: Option<PathBuf>,
+    service_account: Option<Arc<CustomServiceAccount>>,
     node_uri: Option<Url>,
 }
 
 pub(crate) trait Device {
     fn get_id(&self) -> String;
     async fn get_sync_value(&mut self) -> Value;
-    async fn get_query_value(&mut self) -> Value;
+    async fn get_query_value(&mut self) -> (bool, Value);
     async fn execute_actions(&mut self, execution: &[Value]) -> Value;
 }
 
@@ -61,7 +60,7 @@ impl Device for SupportedDevices {
         }
     }
 
-    async fn get_query_value(&mut self) -> Value {
+    async fn get_query_value(&mut self) -> (bool, Value) {
         match self {
             SupportedDevices::DLight(device) => device.get_query_value().await,
             SupportedDevices::Wemo(device) => device.get_query_value().await,
@@ -80,7 +79,7 @@ impl GoogleHome {
     pub(crate) async fn new(
         db: Option<Db>,
         agent_user_id: Option<String>,
-        service_account: Option<PathBuf>,
+        service_account: Option<Arc<CustomServiceAccount>>,
         node_uri: Option<Url>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
@@ -112,17 +111,15 @@ impl GoogleHome {
             );
         } else if let Some(devices) = devices
             && let Some(agent_user_id) = self.agent_user_id.clone()
-            && let Some(path) = self.service_account.clone()
+            && let Some(service_account) = self.service_account.clone()
         {
-            let service_account = Arc::new(CustomServiceAccount::from_file(path)?);
             router = router
                 .route(
                     "/google_home/device",
                     routing::get({
                         let devices = devices.clone();
                         |device_ids: Query<Vec<(String, String)>>| {
-                            let resp = Self::device_get_handler(devices, Some(device_ids), None);
-                            resp
+                            Self::device_get_handler(devices, Some(device_ids), None)
                         }
                     }),
                 )

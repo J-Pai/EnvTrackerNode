@@ -20,23 +20,23 @@ use crate::services::google_home::GoogleHome;
 use crate::services::google_home::SupportedDevices;
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub(super) struct ReportStateRequest {
+pub(crate) struct ReportStateRequest {
     #[serde(rename = "requestId")]
     request_id: String,
     #[serde(rename = "agentUserId")]
     agent_user_id: String,
-    payload: Value,
+    pub(crate) payload: Value,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub(super) struct ReportStateParams {
-    pub(super) request_id: String,
-    pub(super) agent_user_id: String,
-    pub(super) device_ids: Vec<String>,
+pub(crate) struct ReportStateParams {
+    pub(crate) request_id: String,
+    pub(crate) agent_user_id: String,
+    pub(crate) device_ids: Vec<String>,
 }
 
 impl GoogleHome {
-    pub(super) async fn report_state(
+    pub(crate) async fn report_state(
         agent_user_id: String,
         google_home_service_account: Arc<dyn TokenProvider>,
         params: ReportStateParams,
@@ -52,9 +52,10 @@ impl GoogleHome {
 
         let mut states = Map::new();
 
-        let mut device_handles: Vec<JoinHandle<(String, Value)>> =
+        let mut device_handles: Vec<JoinHandle<(String, (bool, Value))>> =
             Vec::with_capacity(devices.len());
-        let mut device_handle_result: Vec<(String, Value)> = Vec::with_capacity(devices.len());
+        let mut device_handle_result: Vec<(String, (bool, Value))> =
+            Vec::with_capacity(devices.len());
 
         for (id, device) in devices.clone() {
             if !params.device_ids.is_empty() && !params.device_ids.contains(&id) {
@@ -76,14 +77,26 @@ impl GoogleHome {
         }
 
         for (id, mut query) in device_handle_result {
+            // If state has changed.
+            if !query.0 {
+                continue;
+            }
             if !params.device_ids.is_empty() && !params.device_ids.contains(&id) {
                 continue;
             }
-            let Some(object) = query.as_object_mut() else {
+            let Some(object) = query.1.as_object_mut() else {
                 continue;
             };
             object.remove("status");
-            states.insert(id, query);
+            states.insert(id, query.1);
+        }
+
+        if states.is_empty() {
+            return Ok(ReportStateRequest {
+                request_id: params.request_id,
+                agent_user_id,
+                payload: Value::Null,
+            });
         }
 
         let mut devices = Map::new();

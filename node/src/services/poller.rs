@@ -3,9 +3,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use gcp_auth::CustomServiceAccount;
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_middleware::reqwest::Client;
+use serde_json::Value;
 use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::Job;
@@ -16,7 +18,9 @@ use crate::config::KasaDeviceConfig;
 use crate::config::NodeClass;
 use crate::config::PollingConfig;
 use crate::services::db::Db;
+use crate::services::google_home::GoogleHome;
 use crate::services::google_home::SupportedDevices;
+use crate::services::google_home::report_state::ReportStateParams;
 use crate::services::kasa::KasaChildInfo;
 
 pub(crate) struct Poller {
@@ -157,13 +161,46 @@ impl Poller {
 
     pub(crate) async fn add_devices_job(
         self,
+        agent_user_id: Option<String>,
+        service_account: Option<Arc<CustomServiceAccount>>,
         devices: HashMap<String, Arc<Mutex<SupportedDevices>>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        // Poll device state every 1 second.
+        if let Some(agent_user_id) = agent_user_id.clone()
+            && let Some(service_account) = service_account.clone()
+        {
+            let agent_user_id = agent_user_id.clone();
+            let service_account = service_account.clone();
+            let devices = devices.clone();
 
-        for device in devices.values().clone() {
-            let job = Job::new_async("*/1 * * * * *", move |_uuid, _l| {
-                Box::pin({ async move {} })
+            // Poll report state every 1 second.
+            let job = Job::new_async("*/1 * * * * *", move |uuid, _l| {
+                Box::pin({
+                    let agent_user_id = agent_user_id.clone();
+                    let service_account = service_account.clone();
+                    let devices = devices.clone();
+                    async move {
+                        match GoogleHome::report_state(
+                            agent_user_id.clone(),
+                            service_account.clone(),
+                            ReportStateParams {
+                                request_id: uuid.to_string(),
+                                agent_user_id: agent_user_id.clone(),
+                                device_ids: devices.keys().cloned().collect(),
+                            },
+                            devices,
+                        )
+                        .await
+                        {
+                            Ok(report_state) => {
+                                if report_state.payload == Value::Null {
+                                    return;
+                                }
+                                tracing::debug!("Reported State: {report_state:#?}");
+                            }
+                            Err(e) => tracing::warn!("Poller failed to report state: {e}"),
+                        }
+                    }
+                })
             })?;
 
             self.scheduler.read().await.add(job).await?;

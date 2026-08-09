@@ -307,21 +307,25 @@ impl Device for DLight {
         serde_json::Value::Object(fields)
     }
 
-    async fn get_query_value(&mut self) -> Value {
-        if let Err(e) = self.query_state().await {
-            let dt = self.start_unreachable.get_or_insert(Utc::now());
-            tracing::warn!(
-                "Device Unreachable [starting from: {}]: {e}",
-                dt.with_timezone(&Local)
-            );
-            let mut fields = Map::new();
-            fields.insert("status".to_string(), Value::String("ERROR".to_string()));
-            fields.insert(
-                "errorCode".to_string(),
-                Value::String("deviceOffline".to_string()),
-            );
-            return Value::Object(fields);
-        }
+    async fn get_query_value(&mut self) -> (bool, Value) {
+        let changed = match self.query_state().await {
+            Err(e) => {
+                let prev_reachable = self.start_unreachable.is_none();
+                let dt = self.start_unreachable.get_or_insert(Utc::now());
+                tracing::warn!(
+                    "Device Unreachable [starting from: {}]: {e}",
+                    dt.with_timezone(&Local)
+                );
+                let mut fields = Map::new();
+                fields.insert("status".to_string(), Value::String("ERROR".to_string()));
+                fields.insert(
+                    "errorCode".to_string(),
+                    Value::String("deviceOffline".to_string()),
+                );
+                return (prev_reachable, Value::Object(fields));
+            }
+            Ok(state) => state,
+        };
         self.start_unreachable = None;
         let mut fields = Map::new();
         fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));
@@ -337,7 +341,7 @@ impl Device for DLight {
             Value::Number(Number::from(self.temperature)),
         );
         fields.insert("color".to_string(), Value::Object(color));
-        serde_json::Value::Object(fields)
+        (changed, serde_json::Value::Object(fields))
     }
 
     async fn execute_actions(&mut self, execution: &[Value]) -> Value {

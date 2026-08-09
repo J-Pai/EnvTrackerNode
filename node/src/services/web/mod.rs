@@ -1,17 +1,18 @@
 //! Sets up the web services.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::Router;
+use gcp_auth::CustomServiceAccount;
 use tokio::sync::Mutex;
 use tower_http::trace::TraceLayer;
 use url::Url;
 
 use crate::services::auth::Auth;
 use crate::services::db::Db;
-use crate::services::google_home::{GoogleHome, SupportedDevices};
+use crate::services::google_home::GoogleHome;
+use crate::services::google_home::SupportedDevices;
 use crate::services::poller::Poller;
 
 mod api;
@@ -52,7 +53,7 @@ impl Web {
         mut self,
         node_api_uri: Option<Url>,
         agent_user_id: Option<String>,
-        service_account: Option<PathBuf>,
+        service_account: Option<Arc<CustomServiceAccount>>,
         devices: Option<HashMap<String, Arc<Mutex<SupportedDevices>>>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let google_home = GoogleHome::new(
