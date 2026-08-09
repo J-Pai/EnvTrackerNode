@@ -29,6 +29,7 @@ pub(crate) struct DLight {
     on: bool,
     uri: Option<Url>,
     start_unreachable: Option<DateTime<Utc>>,
+    state_changed: bool,
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -102,6 +103,7 @@ impl Default for DLight {
             on: false,
             uri: None,
             start_unreachable: None,
+            state_changed: false,
         }
     }
 }
@@ -218,11 +220,9 @@ impl DLight {
             id: format!("{}_{}", json.device_model, json.device_id),
             name: json.device_model,
             device_id: json.device_id,
-            brightness: 0,
-            temperature: 0,
-            on: false,
             uri: Some(uri),
-            start_unreachable: None,
+            state_changed: true,
+            ..Default::default()
         };
 
         new.query_state().await?;
@@ -309,6 +309,7 @@ impl Device for DLight {
     }
 
     async fn get_query_value(&mut self) -> (bool, Value) {
+        self.state_changed = true;
         let changed = match self.query_state().await {
             Err(e) => {
                 let prev_reachable = self.start_unreachable.is_none();
@@ -326,7 +327,7 @@ impl Device for DLight {
                 );
                 return (prev_reachable, Value::Object(fields));
             }
-            Ok(state) => state || self.start_unreachable.is_some(),
+            Ok(state) => state || self.start_unreachable.is_some() || self.state_changed,
         };
         self.start_unreachable = None;
         let mut fields = Map::new();
@@ -347,6 +348,7 @@ impl Device for DLight {
     }
 
     async fn execute_actions(&mut self, execution: &[Value]) -> Value {
+        self.state_changed = true;
         let mut fields = Map::new();
 
         fields.insert("status".to_string(), Value::String("ERROR".to_string()));

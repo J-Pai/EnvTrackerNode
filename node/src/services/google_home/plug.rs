@@ -69,6 +69,7 @@ pub(crate) struct Wemo {
     on: bool,
     uri: Option<Url>,
     start_unreachable: Option<DateTime<Utc>>,
+    state_changed: bool,
 }
 
 impl Default for Wemo {
@@ -79,6 +80,7 @@ impl Default for Wemo {
             on: false,
             uri: None,
             start_unreachable: None,
+            state_changed: false,
         }
     }
 }
@@ -243,6 +245,7 @@ impl Wemo {
             id: format!("{name}_{id}"),
             name,
             uri: Some(uri),
+            state_changed: true,
             ..Default::default()
         })
     }
@@ -254,6 +257,7 @@ impl Device for Wemo {
     }
 
     async fn get_sync_value(&mut self) -> serde_json::Value {
+        self.state_changed = true;
         if let Err(e) = self.query_state().await {
             let dt = self.start_unreachable.get_or_insert(Utc::now());
             tracing::warn!(
@@ -326,7 +330,7 @@ impl Device for Wemo {
                 );
                 return (prev_reachable, Value::Object(fields));
             }
-            Ok(state) => state || self.start_unreachable.is_some(),
+            Ok(state) => state || self.start_unreachable.is_some() || self.state_changed,
         };
         self.start_unreachable = None;
         let mut fields = Map::new();
@@ -337,6 +341,7 @@ impl Device for Wemo {
     }
 
     async fn execute_actions(&mut self, execution: &[Value]) -> Value {
+        self.state_changed = true;
         let mut fields = Map::new();
 
         fields.insert("status".to_string(), Value::String("ERROR".to_string()));
