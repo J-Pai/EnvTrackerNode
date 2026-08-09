@@ -326,7 +326,7 @@ impl Device for Wemo {
                 );
                 return (prev_reachable, Value::Object(fields));
             }
-            Ok(state) => state,
+            Ok(state) => state || self.start_unreachable.is_some(),
         };
         self.start_unreachable = None;
         let mut fields = Map::new();
