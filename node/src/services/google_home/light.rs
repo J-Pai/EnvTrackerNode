@@ -240,7 +240,8 @@ impl Device for DLight {
         if let Err(e) = self.query_state().await {
             let dt = self.start_unreachable.get_or_insert(Utc::now());
             tracing::warn!(
-                "Device Unreachable [starting from: {}]: {e}",
+                "[{}] Device Unreachable [starting from: {}]: {e}",
+                self.id,
                 dt.with_timezone(&Local)
             );
             let mut fields = Map::new();
@@ -312,10 +313,11 @@ impl Device for DLight {
             Err(e) => {
                 let prev_reachable = self.start_unreachable.is_none();
                 let dt = self.start_unreachable.get_or_insert(Utc::now());
-                tracing::warn!(
-                    "Device Unreachable [starting from: {}]: {e}",
-                    dt.with_timezone(&Local)
-                );
+            tracing::warn!(
+                "[{}] Device Unreachable [starting from: {}]: {e}",
+                self.id,
+                dt.with_timezone(&Local)
+            );
                 let mut fields = Map::new();
                 fields.insert("status".to_string(), Value::String("ERROR".to_string()));
                 fields.insert(
@@ -468,10 +470,11 @@ impl Device for DLight {
             if let Err(e) = self.execution(&command).await {
                 tracing::error!("UPDATE Issue: {command:#?} => {e}");
                 let dt = self.start_unreachable.get_or_insert(Utc::now());
-                tracing::warn!(
-                    "Device Unreachable [starting from: {}]: {e}",
-                    dt.with_timezone(&Local)
-                );
+            tracing::warn!(
+                "[{}] Device Unreachable [starting from: {}]: {e}",
+                self.id,
+                dt.with_timezone(&Local)
+            );
                 let mut fields = Map::new();
                 fields.insert("status".to_string(), Value::String("ERROR".to_string()));
                 fields.insert(

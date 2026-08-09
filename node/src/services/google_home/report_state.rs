@@ -87,6 +87,13 @@ impl GoogleHome {
             let Some(object) = query.1.as_object_mut() else {
                 continue;
             };
+            if let Some(error_code) = object.get("errorCode")
+                && let Some(error_code) = error_code.as_str()
+                && error_code == "deviceOffline"
+            {
+                object.remove("errorCode");
+                object.insert("online".to_string(), Value::Bool(false));
+            }
             object.remove("status");
             states.insert(id, query.1);
         }
