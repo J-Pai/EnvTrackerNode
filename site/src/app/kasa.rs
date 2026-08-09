@@ -2,11 +2,15 @@
 //!
 //! Try to keep this as close as possible to node/src/services/kasa.rs
 
+use chrono::DateTime;
+use chrono::Local;
+use chrono::Utc;
 use egui::Color32;
 use egui::Frame;
 use egui::Margin;
 use egui::Response;
 use egui_async::Bind;
+use egui_plot::HoverPosition;
 use egui_plot::Legend;
 use egui_plot::Line;
 use egui_plot::Plot;
@@ -54,7 +58,7 @@ pub(super) struct KasaChildInfo {
 pub(super) struct Kasa {
     api_uri: Url,
     data: Bind<Vec<KasaChildInfo>, String>,
-    plot: BorrowPointsExample,
+    plot: KasaPlot,
     current_power_w: f64,
 }
 
@@ -66,7 +70,7 @@ impl Kasa {
         Self {
             api_uri: api_uri.to_owned(),
             data: Bind::new(true),
-            plot: BorrowPointsExample::default(),
+            plot: KasaPlot::default(),
             current_power_w: 0.0,
         }
     }
@@ -171,10 +175,15 @@ impl EnvWidget for Kasa {
                     None => 0.0,
                 };
 
-                let converted_data: Vec<f64> = data
+                let converted_data: Vec<(f64, f64)> = data
                     .iter()
                     .rev()
-                    .map(|d| d.emeter.power_mw as f64 / 1000.0)
+                    .map(|d| {
+                        (
+                            d.utc_ns as f64 / 1000000000.0,
+                            d.emeter.power_mw as f64 / 1000.0,
+                        )
+                    })
                     .collect();
 
                 self.plot.update_points(&converted_data);
@@ -222,12 +231,12 @@ impl EnvWidget for Kasa {
     }
 }
 
-pub struct BorrowPointsExample {
+struct KasaPlot {
     points: Vec<PlotPoint>,
     reset: bool,
 }
 
-impl Default for BorrowPointsExample {
+impl Default for KasaPlot {
     fn default() -> Self {
         Self {
             points: vec![],
@@ -236,18 +245,31 @@ impl Default for BorrowPointsExample {
     }
 }
 
-impl BorrowPointsExample {
-    pub fn update_points(&mut self, points: &[f64]) {
-        self.points = points
-            .iter()
-            .enumerate()
-            .map(|(i, p)| PlotPoint::new(i as f64, *p))
-            .collect();
+impl KasaPlot {
+    fn update_points(&mut self, points: &[(f64, f64)]) {
+        self.points = points.iter().map(|(t, p)| PlotPoint::new(*t, *p)).collect();
     }
 
-    pub fn show_plot(&mut self, ui: &mut egui::Ui, id: &PaneId) -> Response {
+    fn label_formatter(pos: &HoverPosition<'_>) -> Option<String> {
+        match pos {
+            HoverPosition::NearDataPoint {
+                plot_name,
+                position,
+                index: _,
+            } => {
+                let datetime: DateTime<Utc> =
+                    DateTime::from_timestamp_secs(position.x as i64).unwrap();
+                let local: DateTime<Local> = DateTime::from(datetime);
+                Some(format!("{plot_name}\n{}\nPower(w): {:.3}", local, position.y))
+            }
+            HoverPosition::Elsewhere { position: _ } => None,
+        }
+    }
+
+    fn show_plot(&mut self, ui: &mut egui::Ui, id: &PaneId) -> Response {
         let mut plot = Plot::new(format!("plot-{}", id.0))
             .legend(Legend::default())
+            .label_formatter(Self::label_formatter)
             .width(ui.available_width());
 
         if self.reset {
