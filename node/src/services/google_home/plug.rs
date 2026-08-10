@@ -1,5 +1,7 @@
 //! Structure representing a smart lights.
 
+use std::time::Duration;
+
 use chrono::DateTime;
 use chrono::Local;
 use chrono::Utc;
@@ -67,7 +69,7 @@ pub(crate) struct Wemo {
     id: String,
     name: String,
     on: bool,
-    uri: Option<Url>,
+    pub(super) uri: Option<Url>,
     start_unreachable: Option<DateTime<Utc>>,
     state_changed: bool,
 }
@@ -114,16 +116,16 @@ impl Wemo {
         request_type: &str,
         state: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
-        let uri = self
-            .uri
-            .as_ref()
-            .unwrap()
-            .join("/upnp/control/basicevent1")
-            .unwrap();
         let device_client = ClientBuilder::new(Client::new()).build();
         let mut count = Self::RETRY;
 
         loop {
+            let uri = self
+                .uri
+                .as_ref()
+                .unwrap()
+                .join("/upnp/control/basicevent1")
+                .unwrap();
             count -= 1;
             let config = serde_xml_rs::SerdeXml::new()
                 .namespace("s", "http://schemas.xmlsoap.org/soap/envelope/");
@@ -164,21 +166,25 @@ impl Wemo {
                 .header(CONTENT_LENGTH, request_body.len())
                 .body(request_body);
 
-            let state = if let Ok(resp) = request.send().await.map_err(|e| {
-                tracing::error!("Received response from Node: {e}");
-                let port = uri.port().unwrap();
-                let mut uri = self.uri.clone().unwrap();
-                if port % 2 == 0 {
-                    if uri.set_port(Some(port - 1)).is_err() {
-                        return;
+            let state = if let Ok(resp) = request
+                .timeout(Duration::from_millis(200))
+                .send()
+                .await
+                .map_err(|e| {
+                    tracing::error!("Received response from Node: {e}");
+                    let port = uri.port().unwrap();
+                    let mut uri = self.uri.clone().unwrap();
+                    if port.is_multiple_of(2) {
+                        if uri.set_port(Some(port - 1)).is_err() {
+                            return;
+                        }
+                    } else {
+                        if uri.set_port(Some(port + 1)).is_err() {
+                            return;
+                        }
                     }
-                } else {
-                    if uri.set_port(Some(port + 1)).is_err() {
-                        return;
-                    }
-                }
-                self.uri.replace(uri);
-            }) {
+                    self.uri.replace(uri);
+                }) {
                 let status = resp.status();
 
                 if status != StatusCode::OK {
@@ -246,19 +252,19 @@ impl Wemo {
                 .header(CONTENT_LENGTH, request_body.len())
                 .body(request_body);
 
-            let id = if let Ok(resp) = request.send().await.map_err(|e| {
-                tracing::error!("Receive Sync Error from Node: {e}");
-                let port = uri.port().unwrap();
-                if port % 2 == 0 {
-                    if uri.set_port(Some(port - 1)).is_err() {
-                        return;
+            let id = if let Ok(resp) = request
+                .timeout(Duration::from_millis(200))
+                .send()
+                .await
+                .map_err(|e| {
+                    tracing::error!("Receive Sync Error from Node: {e}");
+                    let port = uri.port().unwrap();
+                    if port.is_multiple_of(2) {
+                        let _ = uri.set_port(Some(port - 1));
+                    } else {
+                        let _ = uri.set_port(Some(port + 1));
                     }
-                } else {
-                    if uri.set_port(Some(port + 1)).is_err() {
-                        return;
-                    }
-                }
-            }) {
+                }) {
                 let status = resp.status();
 
                 if status != StatusCode::OK {
@@ -384,6 +390,7 @@ impl Device for Wemo {
             Ok(state) => state || self.start_unreachable.is_some() || self.state_changed,
         };
         self.start_unreachable = None;
+        self.state_changed = false;
         let mut fields = Map::new();
         fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));
         fields.insert("online".to_string(), Value::Bool(true));

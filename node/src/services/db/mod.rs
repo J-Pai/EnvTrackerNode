@@ -42,6 +42,7 @@ pub(crate) struct DeviceQuery {
     order_by: Option<Order>,
     column: Option<Column>,
     limit: Option<usize>,
+    quantize: Option<bool>,
 }
 
 pub(crate) enum QueryResult {
@@ -65,6 +66,7 @@ impl DeviceQuery {
             order_by,
             column,
             limit,
+            quantize: _,
         } = self;
 
         let mut base_query = format!("SELECT * FROM {table}");
@@ -289,6 +291,7 @@ impl Db {
             .query(sql_query.0, (alias, id, start_time_ns, end_time_ns))
             .await?;
 
+        let mut elements = 0;
         while let Some(row) = rows.next().await? {
             if row.column_count() == 2 {
                 distinct.push((row.get(0)?, row.get(1)?));
@@ -307,7 +310,16 @@ impl Db {
                         total_wh: row.get(6)?,
                     },
                 });
+                elements += 1;
             }
+        }
+
+        if let Some(quantize) = query.quantize
+            && let Some(limit) = query.limit
+            && quantize
+        {
+            let groups = (elements / limit) + ((elements % limit) != 0) as usize;
+            tracing::info!("TOTAL GROUPS: {elements} {limit} = {groups}")
         }
 
         tracing::debug!("SQL query completed");

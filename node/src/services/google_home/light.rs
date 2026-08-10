@@ -330,6 +330,7 @@ impl Device for DLight {
             Ok(state) => state || self.start_unreachable.is_some() || self.state_changed,
         };
         self.start_unreachable = None;
+        self.state_changed = false;
         let mut fields = Map::new();
         fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));
         fields.insert("online".to_string(), Value::Bool(true));

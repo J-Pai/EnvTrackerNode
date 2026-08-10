@@ -45,6 +45,15 @@ pub(crate) enum SupportedDevices {
     Wemo(Wemo),
 }
 
+impl SupportedDevices {
+    #[cfg(debug_assertions)]
+    fn set_uri(&mut self, uri: Url) {
+        if let SupportedDevices::Wemo(device) = self {
+            device.uri.replace(uri);
+        }
+    }
+}
+
 impl Device for SupportedDevices {
     fn get_id(&self) -> String {
         match self {
@@ -154,6 +163,34 @@ impl GoogleHome {
                         }
                     }),
                 );
+            #[cfg(debug_assertions)]
+            {
+                use axum::Form;
+                use http::StatusCode;
+
+                router =
+                    router.route(
+                        "/google_home/device/modify/{id}",
+                        routing::post({
+                            let mut devices = devices.clone();
+                            |Path(device): Path<String>,
+                             Form(form): Form<HashMap<String, String>>| {
+                                async move {
+                                    if let Some(uri) = form.get("uri") {
+                                        devices
+                                            .get_mut(&device)
+                                            .unwrap()
+                                            .lock()
+                                            .await
+                                            .set_uri(Url::parse(uri).unwrap());
+                                    }
+
+                                    StatusCode::OK
+                                }
+                            }
+                        }),
+                    )
+            }
         }
 
         Ok(router)
