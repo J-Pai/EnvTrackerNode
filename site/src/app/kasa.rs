@@ -3,6 +3,7 @@
 //! Try to keep this as close as possible to node/src/services/kasa.rs
 
 use std::ops::RangeInclusive;
+use std::sync::Arc;
 
 use chrono::DateTime;
 use chrono::Local;
@@ -11,6 +12,7 @@ use egui::Color32;
 use egui::Frame;
 use egui::Margin;
 use egui::Response;
+use egui::mutex::RwLock;
 use egui_async::Bind;
 use egui_plot::GridInput;
 use egui_plot::GridMark;
@@ -18,6 +20,7 @@ use egui_plot::HoverPosition;
 use egui_plot::Legend;
 use egui_plot::Line;
 use egui_plot::Plot;
+use egui_plot::PlotBounds;
 use egui_plot::PlotPoint;
 use egui_plot::PlotPoints;
 use egui_plot::log_grid_spacer;
@@ -143,6 +146,7 @@ impl EnvWidget for Kasa {
         let api_uri = self.api_uri.clone();
         let api_client = ClientBuilder::new(Client::new()).build();
         let device_id = id.0.clone();
+        self.plot.device_id = device_id.clone();
 
         self.data.request_every_sec(
             || async move {
@@ -185,12 +189,11 @@ impl EnvWidget for Kasa {
                     .rev()
                     .map(|d| {
                         (
-                            d.utc_ns as f64 / 1000000000.0,
+                            (d.utc_ns / 1000000) as f64 / 1000.0,
                             d.emeter.power_mw as f64 / 1000.0,
                         )
                     })
                     .collect();
-
                 self.plot.update_points(&converted_data);
             }
             Err(e) => {
@@ -236,15 +239,19 @@ impl EnvWidget for Kasa {
     }
 }
 struct KasaPlot {
+    device_id: String,
     points: Vec<PlotPoint>,
     reset: bool,
+    plot_bounds: Arc<RwLock<Option<PlotBounds>>>,
 }
 
 impl Default for KasaPlot {
     fn default() -> Self {
         Self {
+            device_id: String::new(),
             points: vec![],
             reset: true,
+            plot_bounds: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -273,11 +280,7 @@ impl KasaPlot {
         }
     }
 
-    fn x_axis_formatter(mark: GridMark, range: &RangeInclusive<f64>) -> String {
-        let num_decimals = -mark.step_size.log10().round() as usize;
-
-        // emath::format_with_decimals_in_range(mark.value, num_decimals..=num_decimals);
-
+    fn x_axis_formatter(mark: GridMark, _range: &RangeInclusive<f64>) -> String {
         let Some(datetime): Option<DateTime<Utc>> =
             DateTime::from_timestamp_secs(mark.value as i64)
         else {
@@ -285,7 +288,13 @@ impl KasaPlot {
         };
         let local: DateTime<Local> = DateTime::from(datetime);
 
-        format!("{}\n{}\n{}", mark.step_size, local.date_naive(), local.time()).to_string()
+        format!(
+            "{}\n{}\n{}",
+            mark.step_size,
+            local.date_naive(),
+            local.time()
+        )
+        .to_string()
     }
 
     fn x_grid_spacer(grid: GridInput) -> Vec<GridMark> {
@@ -298,6 +307,7 @@ impl KasaPlot {
             .label_formatter(Self::label_formatter)
             .x_axis_formatter(Self::x_axis_formatter)
             .x_grid_spacer(Self::x_grid_spacer)
+            .show_background(false)
             .width(ui.available_width());
 
         if self.reset {
@@ -311,6 +321,8 @@ impl KasaPlot {
                     .name("power_w")
                     .color(Color32::BLUE),
             );
+            let mut plot_bounds = self.plot_bounds.write();
+            plot_bounds.replace(plot_ui.plot_bounds());
         })
         .response
     }

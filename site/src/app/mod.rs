@@ -72,13 +72,13 @@ impl EnvApp {
             Self {
                 state: eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
                 kasa_api_uri,
-                continuous: true,
+                continuous: false,
                 ..Self::default()
             }
         } else {
             Self {
                 kasa_api_uri,
-                continuous: true,
+                continuous: false,
                 ..Self::default()
             }
         };
