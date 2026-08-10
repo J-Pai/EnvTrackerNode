@@ -2,6 +2,8 @@
 //!
 //! Try to keep this as close as possible to node/src/services/kasa.rs
 
+use std::ops::RangeInclusive;
+
 use chrono::DateTime;
 use chrono::Local;
 use chrono::Utc;
@@ -10,12 +12,15 @@ use egui::Frame;
 use egui::Margin;
 use egui::Response;
 use egui_async::Bind;
+use egui_plot::GridInput;
+use egui_plot::GridMark;
 use egui_plot::HoverPosition;
 use egui_plot::Legend;
 use egui_plot::Line;
 use egui_plot::Plot;
 use egui_plot::PlotPoint;
 use egui_plot::PlotPoints;
+use egui_plot::log_grid_spacer;
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
 use serde::Deserialize;
@@ -230,7 +235,6 @@ impl EnvWidget for Kasa {
         egui_tiles::UiResponse::None
     }
 }
-
 struct KasaPlot {
     points: Vec<PlotPoint>,
     reset: bool,
@@ -260,16 +264,40 @@ impl KasaPlot {
                 let datetime: DateTime<Utc> =
                     DateTime::from_timestamp_secs(position.x as i64).unwrap();
                 let local: DateTime<Local> = DateTime::from(datetime);
-                Some(format!("{plot_name}\n{}\nPower(w): {:.3}", local, position.y))
+                Some(format!(
+                    "{plot_name}\n{}\nPower(w): {:.3}",
+                    local, position.y
+                ))
             }
             HoverPosition::Elsewhere { position: _ } => None,
         }
+    }
+
+    fn x_axis_formatter(mark: GridMark, range: &RangeInclusive<f64>) -> String {
+        let num_decimals = -mark.step_size.log10().round() as usize;
+
+        // emath::format_with_decimals_in_range(mark.value, num_decimals..=num_decimals);
+
+        let Some(datetime): Option<DateTime<Utc>> =
+            DateTime::from_timestamp_secs(mark.value as i64)
+        else {
+            return String::new();
+        };
+        let local: DateTime<Local> = DateTime::from(datetime);
+
+        format!("{}\n{}\n{}", mark.step_size, local.date_naive(), local.time()).to_string()
+    }
+
+    fn x_grid_spacer(grid: GridInput) -> Vec<GridMark> {
+        log_grid_spacer(10)(grid)
     }
 
     fn show_plot(&mut self, ui: &mut egui::Ui, id: &PaneId) -> Response {
         let mut plot = Plot::new(format!("plot-{}", id.0))
             .legend(Legend::default())
             .label_formatter(Self::label_formatter)
+            .x_axis_formatter(Self::x_axis_formatter)
+            .x_grid_spacer(Self::x_grid_spacer)
             .width(ui.available_width());
 
         if self.reset {
