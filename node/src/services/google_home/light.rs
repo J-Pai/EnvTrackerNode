@@ -237,6 +237,7 @@ impl Device for DLight {
     }
 
     async fn get_sync_value(&mut self) -> serde_json::Value {
+        self.state_changed = true;
         if let Err(e) = self.query_state().await {
             let dt = self.start_unreachable.get_or_insert(Utc::now());
             tracing::warn!(
@@ -309,7 +310,6 @@ impl Device for DLight {
     }
 
     async fn get_query_value(&mut self) -> (bool, Value) {
-        self.state_changed = true;
         let changed = match self.query_state().await {
             Err(e) => {
                 let prev_reachable = self.start_unreachable.is_none();

@@ -76,6 +76,7 @@ impl GoogleHome {
             }
         }
 
+        let mut reporting_offline = false;
         for (id, mut query) in device_handle_result {
             // If state has changed.
             if !query.0 {
@@ -93,6 +94,7 @@ impl GoogleHome {
             {
                 object.remove("errorCode");
                 object.insert("online".to_string(), Value::Bool(false));
+                reporting_offline = true;
             }
             object.remove("status");
             states.insert(id, query.1);
@@ -116,6 +118,13 @@ impl GoogleHome {
             agent_user_id,
             payload: Value::Object(devices),
         };
+
+        if reporting_offline {
+            tracing::info!(
+                "REPORTING OFFLINE:\n{}",
+                serde_json::to_string_pretty(&report_state).unwrap()
+            );
+        }
 
         let google_home_api_client = ClientBuilder::new(Client::new()).build();
         let mut headers = HeaderMap::new();

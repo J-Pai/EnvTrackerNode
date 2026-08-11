@@ -86,6 +86,8 @@ impl Default for Wemo {
 }
 
 impl Wemo {
+    const RETRY: i32 = 3;
+
     pub(crate) async fn new(uri: Url, name: String) -> Result<Self, Box<dyn std::error::Error>> {
         Self::discover(uri, name).await
     }
@@ -108,7 +110,7 @@ impl Wemo {
     }
 
     async fn send_request(
-        &self,
+        &mut self,
         request_type: &str,
         state: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
@@ -119,135 +121,184 @@ impl Wemo {
             .join("/upnp/control/basicevent1")
             .unwrap();
         let device_client = ClientBuilder::new(Client::new()).build();
-        let request = device_client.post(uri.clone());
+        let mut count = Self::RETRY;
 
-        let config = serde_xml_rs::SerdeXml::new()
-            .namespace("s", "http://schemas.xmlsoap.org/soap/envelope/");
+        loop {
+            count -= 1;
+            let config = serde_xml_rs::SerdeXml::new()
+                .namespace("s", "http://schemas.xmlsoap.org/soap/envelope/");
 
-        let body = if request_type == "SetBinaryState" {
-            Body {
-                set_binary_state: Some(BinaryState {
-                    namespace: Some("urn:Belkin:service:basicevent:1".to_string()),
-                    binary_state: u8::from(state),
-                }),
-                ..Default::default()
-            }
-        } else {
-            Body {
-                get_binary_state: Some(BinaryState {
-                    namespace: Some("urn:Belkin:service:basicevent:1".to_string()),
-                    binary_state: u8::from(state),
-                }),
-                ..Default::default()
-            }
-        };
-
-        let request_body = config
-            .clone()
-            .to_string(&DeviceInfo {
-                encoding_style: None,
-                body,
-            })
-            .unwrap();
-
-        let request = request
-            .header(
-                "SOAPACTION",
-                format!("\"urn:Belkin:service:basicevent:1#{request_type}\""),
-            )
-            .header(CONTENT_TYPE, "text/xml; charset=\"utf-8\"")
-            .header(CONTENT_LENGTH, request_body.len())
-            .body(request_body);
-
-        let state = if let Ok(resp) = request.send().await.map_err(|e| {
-            tracing::error!("Resceive Sync from Node: {e}");
-        }) {
-            let status = resp.status();
-
-            if status != StatusCode::OK {
-                return Err(NodeError::new(&format!("Error Code {status}")));
-            }
-
-            let xml = resp.text().await?;
-
-            let device_info: DeviceInfo = config.from_str(xml.as_str())?;
-
-            if let Some(state) = device_info.body.get_binary_state_resp {
-                state.binary_state == 1
-            } else if let Some(state) = device_info.body.set_binary_state_resp {
-                state.binary_state == 1
+            let body = if request_type == "SetBinaryState" {
+                Body {
+                    set_binary_state: Some(BinaryState {
+                        namespace: Some("urn:Belkin:service:basicevent:1".to_string()),
+                        binary_state: u8::from(state),
+                    }),
+                    ..Default::default()
+                }
             } else {
-                return Err(NodeError::new(&format!("Malformed Response\n{xml}")));
-            }
-        } else {
-            return Err(NodeError::new("Request Sending Issue."));
-        };
+                Body {
+                    get_binary_state: Some(BinaryState {
+                        namespace: Some("urn:Belkin:service:basicevent:1".to_string()),
+                        binary_state: u8::from(state),
+                    }),
+                    ..Default::default()
+                }
+            };
 
-        Ok(state)
+            let request_body = config
+                .clone()
+                .to_string(&DeviceInfo {
+                    encoding_style: None,
+                    body,
+                })
+                .unwrap();
+
+            let request = device_client.post(uri.clone());
+            let request = request
+                .header(
+                    "SOAPACTION",
+                    format!("\"urn:Belkin:service:basicevent:1#{request_type}\""),
+                )
+                .header(CONTENT_TYPE, "text/xml; charset=\"utf-8\"")
+                .header(CONTENT_LENGTH, request_body.len())
+                .body(request_body);
+
+            let state = if let Ok(resp) = request.send().await.map_err(|e| {
+                tracing::error!("Received response from Node: {e}");
+                let port = uri.port().unwrap();
+                let mut uri = self.uri.clone().unwrap();
+                if port % 2 == 0 {
+                    if uri.set_port(Some(port - 1)).is_err() {
+                        return;
+                    }
+                } else {
+                    if uri.set_port(Some(port + 1)).is_err() {
+                        return;
+                    }
+                }
+                self.uri.replace(uri);
+            }) {
+                let status = resp.status();
+
+                if status != StatusCode::OK {
+                    if count >= 0 {
+                        continue;
+                    }
+                    return Err(NodeError::new(&format!("Error Code {status}")));
+                }
+
+                let xml = resp.text().await?;
+
+                let device_info: DeviceInfo = config.from_str(xml.as_str())?;
+
+                if let Some(state) = device_info.body.get_binary_state_resp {
+                    state.binary_state == 1
+                } else if let Some(state) = device_info.body.set_binary_state_resp {
+                    state.binary_state == 1
+                } else {
+                    if count >= 0 {
+                        continue;
+                    }
+                    return Err(NodeError::new(&format!("Malformed Response\n{xml}")));
+                }
+            } else {
+                if count >= 0 {
+                    continue;
+                }
+                return Err(NodeError::new("Request Sending Issue."));
+            };
+
+            return Ok(state);
+        }
     }
 
     async fn discover(uri: Url, name: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let uri = uri.join("/upnp/control/deviceinfo1").unwrap();
+        let mut uri = uri.join("/upnp/control/deviceinfo1").unwrap();
         let device_client = ClientBuilder::new(Client::new()).build();
-        let request = device_client.post(uri.clone());
+        let mut count = Self::RETRY;
+        loop {
+            count -= 1;
 
-        let config = serde_xml_rs::SerdeXml::new()
-            .namespace("s", "http://schemas.xmlsoap.org/soap/envelope/");
-        let request_body = config
-            .clone()
-            .to_string(&DeviceInfo {
-                encoding_style: Some("http://schemas.xmlsoap.org/soap/encoding/".to_string()),
-                body: Body {
-                    get_device_info: Some(GetDeviceInfo {
-                        namespace: Some("urn:Belkin:service:deviceinfo:1".to_string()),
+            let config = serde_xml_rs::SerdeXml::new()
+                .namespace("s", "http://schemas.xmlsoap.org/soap/envelope/");
+            let request_body = config
+                .clone()
+                .to_string(&DeviceInfo {
+                    encoding_style: Some("http://schemas.xmlsoap.org/soap/encoding/".to_string()),
+                    body: Body {
+                        get_device_info: Some(GetDeviceInfo {
+                            namespace: Some("urn:Belkin:service:deviceinfo:1".to_string()),
+                            ..Default::default()
+                        }),
                         ..Default::default()
-                    }),
-                    ..Default::default()
-                },
-            })
-            .unwrap();
+                    },
+                })
+                .unwrap();
 
-        let request = request
-            .header(
-                "SOAPACTION",
-                "\"urn:Belkin:service:deviceinfo:1#GetDeviceInformation\"",
-            )
-            .header(CONTENT_TYPE, "text/xml; charset=\"utf-8\"")
-            .header(CONTENT_LENGTH, request_body.len())
-            .body(request_body);
+            let request = device_client.post(uri.clone());
+            let request = request
+                .header(
+                    "SOAPACTION",
+                    "\"urn:Belkin:service:deviceinfo:1#GetDeviceInformation\"",
+                )
+                .header(CONTENT_TYPE, "text/xml; charset=\"utf-8\"")
+                .header(CONTENT_LENGTH, request_body.len())
+                .body(request_body);
 
-        let id = if let Ok(resp) = request.send().await.map_err(|e| {
-            tracing::error!("Resceive Sync from Node: {e}");
-        }) {
-            let status = resp.status();
+            let id = if let Ok(resp) = request.send().await.map_err(|e| {
+                tracing::error!("Receive Sync Error from Node: {e}");
+                let port = uri.port().unwrap();
+                if port % 2 == 0 {
+                    if uri.set_port(Some(port - 1)).is_err() {
+                        return;
+                    }
+                } else {
+                    if uri.set_port(Some(port + 1)).is_err() {
+                        return;
+                    }
+                }
+            }) {
+                let status = resp.status();
 
-            if status != StatusCode::OK {
-                return Err(NodeError::new(&format!("Error Code {status}")));
-            }
+                if status != StatusCode::OK {
+                    if count >= 0 {
+                        continue;
+                    }
+                    return Err(NodeError::new(&format!("Error Code {status}")));
+                }
 
-            let xml = resp.text().await?;
+                let xml = resp.text().await?;
 
-            let device_info: DeviceInfo = config.from_str(xml.as_str())?;
+                let device_info: DeviceInfo = config.from_str(xml.as_str())?;
 
-            if let Some(resp) = device_info.body.get_device_info_resp
-                && let Some(id) = resp.payload
-            {
-                let mut split = id.split("//");
-                split.next();
-                split.next().unwrap().to_string()
+                if let Some(resp) = device_info.body.get_device_info_resp
+                    && let Some(id) = resp.payload
+                {
+                    let mut split = id.split("//");
+                    split.next();
+                    split.next().unwrap().to_string()
+                } else {
+                    if count >= 0 {
+                        continue;
+                    }
+                    return Err(NodeError::new(&format!("Malformed Payload\n{xml}")));
+                }
             } else {
-                return Err(NodeError::new(&format!("Malformed Payload\n{xml}")));
-            }
-        } else {
-            return Err(NodeError::new("Request Sending Issue."));
-        };
-        Ok(Self {
-            id: format!("{name}_{id}"),
-            name,
-            uri: Some(uri),
-            state_changed: true,
-            ..Default::default()
-        })
+                if count >= 0 {
+                    continue;
+                }
+                return Err(NodeError::new("Request Sending Issue."));
+            };
+
+            return Ok(Self {
+                id: format!("{name}_{id}"),
+                name,
+                uri: Some(uri),
+                state_changed: true,
+                ..Default::default()
+            });
+        }
     }
 }
 
@@ -399,10 +450,6 @@ impl Device for Wemo {
             if on_set {
                 state.insert("on".to_string(), Value::Bool(self.on));
                 command = self.on;
-            }
-
-            if let Err(e) = self.execution(command).await {
-                tracing::error!("UPDATE Issue: {command:#?} => {e}");
             }
 
             if let Err(e) = self.execution(command).await {
