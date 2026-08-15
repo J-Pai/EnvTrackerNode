@@ -192,7 +192,7 @@ impl ApiServerUi {
 
         let mut oauth2_editor_panel = Panel::new(
             "OAuth2 Config",
-            LayoutBuilder::new().x(0).y(6).width(1.0).height(11).build(),
+            LayoutBuilder::new().x(0).y(6).width(1.0).height(10).build(),
         );
         let label = label!("'Client Secret JSON:', x:1, y:0, w: 32");
         oauth2_editor_panel.add(label);
@@ -213,7 +213,7 @@ impl ApiServerUi {
             &mut form_panel,
             true,
             String::new(),
-            17,
+            16,
             0,
         );
 

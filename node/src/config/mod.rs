@@ -294,8 +294,6 @@ pub(crate) enum NodeClass {
 pub(crate) struct Node {
     // List of IoT devices to interact with and their polling schedules.
     nodes: Vec<NodeClass>,
-    dlight_uri: Option<Url>,
-    wemo0_uri: Option<Url>,
     /// Agent User ID associated with the devices on this node.
     ///
     /// Needed to properly issue updates to the Google Home API.
@@ -305,19 +303,14 @@ pub(crate) struct Node {
     /// This is needed to do stuff like ReportState:
     /// https://developers.home.google.com/cloud-to-cloud/integration/report-state
     google_home_service_account_json: Option<String>,
+    dlight_uri: Option<Url>,
+    kasa0_uri: Option<Url>,
+    wemo0_uri: Option<Url>,
 }
 
 impl Node {
     pub(crate) fn get_nodes(&self) -> Vec<NodeClass> {
         self.nodes.clone()
-    }
-
-    pub(crate) fn get_dlight_uri(&self) -> Option<Url> {
-        self.dlight_uri.clone()
-    }
-
-    pub(crate) fn get_wemo0_uri(&self) -> Option<Url> {
-        self.wemo0_uri.clone()
     }
 
     pub(crate) fn get_agent_user_id(&self) -> Option<String> {
@@ -328,5 +321,17 @@ impl Node {
         self.google_home_service_account_json
             .clone()
             .map(PathBuf::from)
+    }
+
+    pub(crate) fn get_dlight_uri(&self) -> Option<Url> {
+        self.dlight_uri.clone()
+    }
+
+    pub(crate) fn get_kasa0_uri(&self) -> Option<Url> {
+        self.kasa0_uri.clone()
+    }
+
+    pub(crate) fn get_wemo0_uri(&self) -> Option<Url> {
+        self.wemo0_uri.clone()
     }
 }

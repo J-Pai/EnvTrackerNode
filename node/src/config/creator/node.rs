@@ -169,7 +169,10 @@ pub(super) struct NodeUi {
     load_node_button: Handle<Button>,
     node_index: usize,
     node_configs: HashMap<usize, NodeDeviceConfigUi>,
+    agent_user_id_field: Handle<TextField>,
+    google_home_service_account_json_field: Handle<TextField>,
     dlight_field: Handle<TextField>,
+    kasa0_field: Handle<TextField>,
     wemo0_field: Handle<TextField>,
 }
 
@@ -195,13 +198,30 @@ impl NodeUi {
         let add_node = node_editor_panel.add.take().unwrap();
         let update_node = node_editor_panel.update.take().unwrap();
 
-        let mut dlight_panel = Panel::new("DLight", layout!("x:0, y:20, w:100%, h:3"));
+        let mut report_state_panel =
+            Panel::new("Report State Auth", layout!("x:0, y:20, w:100%, h:6"));
+        report_state_panel.add(label!("'Agent User Id:', x:0, y:0, w: 32"));
+        let agent_user_id = textfield!("caption='', x:32, y:0, w: 32");
+        let agent_user_id_field = report_state_panel.add(agent_user_id);
+        report_state_panel.add(label!("'GHA Server Account JSON:', x:0, y:2, w: 32"));
+        let google_home_service_account_json = textfield!("caption='', x:32, y:2, w: 32");
+        let google_home_service_account_json_field =
+            report_state_panel.add(google_home_service_account_json);
+        form_panel.add(report_state_panel);
+
+        let mut dlight_panel = Panel::new("DLight", layout!("x:0, y:26, w:100%, h:3"));
         dlight_panel.add(label!("'URI:', x:0, y:0, w: 32"));
         let dlight_uri = textfield!("caption='', x:32, y:0, w: 32");
         let dlight_uri_field = dlight_panel.add(dlight_uri);
         form_panel.add(dlight_panel);
 
-        let mut wemo0_panel = Panel::new("Wemo 0", layout!("x:0, y:23, w:100%, h:3"));
+        let mut kasa0_panel = Panel::new("Kasa 0", layout!("x:0, y:29, w:100%, h:3"));
+        kasa0_panel.add(label!("'URI:', x:0, y:0, w: 32"));
+        let kasa0_uri = textfield!("caption='', x:32, y:0, w: 32");
+        let kasa0_uri_field = kasa0_panel.add(kasa0_uri);
+        form_panel.add(kasa0_panel);
+
+        let mut wemo0_panel = Panel::new("Wemo 0", layout!("x:0, y:32, w:100%, h:3"));
         wemo0_panel.add(label!("'URI:', x:0, y:0, w: 32"));
         let wemo0_uri = textfield!("caption='', x:32, y:0, w: 32");
         let wemo0_uri_field = wemo0_panel.add(wemo0_uri);
@@ -225,7 +245,10 @@ impl NodeUi {
             load_node_button: load_node,
             node_index: 0,
             node_configs: HashMap::new(),
+            agent_user_id_field,
+            google_home_service_account_json_field,
             dlight_field: dlight_uri_field,
+            kasa0_field: kasa0_uri_field,
             wemo0_field: wemo0_uri_field,
         }
     }
@@ -479,6 +502,18 @@ impl NodeUi {
                 return None;
             };
 
+            let kasa0_uri = if let Some(kasa0_uri) = window.control(self.kasa0_field) {
+                let uri = kasa0_uri.text().trim().to_string();
+
+                if uri.is_empty() {
+                    None
+                } else {
+                    Url::parse(&uri).ok()
+                }
+            } else {
+                return None;
+            };
+
             let wemo0_uri = if let Some(wemo0_uri) = window.control(self.wemo0_field) {
                 let uri = wemo0_uri.text().trim().to_string();
 
@@ -493,10 +528,11 @@ impl NodeUi {
 
             return Some(Node {
                 nodes,
-                dlight_uri,
-                wemo0_uri,
                 agent_user_id: None,
                 google_home_service_account_json: None,
+                dlight_uri,
+                kasa0_uri,
+                wemo0_uri,
             });
         }
 
@@ -516,6 +552,13 @@ impl NodeUi {
 
         if let Some(dlight_field) = window.control_mut(self.dlight_field) {
             dlight_field.set_text(&match config.get_dlight_uri().clone() {
+                Some(uri) => uri.to_string(),
+                None => String::new(),
+            });
+        }
+
+        if let Some(kasa0_field) = window.control_mut(self.kasa0_field) {
+            kasa0_field.set_text(&match config.get_kasa0_uri().clone() {
                 Some(uri) => uri.to_string(),
                 None => String::new(),
             });

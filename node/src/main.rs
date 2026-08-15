@@ -80,60 +80,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mq: Arc<RwLock<MessageQueue>> = Arc::new(RwLock::const_new(MessageQueue::new()));
     let scheduler: Arc<RwLock<JobScheduler>> = Arc::new(RwLock::new(JobScheduler::new().await?));
     let mut kasa: Option<Kasa> = None;
-
     let db = if let Some(config) = config.get_api_config() {
         Some(Db::new(&config).await?)
     } else {
         None
     };
-
-    if let Some(node) = config.get_node_config() {
-        for n in node.get_nodes() {
-            let NodeClass::KasaDevice(id, cfg, sch) = n else {
-                continue;
-            };
-            let kasa = kasa.get_or_insert(Kasa::new(mq.clone(), scheduler.clone()).await);
-            kasa.add_device(&id, &cfg).await?;
-            kasa.add_polling(&id, &sch).await?;
-        }
-    }
-
     let mut web = Web::new(db.clone());
     let mut poller = Poller::new(scheduler.clone(), db.clone());
-
-    if let Some(mut kasa) = kasa {
-        tracing::info!("[Service] Kasa Node");
-        web = web.setup_kasa_route(&mut kasa).await?;
-    }
-
-    if let Some(config) = config.get_frontend_config() {
-        tracing::info!("[Service] Frontend");
-        web = web.setup_frontend_route(&config).await?;
-    }
-
-    if let Some(api_config) = config.get_api_config() {
-        tracing::info!("[Service] API Backend");
-        poller = poller.setup_node_polling(&api_config).await?;
-        web = web.setup_api_route(&api_config)?;
-
-        if let Some(oauth2) = api_config.get_oauth2_config() {
-            tracing::info!("[Service] Authed API Backend");
-            web = web
-                .setup_auth_route(
-                    Auth::new(
-                        &oauth2,
-                        db.clone().expect("Auth requires a DB."),
-                        scheduler.clone(),
-                    )
-                    .await?,
-                )
-                .await?;
-
-            web = web
-                .setup_google_home_route(api_config.get_google_home_node_api(), None, None, None)
-                .await?;
-        }
-    }
 
     let mut devices: HashMap<String, Arc<Mutex<SupportedDevices>>> = HashMap::new();
 
@@ -182,6 +135,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         poller = poller
             .add_devices_job(node.get_agent_user_id(), service_account, devices)
             .await?;
+    }
+
+    if let Some(node) = config.get_node_config() {
+        for n in node.get_nodes() {
+            let NodeClass::KasaDevice(id, cfg, sch) = n else {
+                continue;
+            };
+            let kasa = kasa.get_or_insert(Kasa::new(mq.clone(), scheduler.clone()).await);
+            kasa.add_device(&id, &cfg).await?;
+            kasa.add_polling(&id, &sch).await?;
+        }
+    }
+
+    if let Some(mut kasa) = kasa {
+        tracing::info!("[Service] Kasa Node");
+        web = web.setup_kasa_route(&mut kasa).await?;
+    }
+
+    if let Some(config) = config.get_frontend_config() {
+        tracing::info!("[Service] Frontend");
+        web = web.setup_frontend_route(&config).await?;
+    }
+
+    if let Some(api_config) = config.get_api_config() {
+        tracing::info!("[Service] API Backend");
+        poller = poller.setup_node_polling(&api_config).await?;
+        web = web.setup_api_route(&api_config)?;
+
+        if let Some(oauth2) = api_config.get_oauth2_config() {
+            tracing::info!("[Service] Authed API Backend");
+            web = web
+                .setup_auth_route(
+                    Auth::new(
+                        &oauth2,
+                        db.clone().expect("Auth requires a DB."),
+                        scheduler.clone(),
+                    )
+                    .await?,
+                )
+                .await?;
+
+            web = web
+                .setup_google_home_route(api_config.get_google_home_node_api(), None, None, None)
+                .await?;
+        }
     }
 
     web.start(poller).await?;
