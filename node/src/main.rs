@@ -51,7 +51,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                format!("{}=debug,tower_http=debug", env!("CARGO_CRATE_NAME")).into()
+                let http_trace = std::env::var("HTTP_TRACE").unwrap_or("off".to_string());
+                format!(
+                    "{}=debug,tower_http={}",
+                    env!("CARGO_CRATE_NAME"),
+                    http_trace,
+                )
+                .into()
             }),
         )
         .with(tracing_subscriber::fmt::layer())

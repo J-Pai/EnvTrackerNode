@@ -8,6 +8,8 @@ use chrono::Utc;
 use http::StatusCode;
 use http::header::CONTENT_LENGTH;
 use http::header::CONTENT_TYPE;
+use kasa_core::commands::RELAY_OFF;
+use kasa_core::commands::RELAY_ON;
 use reqwest_middleware::ClientBuilder;
 use reqwest_middleware::reqwest::Client;
 use serde_json::Map;
@@ -537,7 +539,25 @@ impl KasaDeviceId {
         Ok(true)
     }
 
-    async fn execution(&mut self, _state: bool) -> Result<(), Box<dyn std::error::Error>> {
+    async fn execution(&mut self, state: bool) -> Result<(), Box<dyn std::error::Error>> {
+        let transport = self.kasa_device.transport.clone();
+        let transport = transport.lock().await;
+        let transport = transport.as_ref().unwrap();
+
+        if state {
+            transport.send(RELAY_ON).await.expect("Relay On failed.");
+        } else {
+            transport.send(RELAY_OFF).await.expect("Relay Off failed.");
+        };
+
+        self.kasa_device
+            .children
+            .write()
+            .await
+            .get_mut(&self.kasa_device_id)
+            .unwrap()
+            .state = state;
+
         Ok(())
     }
 }
