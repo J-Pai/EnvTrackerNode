@@ -17,6 +17,7 @@ use url::Url;
 
 use crate::services::db::Db;
 use crate::services::google_home::light::DLight;
+use crate::services::google_home::plug::KasaDeviceId;
 use crate::services::google_home::plug::Wemo;
 use crate::services::google_home::report_state::ReportStateParams;
 
@@ -43,6 +44,7 @@ pub(crate) trait Device {
 pub(crate) enum SupportedDevices {
     DLight(DLight),
     Wemo(Wemo),
+    KasaDeviceId(KasaDeviceId),
 }
 
 impl SupportedDevices {
@@ -59,6 +61,7 @@ impl Device for SupportedDevices {
         match self {
             SupportedDevices::DLight(device) => device.get_id(),
             SupportedDevices::Wemo(device) => device.get_id(),
+            SupportedDevices::KasaDeviceId(device) => device.get_id(),
         }
     }
 
@@ -66,6 +69,7 @@ impl Device for SupportedDevices {
         match self {
             SupportedDevices::DLight(device) => device.get_sync_value().await,
             SupportedDevices::Wemo(device) => device.get_sync_value().await,
+            SupportedDevices::KasaDeviceId(device) => device.get_sync_value().await,
         }
     }
 
@@ -73,6 +77,7 @@ impl Device for SupportedDevices {
         match self {
             SupportedDevices::DLight(device) => device.get_query_value().await,
             SupportedDevices::Wemo(device) => device.get_query_value().await,
+            SupportedDevices::KasaDeviceId(device) => device.get_query_value().await,
         }
     }
 
@@ -80,6 +85,7 @@ impl Device for SupportedDevices {
         match self {
             SupportedDevices::DLight(device) => device.execute_actions(execution).await,
             SupportedDevices::Wemo(device) => device.execute_actions(execution).await,
+            SupportedDevices::KasaDeviceId(device) => device.execute_actions(execution).await,
         }
     }
 }

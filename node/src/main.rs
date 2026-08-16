@@ -20,6 +20,7 @@ use crate::config::NodeClass;
 use crate::services::auth::Auth;
 use crate::services::db::Db;
 use crate::services::google_home::light::DLight;
+use crate::services::google_home::plug::KasaDeviceId;
 use crate::services::google_home::plug::Wemo;
 use crate::services::google_home::{Device, SupportedDevices};
 use crate::services::kasa::Kasa;
@@ -109,6 +110,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         devices.insert(
             dlight.get_id(),
             Arc::new(Mutex::new(SupportedDevices::DLight(dlight))),
+        );
+    }
+
+    if let Some(node) = config.get_node_config()
+        && let Some(id) = node.get_kasa0_id()
+        && let Some(kasa) = &kasa
+    {
+        tracing::info!("[Service] kasa0");
+
+        let split_id = id.clone();
+        let mut split = split_id.split(":");
+
+        let kasa = KasaDeviceId::new(id, kasa.devices.get(split.next().unwrap()).unwrap().clone())?;
+
+        devices.insert(
+            kasa.get_id(),
+            Arc::new(Mutex::new(SupportedDevices::KasaDeviceId(kasa))),
         );
     }
 

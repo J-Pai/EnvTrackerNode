@@ -88,7 +88,8 @@ impl KasaChildInfo {
     }
 }
 
-struct KasaDevice {
+#[derive(Clone)]
+pub(crate) struct KasaDevice {
     topic: String,
     alias: String,
     transport: Arc<Mutex<Option<Box<dyn Transport>>>>,
@@ -322,7 +323,7 @@ impl KasaDevice {
 }
 
 pub(crate) struct Kasa {
-    devices: HashMap<String, KasaDevice>,
+    pub(crate) devices: HashMap<String, KasaDevice>,
     mq: Arc<RwLock<MessageQueue>>,
     scheduler: Arc<RwLock<JobScheduler>>,
 }
