@@ -315,7 +315,6 @@ impl Device for Wemo {
     }
 
     async fn get_sync_value(&mut self) -> serde_json::Value {
-        self.state_changed = true;
         if let Err(e) = self.query_state().await {
             let dt = self.start_unreachable.get_or_insert(Utc::now());
             tracing::warn!(
@@ -488,7 +487,12 @@ impl Device for Wemo {
 
 pub(crate) struct KasaDeviceId {
     id: String,
+    name: String,
+    on: bool,
+    kasa_device_id: String,
     kasa_device: KasaDevice,
+    start_unreachable: Option<DateTime<Utc>>,
+    state_changed: bool,
 }
 
 impl KasaDeviceId {
@@ -496,7 +500,43 @@ impl KasaDeviceId {
         id: String,
         kasa_device: KasaDevice,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self { id, kasa_device })
+        let split_id = id.clone();
+        let mut id_parts = split_id.split(":");
+        let _ = id_parts.next();
+        Ok(Self {
+            id: format!("kasa_{}", id.clone()),
+            name: format!("kasa_{id}"),
+            on: false,
+            kasa_device_id: id_parts.next().unwrap().to_string(),
+            kasa_device,
+            start_unreachable: None,
+            state_changed: false,
+        })
+    }
+
+    pub(crate) async fn query_state(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
+        let prev_on = self.on;
+
+        let mut split_id = self.id.split(":");
+        let _ = split_id.next();
+        self.on = self
+            .kasa_device
+            .children
+            .read()
+            .await
+            .get(&self.kasa_device_id)
+            .unwrap()
+            .state;
+
+        if self.on == prev_on {
+            return Ok(false);
+        }
+
+        Ok(true)
+    }
+
+    async fn execution(&mut self, state: bool) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(())
     }
 }
 
@@ -506,14 +546,172 @@ impl Device for KasaDeviceId {
     }
 
     async fn get_sync_value(&mut self) -> serde_json::Value {
-        Value::Null
+        if let Err(e) = self.query_state().await {
+            let dt = self.start_unreachable.get_or_insert(Utc::now());
+            tracing::warn!(
+                "[{}] Device Unreachable [starting from: {}]: {e}",
+                self.id,
+                dt.with_timezone(&Local)
+            );
+            let mut fields = Map::new();
+            fields.insert("status".to_string(), Value::String("ERROR".to_string()));
+            fields.insert(
+                "errorCode".to_string(),
+                Value::String("deviceOffline".to_string()),
+            );
+            return Value::Object(fields);
+        }
+        self.start_unreachable = None;
+        let mut fields = Map::new();
+
+        fields.insert("id".to_string(), Value::String(self.id.clone()));
+        fields.insert(
+            "type".to_string(),
+            Value::String("action.devices.types.OUTLET".to_string()),
+        );
+        fields.insert(
+            "traits".to_string(),
+            Value::Array(vec![Value::String(
+                "action.devices.traits.OnOff".to_string(),
+            )]),
+        );
+        fields.insert(
+            "traits".to_string(),
+            Value::Array(vec![Value::String(
+                "action.devices.traits.OnOff".to_string(),
+            )]),
+        );
+        let mut name = Map::new();
+        name.insert("name".to_string(), Value::String(self.name.clone()));
+        fields.insert("name".to_string(), Value::Object(name));
+        fields.insert("willReportState".to_string(), Value::Bool(true));
+        let attributes = Map::new();
+        fields.insert("attributes".to_string(), Value::Object(attributes));
+        let mut device_info = Map::new();
+        device_info.insert(
+            "manufacturer".to_string(),
+            Value::String("envtrackernode".to_string()),
+        );
+        device_info.insert("model".to_string(), Value::String("kasa".to_string()));
+        device_info.insert("hwVersion".to_string(), Value::String("1.0".to_string()));
+        device_info.insert("swVersion".to_string(), Value::String("1.0".to_string()));
+        fields.insert("deviceInfo".to_string(), Value::Object(device_info));
+
+        serde_json::Value::Object(fields)
     }
 
     async fn get_query_value(&mut self) -> (bool, Value) {
-        (false, Value::Null)
+        let changed = match self.query_state().await {
+            Err(e) => {
+                let prev_reachable = self.start_unreachable.is_none();
+                let dt = self.start_unreachable.get_or_insert(Utc::now());
+                tracing::warn!(
+                    "[{}] Device Unreachable [starting from: {}]: {e}",
+                    self.id,
+                    dt.with_timezone(&Local)
+                );
+                let mut fields = Map::new();
+                fields.insert("status".to_string(), Value::String("ERROR".to_string()));
+                fields.insert(
+                    "errorCode".to_string(),
+                    Value::String("deviceOffline".to_string()),
+                );
+                return (prev_reachable, Value::Object(fields));
+            }
+            Ok(state) => state || self.start_unreachable.is_some() || self.state_changed,
+        };
+        self.start_unreachable = None;
+        self.state_changed = false;
+        let mut fields = Map::new();
+        fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));
+        fields.insert("online".to_string(), Value::Bool(true));
+        fields.insert("on".to_string(), Value::Bool(self.on));
+        (changed, serde_json::Value::Object(fields))
     }
 
-    async fn execute_actions(&mut self, _execution: &[Value]) -> Value {
-        Value::Null
+    async fn execute_actions(&mut self, execution: &[Value]) -> Value {
+        self.state_changed = true;
+        let mut fields = Map::new();
+
+        fields.insert("status".to_string(), Value::String("ERROR".to_string()));
+        fields.insert(
+            "errorCode".to_string(),
+            Value::String("transientError".to_string()),
+        );
+
+        let mut success = true;
+
+        let mut on_set = false;
+
+        for action in execution {
+            let Some(action) = action.as_object() else {
+                success = false;
+                break;
+            };
+            let Some(command) = action.get("command") else {
+                success = false;
+                break;
+            };
+            let Some(params) = action.get("params") else {
+                success = false;
+                break;
+            };
+            let Some(params) = params.as_object() else {
+                success = false;
+                break;
+            };
+            if let Some("action.devices.commands.OnOff") = command.as_str() {
+                let Some(on) = params.get("on") else {
+                    success = false;
+                    break;
+                };
+
+                let Some(on) = on.as_bool() else {
+                    success = false;
+                    break;
+                };
+
+                self.on = on;
+                on_set = true;
+            }
+        }
+
+        if success {
+            fields.insert("status".to_string(), Value::String("SUCCESS".to_string()));
+            fields.remove(&"errorCode".to_string());
+
+            let mut state = Map::new();
+            state.insert("online".to_string(), Value::Bool(true));
+
+            let mut command = false;
+
+            if on_set {
+                state.insert("on".to_string(), Value::Bool(self.on));
+                command = self.on;
+            }
+
+            if let Err(e) = self.execution(command).await {
+                tracing::error!("UPDATE Issue: {command:#?} => {e}");
+                let dt = self.start_unreachable.get_or_insert(Utc::now());
+                tracing::warn!(
+                    "[{}] Device Unreachable [starting from: {}]: {e}",
+                    self.id,
+                    dt.with_timezone(&Local)
+                );
+                let mut fields = Map::new();
+                fields.insert("status".to_string(), Value::String("ERROR".to_string()));
+                fields.insert(
+                    "errorCode".to_string(),
+                    Value::String("deviceOffline".to_string()),
+                );
+                return Value::Object(fields);
+            }
+
+            self.start_unreachable = None;
+
+            fields.insert("states".to_string(), Value::Object(state));
+        }
+
+        Value::Object(fields)
     }
 }

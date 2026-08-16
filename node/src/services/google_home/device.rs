@@ -10,7 +10,12 @@ use axum::extract::Path;
 use axum::extract::Query;
 use axum::response::IntoResponse;
 use gcp_auth::TokenProvider;
+use http::HeaderMap;
 use http::StatusCode;
+use http::header::AUTHORIZATION;
+use reqwest_middleware::ClientBuilder;
+use reqwest_middleware::reqwest::Client;
+use serde_json::Map;
 use serde_json::Value;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -38,8 +43,10 @@ impl GoogleHome {
                     let device = device.clone();
                     device_handles.push(tokio::spawn(async move {
                         if sync {
+                            tracing::debug!("SYNC: {device_id}");
                             (device_id, device.lock().await.get_sync_value().await)
                         } else {
+                            tracing::debug!("QUERY: {device_id}");
                             (device_id, device.lock().await.get_query_value().await.1)
                         }
                     }));
@@ -113,5 +120,56 @@ impl GoogleHome {
         };
 
         Json(status).into_response()
+    }
+
+    pub(super) async fn device_force_sync_handler(
+        agent_user_id: String,
+        google_home_service_account: Arc<dyn TokenProvider>,
+    ) -> impl IntoResponse {
+        tracing::warn!("Forcing Sync...");
+
+        let token = google_home_service_account
+            .token(&["https://www.googleapis.com/auth/homegraph"])
+            .await
+            .map_err(|e| {
+                tracing::error!("Google Home API Authorization Token Failure: {e}");
+                e
+            })
+            .unwrap();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            AUTHORIZATION,
+            format!("Bearer {}", token.as_str()).parse().unwrap(),
+        );
+
+        let mut map = Map::new();
+        map.insert("agentUserId".to_string(), Value::String(agent_user_id));
+        let body = Value::Object(map);
+
+        let google_home_api_client = ClientBuilder::new(Client::new()).build();
+        let request = google_home_api_client
+            .post("https://homegraph.googleapis.com/v1/devices:requestSync")
+            .headers(headers)
+            .json(&body);
+
+        let resp = request
+            .send()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to request sync: {e}");
+            })
+            .unwrap();
+
+        let sync_status = resp.status();
+        if sync_status != StatusCode::OK {
+            tracing::error!(
+                "{} => {}",
+                serde_json::to_string_pretty(&body).unwrap(),
+                resp.text().await.unwrap()
+            );
+        }
+
+        sync_status.into_response()
     }
 }

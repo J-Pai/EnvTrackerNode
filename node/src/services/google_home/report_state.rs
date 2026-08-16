@@ -115,7 +115,7 @@ impl GoogleHome {
         devices.insert("devices".to_string(), Value::Object(device_states));
         let report_state = ReportStateRequest {
             request_id: params.request_id,
-            agent_user_id,
+            agent_user_id: agent_user_id.clone(),
             payload: Value::Object(devices),
         };
 

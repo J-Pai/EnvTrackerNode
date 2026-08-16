@@ -92,11 +92,11 @@ impl KasaChildInfo {
 pub(crate) struct KasaDevice {
     topic: String,
     alias: String,
-    transport: Arc<Mutex<Option<Box<dyn Transport>>>>,
+    pub(crate) transport: Arc<Mutex<Option<Box<dyn Transport>>>>,
     mq: Arc<RwLock<MessageQueue>>,
     scheduler: Arc<RwLock<JobScheduler>>,
     /// Child Kasa devices keys is the id hash.
-    children: Arc<RwLock<HashMap<String, KasaDeviceChild>>>,
+    pub(crate) children: Arc<RwLock<HashMap<String, KasaDeviceChild>>>,
     api: Option<String>,
 }
 

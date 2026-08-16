@@ -159,6 +159,7 @@ impl GoogleHome {
                     routing::post({
                         let devices = devices.clone();
                         let agent_user_id = agent_user_id.clone();
+                        let service_account = service_account.clone();
                         |query: Json<ReportStateParams>| {
                             Self::device_report_state_handler(
                                 query,
@@ -167,6 +168,14 @@ impl GoogleHome {
                                 devices,
                             )
                         }
+                    }),
+                )
+                .route(
+                    "/google_home/device/force_sync",
+                    routing::post({
+                        let agent_user_id = agent_user_id.clone();
+                        let service_account = service_account.clone();
+                        || Self::device_force_sync_handler(agent_user_id, service_account)
                     }),
                 );
             #[cfg(debug_assertions)]
