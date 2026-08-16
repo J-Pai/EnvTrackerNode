@@ -216,9 +216,9 @@ impl NodeUi {
         form_panel.add(dlight_panel);
 
         let mut kasa0_panel = Panel::new("Kasa 0", layout!("x:0, y:29, w:100%, h:3"));
-        kasa0_panel.add(label!("'URI:', x:0, y:0, w: 32"));
-        let kasa0_uri = textfield!("caption='', x:32, y:0, w: 32");
-        let kasa0_uri_field = kasa0_panel.add(kasa0_uri);
+        kasa0_panel.add(label!("'ID:', x:0, y:0, w: 32"));
+        let kasa0_id = textfield!("caption='', x:32, y:0, w: 32");
+        let kasa0_id_field = kasa0_panel.add(kasa0_id);
         form_panel.add(kasa0_panel);
 
         let mut wemo0_panel = Panel::new("Wemo 0", layout!("x:0, y:32, w:100%, h:3"));
@@ -248,7 +248,7 @@ impl NodeUi {
             agent_user_id_field,
             google_home_service_account_json_field,
             dlight_field: dlight_uri_field,
-            kasa0_field: kasa0_uri_field,
+            kasa0_field: kasa0_id_field,
             wemo0_field: wemo0_uri_field,
         }
     }
@@ -525,14 +525,10 @@ impl NodeUi {
                 return None;
             };
 
-            let kasa0_uri = if let Some(kasa0_uri) = window.control(self.kasa0_field) {
-                let uri = kasa0_uri.text().trim().to_string();
+            let kasa0_id = if let Some(kasa0_id) = window.control(self.kasa0_field) {
+                let id = kasa0_id.text().trim().to_string();
 
-                if uri.is_empty() {
-                    None
-                } else {
-                    Url::parse(&uri).ok()
-                }
+                if id.is_empty() { None } else { Some(id) }
             } else {
                 return None;
             };
@@ -554,7 +550,7 @@ impl NodeUi {
                 agent_user_id,
                 google_home_service_account_json,
                 dlight_uri,
-                kasa0_uri,
+                kasa0_id,
                 wemo0_uri,
             });
         }
@@ -600,8 +596,8 @@ impl NodeUi {
         }
 
         if let Some(kasa0_field) = window.control_mut(self.kasa0_field) {
-            kasa0_field.set_text(&match config.get_kasa0_uri().clone() {
-                Some(uri) => uri.to_string(),
+            kasa0_field.set_text(&match config.get_kasa0_id().clone() {
+                Some(id) => id.to_string(),
                 None => String::new(),
             });
         }

@@ -304,7 +304,7 @@ pub(crate) struct Node {
     /// https://developers.home.google.com/cloud-to-cloud/integration/report-state
     google_home_service_account_json: Option<String>,
     dlight_uri: Option<Url>,
-    kasa0_uri: Option<Url>,
+    kasa0_id: Option<String>,
     wemo0_uri: Option<Url>,
 }
 
@@ -327,8 +327,8 @@ impl Node {
         self.dlight_uri.clone()
     }
 
-    pub(crate) fn get_kasa0_uri(&self) -> Option<Url> {
-        self.kasa0_uri.clone()
+    pub(crate) fn get_kasa0_id(&self) -> Option<String> {
+        self.kasa0_id.clone()
     }
 
     pub(crate) fn get_wemo0_uri(&self) -> Option<Url> {

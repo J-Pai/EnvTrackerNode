@@ -16,6 +16,8 @@ use url::Url;
 
 use crate::error::NodeError;
 use crate::services::google_home::Device;
+use crate::services::kasa::KasaDevice;
+use crate::services::kasa::KasaDeviceChild;
 
 #[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
 struct GetDeviceInfo {
@@ -482,5 +484,23 @@ impl Device for Wemo {
         }
 
         Value::Object(fields)
+    }
+}
+
+impl Device for KasaDeviceChild {
+    fn get_id(&self) -> String {
+        String::new()
+    }
+
+    async fn get_sync_value(&mut self) -> serde_json::Value {
+        Value::Null
+    }
+
+    async fn get_query_value(&mut self) -> (bool, Value) {
+        (false, Value::Null)
+    }
+
+    async fn execute_actions(&mut self, _execution: &[Value]) -> Value {
+        Value::Null
     }
 }

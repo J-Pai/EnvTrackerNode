@@ -90,6 +90,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut devices: HashMap<String, Arc<Mutex<SupportedDevices>>> = HashMap::new();
 
+    if let Some(node) = config.get_node_config() {
+        for n in node.get_nodes() {
+            let NodeClass::KasaDevice(id, cfg, sch) = n else {
+                continue;
+            };
+            let kasa = kasa.get_or_insert(Kasa::new(mq.clone(), scheduler.clone()).await);
+            kasa.add_device(&id, &cfg).await?;
+            kasa.add_polling(&id, &sch).await?;
+        }
+    }
+
     if let Some(node) = config.get_node_config()
         && let Some(uri) = node.get_dlight_uri()
     {
@@ -135,17 +146,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         poller = poller
             .add_devices_job(node.get_agent_user_id(), service_account, devices)
             .await?;
-    }
-
-    if let Some(node) = config.get_node_config() {
-        for n in node.get_nodes() {
-            let NodeClass::KasaDevice(id, cfg, sch) = n else {
-                continue;
-            };
-            let kasa = kasa.get_or_insert(Kasa::new(mq.clone(), scheduler.clone()).await);
-            kasa.add_device(&id, &cfg).await?;
-            kasa.add_polling(&id, &sch).await?;
-        }
     }
 
     if let Some(mut kasa) = kasa {
