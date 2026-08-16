@@ -148,6 +148,14 @@ impl EnvWidget for Kasa {
         let device_id = id.0.clone();
         self.plot.device_id = device_id.clone();
 
+        if *self.plot.apply_bounds.read() {
+            log::info!("Applying bounds.");
+
+            log::info!("{:#?}", self.plot.plot_bounds.read());
+
+            *self.plot.apply_bounds.write() = false;
+        }
+
         self.data.request_every_sec(
             || async move {
                 match api_client
@@ -243,6 +251,7 @@ struct KasaPlot {
     points: Vec<PlotPoint>,
     reset: bool,
     plot_bounds: Arc<RwLock<Option<PlotBounds>>>,
+    apply_bounds: Arc<RwLock<bool>>,
 }
 
 impl Default for KasaPlot {
@@ -252,6 +261,7 @@ impl Default for KasaPlot {
             points: vec![],
             reset: true,
             plot_bounds: Arc::new(RwLock::new(None)),
+            apply_bounds: Arc::new(RwLock::new(false)),
         }
     }
 }
@@ -308,6 +318,7 @@ impl KasaPlot {
             .label_formatter(Self::label_formatter)
             .x_axis_formatter(Self::x_axis_formatter)
             .x_grid_spacer(Self::x_grid_spacer)
+            .set_margin_fraction(egui::Vec2::splat(0.0))
             .show_background(false)
             .width(ui.available_width());
 
@@ -316,15 +327,29 @@ impl KasaPlot {
             self.reset = false;
         }
 
-        plot.show(ui, |plot_ui| {
-            plot_ui.line(
-                Line::new("power_w", PlotPoints::Borrowed(&self.points))
-                    .name("power_w")
-                    .color(Color32::BLUE),
-            );
+        let response = plot
+            .show(ui, |plot_ui| {
+                plot_ui.line(
+                    Line::new("power_w", PlotPoints::Borrowed(&self.points))
+                        .name("power_w")
+                        .color(Color32::BLUE),
+                );
+                let mut plot_bounds = self.plot_bounds.write();
+                plot_bounds.replace(plot_ui.plot_bounds());
+            })
+            .response;
+
+        if response.drag_stopped() {
+            log::info!("Dragged stopped");
+            *self.apply_bounds.write() = true;
+        }
+
+        if response.double_clicked() {
+            log::info!("Double clicked");
             let mut plot_bounds = self.plot_bounds.write();
-            plot_bounds.replace(plot_ui.plot_bounds());
-        })
-        .response
+            plot_bounds.take();
+        }
+
+        response
     }
 }
