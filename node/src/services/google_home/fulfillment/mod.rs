@@ -108,6 +108,11 @@ impl GoogleHome {
                 } else {
                     response = response.error_payload("hardError".to_string());
                 }
+
+                tracing::info!(
+                    "SYNC Response:\n{}",
+                    serde_json::to_string_pretty(&response).unwrap()
+                );
             }
             Some(Intent::Query(query_devices)) => {
                 response = response.set_intent(Intent::Query(vec![]));

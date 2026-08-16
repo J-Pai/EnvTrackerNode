@@ -503,11 +503,13 @@ impl KasaDeviceId {
         let split_id = id.clone();
         let mut id_parts = split_id.split(":");
         let _ = id_parts.next();
+        let kasa_device_id = id_parts.next().unwrap().to_string();
+
         Ok(Self {
-            id: format!("kasa_{}", id.clone()),
+            id: format!("kasa_{}", kasa_device_id),
             name: format!("kasa_{id}"),
             on: false,
-            kasa_device_id: id_parts.next().unwrap().to_string(),
+            kasa_device_id,
             kasa_device,
             start_unreachable: None,
             state_changed: false,
@@ -535,7 +537,7 @@ impl KasaDeviceId {
         Ok(true)
     }
 
-    async fn execution(&mut self, state: bool) -> Result<(), Box<dyn std::error::Error>> {
+    async fn execution(&mut self, _state: bool) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 }
