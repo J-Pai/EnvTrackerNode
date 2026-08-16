@@ -490,6 +490,29 @@ impl NodeUi {
                 }
             }
 
+            let agent_user_id =
+                if let Some(agent_user_id) = window.control(self.agent_user_id_field) {
+                    let id = agent_user_id.text().trim().to_string();
+
+                    if id.is_empty() { None } else { Some(id) }
+                } else {
+                    return None;
+                };
+
+            let google_home_service_account_json = if let Some(google_home_service_account) =
+                window.control(self.google_home_service_account_json_field)
+            {
+                let service_account = google_home_service_account.text().trim().to_string();
+
+                if service_account.is_empty() {
+                    None
+                } else {
+                    Some(service_account)
+                }
+            } else {
+                return None;
+            };
+
             let dlight_uri = if let Some(dlight_uri) = window.control(self.dlight_field) {
                 let uri = dlight_uri.text().trim().to_string();
 
@@ -528,8 +551,8 @@ impl NodeUi {
 
             return Some(Node {
                 nodes,
-                agent_user_id: None,
-                google_home_service_account_json: None,
+                agent_user_id,
+                google_home_service_account_json,
                 dlight_uri,
                 kasa0_uri,
                 wemo0_uri,
@@ -548,6 +571,25 @@ impl NodeUi {
 
         for node in &config.nodes {
             self.add_node(window, node.clone());
+        }
+
+        if let Some(agent_user_id_field) = window.control_mut(self.agent_user_id_field) {
+            agent_user_id_field.set_text(&match config.get_agent_user_id().clone() {
+                Some(id) => id.to_string(),
+                None => String::new(),
+            });
+        }
+
+        if let Some(google_home_service_account_json_field) =
+            window.control_mut(self.google_home_service_account_json_field)
+        {
+            google_home_service_account_json_field.set_text(&match config
+                .get_google_home_service_account_json()
+                .clone()
+            {
+                Some(id) => id.to_str().unwrap_or_default().to_string(),
+                None => String::new(),
+            });
         }
 
         if let Some(dlight_field) = window.control_mut(self.dlight_field) {
