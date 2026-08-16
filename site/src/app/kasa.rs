@@ -288,13 +288,14 @@ impl KasaPlot {
         };
         let local: DateTime<Local> = DateTime::from(datetime);
 
-        format!(
-            "{}\n{}\n{}",
-            mark.step_size,
-            local.date_naive(),
-            local.time()
-        )
-        .to_string()
+        // format!(
+        //     "{}\n{}\n{}",
+        //     mark.step_size,
+        //     local.date_naive(),
+        //     local.time()
+        // )
+        // .to_string()
+        format!("{}", local.time()).to_string()
     }
 
     fn x_grid_spacer(grid: GridInput) -> Vec<GridMark> {
